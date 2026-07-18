@@ -1,6 +1,6 @@
 # Shared image for dagster-webserver and dagster-daemon (single code location,
 # loaded in-process from the installed package — no separate gRPC server needed).
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # libgomp1: LightGBM runtime; curl: container healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl \
