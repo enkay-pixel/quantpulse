@@ -51,6 +51,9 @@ services:
     container_name: quantpulse-mlflow
     environment:
       MLFLOW_BACKEND_URI: postgresql+psycopg2://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/mlflow
+      # The 3.x job-execution subsystem spawns a worker pool ~1 min after boot and
+      # OOMs small containers; this platform doesn't use server-side jobs.
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
     ports:
       # 5001 on the host: macOS AirPlay Receiver squats on 5000
       - "5001:5000"
@@ -59,10 +62,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 1G
     restart: unless-stopped
 
   dagster-webserver:

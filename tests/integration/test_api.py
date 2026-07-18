@@ -86,6 +86,12 @@ def client(db_engine: Engine) -> Iterator[TestClient]:
     yield TestClient(app)
 
 
+def test_root_redirects_to_docs(client: TestClient) -> None:
+    res = client.get("/", follow_redirects=False)
+    assert res.status_code == 307
+    assert res.headers["location"] == "/docs"
+
+
 def test_health(client: TestClient) -> None:
     body = client.get("/health").json()
     assert body["status"] == "ok"
