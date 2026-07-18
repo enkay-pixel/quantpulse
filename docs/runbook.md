@@ -13,9 +13,27 @@ The stack is designed to be **spun up when you want it working in the background
 
 ## Connecting DBeaver
 
-- Host `localhost`, port `5432`, database `market`
-- User/password: whatever you set in `.env` (`POSTGRES_USER` / `POSTGRES_PASSWORD`)
-- Databases `dagster` and `mlflow` exist on the same server (orchestrator/tracking internals).
+Create a **PostgreSQL** connection with exactly these settings (values come from your `.env`):
+
+| Field | Value |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| **Database** | `market` ← DBeaver defaults this field to `postgres`; change it or you'll see empty/unrelated schemas |
+| Username | `POSTGRES_USER` from `.env` (default `quantpulse`) |
+| Password | `POSTGRES_PASSWORD` from `.env` |
+
+Tick **"Show all databases"** on the PostgreSQL tab of the connection dialog to browse all three databases from one connection. Tables live under *database ▸ Schemas ▸ public ▸ Tables*.
+
+### What lives where
+
+| Database | Contents |
+|---|---|
+| `market` | The platform's data: `prices`, `features`, `predictions`, `portfolio_snapshots`, `model_runs`, `drift_metrics`, `universe` |
+| `mlflow` | MLflow's backend store — model registry metadata is in `registered_models`, `model_versions`, `registered_model_aliases` (the `champion` alias lives here), run metrics in `metrics`/`params` |
+| `dagster` | Dagster's run/event storage (internals; rarely useful to browse) |
+
+The trained model **files** (pickled LightGBM boosters) are not in Postgres — they're artifacts in the `mlflow-artifacts` Docker volume, browsable through the MLflow UI (http://localhost:5001 → Model training → Models) which links each version to its artifacts and metrics.
 
 ## Resetting state
 
