@@ -91,13 +91,21 @@ def _train() -> None:
         logger.info("%-24s %s", key, value)
 
 
-def _score() -> None:
+def _score(replay: bool) -> None:
     from quantpulse.db import get_engine, get_session
     from quantpulse.ml.pipeline import score_latest
+    from quantpulse.ml.portfolio import rebuild_portfolio, score_history
 
     settings = get_settings()
-    with get_session() as session:
-        n = score_latest(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
+    if replay:
+        with get_session() as session:
+            n = score_history(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
+        # Separate transaction: the rebuild reads predictions through its own connection.
+        with get_session() as session:
+            rebuild_portfolio(get_engine(), session)
+    else:
+        with get_session() as session:
+            n = score_latest(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
     logger.info("Wrote %d predictions", n)
 
 
@@ -143,7 +151,12 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("features", help="Compute and store features from ingested bars")
     sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
-    sub.add_parser("score", help="Score latest features with the champion model")
+    score = sub.add_parser("score", help="Score features with the champion model")
+    score.add_argument(
+        "--replay",
+        action="store_true",
+        help="Score the full feature history (pre-champion dates are an in-sample replay)",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "init-db":
@@ -159,7 +172,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "train":
         _train()
     elif args.command == "score":
-        _score()
+        _score(args.replay)
 
 
 if __name__ == "__main__":

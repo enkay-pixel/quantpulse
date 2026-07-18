@@ -1,0 +1,23 @@
+# Dagster instance config (DAGSTER_HOME/dagster.yaml): Postgres-backed storage,
+# queued runs capped at 1 so training can never stampede the 16 GB host.
+storage:
+  postgres:
+    postgres_url:
+      env: DAGSTER_PG_URL
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 1
+
+run_launcher:
+  module: dagster
+  class: DefaultRunLauncher
+
+run_retries:
+  enabled: true
+  max_retries: 1
+
+telemetry:
+  enabled: false

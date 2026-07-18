@@ -32,6 +32,7 @@ dependencies = [
     # Orchestration
     "dagster>=1.8",
     "dagster-postgres>=0.24",
+    "dagster-webserver>=1.8",
     # API
     "fastapi>=0.112",
     "uvicorn[standard]>=0.30",
@@ -41,7 +42,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "dagster-webserver>=1.8",
     "pytest>=8.3",
     "pytest-cov>=5.0",
     "ruff>=0.6",

@@ -3249,6 +3249,7 @@ dependencies = [
     { name = "alembic" },
     { name = "dagster" },
     { name = "dagster-postgres" },
+    { name = "dagster-webserver" },
     { name = "evidently" },
     { name = "exchange-calendars" },
     { name = "fastapi" },
@@ -3274,7 +3275,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "dagster-webserver" },
     { name = "mypy" },
     { name = "pandas-stubs" },
     { name = "pre-commit" },
@@ -3290,7 +3290,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
     { name = "dagster", specifier = ">=1.8" },
     { name = "dagster-postgres", specifier = ">=0.24" },
-    { name = "dagster-webserver", marker = "extra == 'dev'", specifier = ">=1.8" },
+    { name = "dagster-webserver", specifier = ">=1.8" },
     { name = "evidently", specifier = ">=0.4.30" },
     { name = "exchange-calendars", specifier = ">=4.5" },
     { name = "fastapi", specifier = ">=0.112" },

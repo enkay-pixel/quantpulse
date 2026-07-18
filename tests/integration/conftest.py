@@ -45,5 +45,13 @@ def test_db_url() -> Iterator[str]:
 @pytest.fixture
 def db_engine(test_db_url: str) -> Iterator[Engine]:
     engine = create_engine(test_db_url)
+    # Start every test from an empty schema — the test DB is session-scoped.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "TRUNCATE prices, features, predictions, model_runs, drift_metrics, "
+                "portfolio_snapshots, universe RESTART IDENTITY CASCADE"
+            )
+        )
     yield engine
     engine.dispose()
