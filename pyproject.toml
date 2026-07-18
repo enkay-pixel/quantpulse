@@ -21,6 +21,7 @@ dependencies = [
     "tenacity>=8.3",
     "httpx>=0.27",
     # ML
+    "scipy>=1.13",
     "scikit-learn>=1.5",
     "lightgbm>=4.4",
     "optuna>=3.6",
@@ -47,6 +48,7 @@ dev = [
     "mypy>=1.11",
     "pre-commit>=3.8",
     "pandas-stubs>=2.2",
+    "scipy-stubs>=1.14",
     "types-pyyaml>=6.0",
 ]
 

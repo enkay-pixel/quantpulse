@@ -1,0 +1,73 @@
+"""Vectorized long/short quantile backtest over prediction panels.
+
+Positions form at each rebalance from prediction quantiles; the realized period
+return is the equal-weighted spread of forward returns, net of linear costs.
+"""
+
+from dataclasses import dataclass
+from typing import cast
+
+import pandas as pd
+
+from quantpulse.ml.metrics import MONTHS_PER_YEAR, summarize_returns
+
+
+@dataclass(frozen=True)
+class BacktestConfig:
+    long_quantile: float = 0.2
+    short_quantile: float = 0.2
+    transaction_cost: float = 0.0005  # one-way, per unit of turnover
+    slippage: float = 0.0005
+    rebalance_freq: str = "M"  # pandas *period* alias: monthly
+    min_names_per_period: int = 10
+
+
+@dataclass(frozen=True)
+class BacktestResult:
+    period_frame: pd.DataFrame  # index: period end; columns: gross, net, turnover, equity
+    stats: dict[str, float]
+
+
+def run_backtest(panel: pd.DataFrame, config: BacktestConfig | None = None) -> BacktestResult:
+    """`panel` needs columns: date, ticker, pred, fwd_ret (non-overlapping horizon assumed
+    to roughly match the rebalance frequency)."""
+    cfg = config or BacktestConfig()
+    df = panel[["date", "ticker", "pred", "fwd_ret"]].copy()
+    df["period"] = pd.PeriodIndex(pd.to_datetime(df["date"]), freq=cfg.rebalance_freq)
+
+    rows = []
+    for period_key, group in df.groupby("period"):
+        period = cast(pd.Period, period_key)
+        # Rebalance decisions use only the first date of each period.
+        first_date = group["date"].min()
+        snapshot = group[group["date"] == first_date]
+        if len(snapshot) < cfg.min_names_per_period:
+            continue
+        long_thr = snapshot["pred"].quantile(1 - cfg.long_quantile)
+        short_thr = snapshot["pred"].quantile(cfg.short_quantile)
+        longs = snapshot[snapshot["pred"] >= long_thr]
+        shorts = snapshot[snapshot["pred"] <= short_thr]
+        if longs.empty or shorts.empty:
+            continue
+        gross = float(longs["fwd_ret"].mean() - shorts["fwd_ret"].mean()) / 2
+        turnover = (len(longs) + len(shorts)) / len(snapshot)
+        net = gross - (cfg.transaction_cost + cfg.slippage) * turnover
+        rows.append(
+            {
+                "period": period.to_timestamp(how="end").normalize(),
+                "gross": gross,
+                "net": net,
+                "turnover": turnover,
+                "n_long": len(longs),
+                "n_short": len(shorts),
+            }
+        )
+
+    if not rows:
+        empty = pd.DataFrame(columns=["gross", "net", "turnover", "equity"])
+        return BacktestResult(empty, {"sharpe": float("nan"), "n_periods": 0.0})
+
+    frame = pd.DataFrame(rows).set_index("period").sort_index()
+    frame["equity"] = (1 + frame["net"]).cumprod()
+    stats = summarize_returns(frame["net"], MONTHS_PER_YEAR)
+    return BacktestResult(frame, stats)
