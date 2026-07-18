@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quantpulse
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: market
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quantpulse -d market"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://quantpulse:ci-password@localhost:5432/market
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Lint
+        run: |
+          uv run ruff format --check src tests
+          uv run ruff check src tests
+
+      - name: Type check
+        run: uv run mypy
+
+      - name: Tests
+        run: uv run pytest --cov --cov-report=term-missing
+
+  # Added in M3: dagster definitions load check, docker image builds
+  # Added in M5: web lint + test + build

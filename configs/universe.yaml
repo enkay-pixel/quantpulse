@@ -1,0 +1,55 @@
+# Trading universe: liquid US large caps + broad ETFs.
+# Edit freely; the ingestion pipeline picks this up on its next run.
+etfs:
+  - SPY   # S&P 500
+  - QQQ   # Nasdaq 100
+  - IWM   # Russell 2000
+  - DIA   # Dow Jones
+  - XLF   # Financials
+  - XLK   # Technology
+  - XLE   # Energy
+  - XLV   # Health care
+  - GLD   # Gold
+  - TLT   # 20y+ Treasuries
+
+stocks:
+  - AAPL
+  - MSFT
+  - AMZN
+  - GOOGL
+  - META
+  - NVDA
+  - TSLA
+  - AVGO
+  - BRK-B
+  - JPM
+  - V
+  - MA
+  - UNH
+  - JNJ
+  - PG
+  - KO
+  - PEP
+  - COST
+  - WMT
+  - HD
+  - MCD
+  - DIS
+  - NFLX
+  - AMD
+  - INTC
+  - CRM
+  - ORCL
+  - ADBE
+  - CSCO
+  - XOM
+  - CVX
+  - BAC
+  - WFC
+  - GS
+  - CAT
+  - BA
+  - GE
+  - UPS
+  - T
+  - VZ

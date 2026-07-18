@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+
+# Secrets & local config
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data & artifacts (regenerable, live in Postgres/MLflow volumes)
+data/
+mlruns/
+mlartifacts/
+artifacts/
+*.parquet
+
+# Dagster
+.dagster_home/
+tmp*/
+
+# Node / frontend
+node_modules/
+web/dist/
+
+# OS / editor
+.DS_Store
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
