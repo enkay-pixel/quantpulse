@@ -30,14 +30,15 @@ export function DriftPanel({ drift }: { drift: DriftStatus }) {
             <span className="w-32 shrink-0 truncate" style={{ color: "var(--text-secondary)" }}>
               {f.feature}
             </span>
-            <span
-              className="h-2 rounded-sm"
-              style={{
-                width: `${Math.max(2, (f.psi / maxPsi) * 100)}%`,
-                background: "var(--seq-450)",
-              }}
-              aria-hidden
-            />
+            <span className="min-w-0 flex-1" aria-hidden>
+              <span
+                className="block h-2 rounded-sm"
+                style={{
+                  width: `${Math.max(2, (f.psi / maxPsi) * 100)}%`,
+                  background: "var(--seq-450)",
+                }}
+              />
+            </span>
             <span className="tabular shrink-0" style={{ color: "var(--text-muted)" }}>
               {formatNumber(f.psi, 3)}
             </span>

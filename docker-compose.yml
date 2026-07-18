@@ -110,7 +110,22 @@ services:
           memory: 384M
     restart: unless-stopped
 
-  # Added in M5: web (React dashboard behind nginx)
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: quantpulse-web
+    container_name: quantpulse-web
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
 
 volumes:
   postgres-data:

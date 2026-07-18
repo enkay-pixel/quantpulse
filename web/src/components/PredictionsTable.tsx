@@ -30,6 +30,16 @@ export function PredictionsTable({ predictions, selectedTicker, onSelect }: Prop
             <tr
               key={row.ticker}
               onClick={() => onSelect(row.ticker)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect(row.ticker);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={row.ticker === selectedTicker}
+              aria-label={`Show price chart for ${row.ticker}`}
               className="cursor-pointer border-t"
               style={{
                 borderColor: "var(--grid)",
