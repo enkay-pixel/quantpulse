@@ -5,9 +5,9 @@
 | Service | Purpose | Port | Memory cap |
 |---|---|---|---|
 | `postgres` | 3 databases: `market` (app data), `dagster` (orchestrator storage), `mlflow` (tracking backend) | 5432 | 512M |
-| `dagster-webserver` / `dagster-daemon` / `dagster-code` *(M3)* | Pipeline UI, schedules/sensors, code location | 3000 | ~1G total |
-| `mlflow` *(M3)* | Experiment tracking + model registry | 5000 | 512M |
-| `api` *(M4)* | FastAPI serving layer | 8000 | 256M |
+| `dagster-webserver` + `dagster-daemon` | Pipeline UI; schedules/sensors/run launcher. Both load the code location in-process from the shared image (one fewer container than a gRPC code server — deliberate on 16 GB) | 3000 | 768M + 1.5G |
+| `mlflow` | Experiment tracking + model registry (single worker) | 5001→5000 | 768M |
+| `api` | FastAPI serving layer | 8000 | 384M |
 | `web` *(M5)* | React dashboard behind nginx | 8080 | 128M |
 
 Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Docker Desktop capped at ~6 GB.

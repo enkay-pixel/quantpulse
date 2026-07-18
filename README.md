@@ -41,7 +41,7 @@ make test                     # run unit tests
 | UI | URL |
 |---|---|
 | Dagster | http://localhost:3000 |
-| MLflow | http://localhost:5000 |
+| MLflow | http://localhost:5001 (5000 is taken by macOS AirPlay) |
 | API docs | http://localhost:8000/docs |
 | Dashboard | http://localhost:8080 |
 
@@ -52,8 +52,8 @@ Postgres is exposed on `localhost:5432` (DBeaver-friendly; credentials in your `
 - [x] M0 — Project scaffold, tooling, CI
 - [x] M1 — Data platform (schema, ingestion, quality checks)
 - [x] M2 — ML core (features, purged CV, training, backtest, promotion)
-- [ ] M3 — Dagster orchestration + full Docker stack
-- [ ] M4 — Serving API
+- [x] M3 — Dagster orchestration + full Docker stack
+- [x] M4 — Serving API
 - [ ] M5 — React dashboard
 - [ ] M6 — Docs polish & first release
 

@@ -1,5 +1,24 @@
 name: quantpulse
 
+x-app-env: &app-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/${POSTGRES_DB:-market}
+  DAGSTER_PG_URL: postgresql://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/dagster
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  QUANTPULSE_UNIVERSE_FILE: /app/configs/universe.yaml
+
+x-dagster-service: &dagster-service
+  build:
+    context: .
+    dockerfile: docker/dagster.Dockerfile
+  image: quantpulse-dagster
+  environment: *app-env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    mlflow:
+      condition: service_started
+  restart: unless-stopped
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -24,8 +43,75 @@ services:
           memory: 512M
     restart: unless-stopped
 
-  # Added in M3: dagster-webserver, dagster-daemon, dagster-code, mlflow
-  # Added in M4/M5: api, web
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/mlflow.Dockerfile
+    image: quantpulse-mlflow
+    container_name: quantpulse-mlflow
+    environment:
+      MLFLOW_BACKEND_URI: postgresql+psycopg2://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/mlflow
+    ports:
+      # 5001 on the host: macOS AirPlay Receiver squats on 5000
+      - "5001:5000"
+    volumes:
+      - mlflow-artifacts:/mlartifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    restart: unless-stopped
+
+  dagster-webserver:
+    <<: *dagster-service
+    container_name: quantpulse-dagster-web
+    command: ["dagster-webserver", "-w", "/opt/dagster/workspace.yaml", "-h", "0.0.0.0", "-p", "3000"]
+    ports:
+      - "3000:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  dagster-daemon:
+    <<: *dagster-service
+    container_name: quantpulse-dagster-daemon
+    command: ["dagster-daemon", "run", "-w", "/opt/dagster/workspace.yaml"]
+    deploy:
+      resources:
+        limits:
+          memory: 1536M  # runs execute in-process under the daemon's launcher
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: quantpulse-api
+    container_name: quantpulse-api
+    environment: *app-env
+    command:
+      ["uvicorn", "quantpulse.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    restart: unless-stopped
+
+  # Added in M5: web (React dashboard behind nginx)
 
 volumes:
   postgres-data:
+  mlflow-artifacts:
