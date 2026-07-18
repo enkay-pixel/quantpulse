@@ -52,6 +52,9 @@ dev = [
     "types-pyyaml>=6.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/enkay-pixel/quantpulse"
+
 [project.scripts]
 quantpulse = "quantpulse.cli:main"
 

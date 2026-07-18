@@ -2,7 +2,15 @@
 # Local Python work uses the monorepo's shared virtualenv unless VENV_PYTHON is overridden.
 VENV_PYTHON ?= ../../.venv/bin/python
 
-.PHONY: install lock fmt lint type test test-all hooks up down ps logs clean
+.PHONY: install lock fmt lint type test test-all hooks up down ps logs clean bootstrap
+
+bootstrap:  ## First-run seed: migrate, universe, backfill, features, train, score
+	$(VENV_PYTHON) -m quantpulse.cli init-db
+	$(VENV_PYTHON) -m quantpulse.cli sync-universe
+	$(VENV_PYTHON) -m quantpulse.cli backfill
+	$(VENV_PYTHON) -m quantpulse.cli features
+	$(VENV_PYTHON) -m quantpulse.cli train
+	$(VENV_PYTHON) -m quantpulse.cli score --replay
 
 install:  ## Install the package + dev tools into the shared venv
 	uv pip install -e ".[dev]" --python $(VENV_PYTHON)

@@ -1,8 +1,15 @@
 # QuantPulse
 
+[![CI](https://github.com/enkay-pixel/quantpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/enkay-pixel/quantpulse/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![React 19](https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=black)](web/package.json)
+
 A local-first MLOps platform for a **self-adapting ML investing model**. Fully free, fully open-source, runs on one machine via Docker: automated data pipelines, scheduled retraining with champion/challenger promotion, drift monitoring, a serving API, and a live dashboard.
 
 > **Disclaimer**: educational engineering project. Nothing here is investment advice, and the model's signals are research output in a sandbox — not trade recommendations.
+
+![QuantPulse dashboard](docs/assets/dashboard.png)
 
 ## What it does
 
@@ -38,6 +45,21 @@ make install                  # install package + dev tools into your venv
 make test                     # run unit tests
 ```
 
+### First run (seed the platform)
+
+On a fresh database, one command migrates the schema, syncs the universe, backfills
+history, computes features, trains + promotes the first champion, and scores the
+signal trail for the dashboard:
+
+```bash
+make bootstrap
+```
+
+From then on the Dagster schedules keep everything current whenever the stack is up
+(weekday ingest/scoring after the close, weekly retraining, drift-triggered retraining).
+The dashboard's pre-champion equity history is an **in-sample replay** to seed the
+charts — the live track record accrues from the first scheduled runs onward.
+
 | UI | URL |
 |---|---|
 | Dagster | http://localhost:3000 |
@@ -55,7 +77,7 @@ Postgres is exposed on `localhost:5432` (DBeaver-friendly; credentials in your `
 - [x] M3 — Dagster orchestration + full Docker stack
 - [x] M4 — Serving API
 - [x] M5 — React dashboard
-- [ ] M6 — Docs polish & first release
+- [x] M6 — Docs polish & first release
 
 ## Development
 
