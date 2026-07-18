@@ -26,6 +26,9 @@ mlartifacts/
 artifacts/
 *.parquet
 
+# Local experiment DBs
+*.db
+
 # Dagster
 .dagster_home/
 tmp*/

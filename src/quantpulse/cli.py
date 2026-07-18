@@ -63,6 +63,44 @@ def _backfill(start: dt.date | None, end: dt.date | None, batch_size: int = 25) 
     logger.info("Backfill complete: %d rows", total)
 
 
+def _features() -> None:
+    from quantpulse.db import get_engine, get_session
+    from quantpulse.features.engineering import FEATURE_VERSION, compute_features
+    from quantpulse.features.store import load_price_bars, store_features
+
+    bars = load_price_bars(get_engine())
+    if bars.empty:
+        logger.error("No price bars stored — run `quantpulse backfill` first")
+        sys.exit(1)
+    features = compute_features(bars)
+    with get_session() as session:
+        written = store_features(session, features, FEATURE_VERSION)
+    logger.info("Stored %d feature rows (version %s)", written, FEATURE_VERSION)
+
+
+def _train() -> None:
+    from quantpulse.db import get_engine, get_session
+    from quantpulse.ml.pipeline import train_evaluate_promote
+
+    settings = get_settings()
+    with get_session() as session:
+        summary = train_evaluate_promote(
+            get_engine(), session, tracking_uri=settings.mlflow_tracking_uri
+        )
+    for key, value in summary.items():
+        logger.info("%-24s %s", key, value)
+
+
+def _score() -> None:
+    from quantpulse.db import get_engine, get_session
+    from quantpulse.ml.pipeline import score_latest
+
+    settings = get_settings()
+    with get_session() as session:
+        n = score_latest(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
+    logger.info("Wrote %d predictions", n)
+
+
 def _quality(start: dt.date, end: dt.date) -> None:
     import pandas as pd
 
@@ -103,6 +141,10 @@ def main(argv: list[str] | None = None) -> None:
     quality.add_argument("--start", type=dt.date.fromisoformat, required=True)
     quality.add_argument("--end", type=dt.date.fromisoformat, required=True)
 
+    sub.add_parser("features", help="Compute and store features from ingested bars")
+    sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
+    sub.add_parser("score", help="Score latest features with the champion model")
+
     args = parser.parse_args(argv)
     if args.command == "init-db":
         _alembic_upgrade()
@@ -112,6 +154,12 @@ def main(argv: list[str] | None = None) -> None:
         _backfill(args.start, args.end)
     elif args.command == "quality":
         _quality(args.start, args.end)
+    elif args.command == "features":
+        _features()
+    elif args.command == "train":
+        _train()
+    elif args.command == "score":
+        _score()
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ Postgres is exposed on `localhost:5432` (DBeaver-friendly; credentials in your `
 
 - [x] M0 — Project scaffold, tooling, CI
 - [x] M1 — Data platform (schema, ingestion, quality checks)
-- [ ] M2 — ML core (features, purged CV, training, backtest, promotion)
+- [x] M2 — ML core (features, purged CV, training, backtest, promotion)
 - [ ] M3 — Dagster orchestration + full Docker stack
 - [ ] M4 — Serving API
 - [ ] M5 — React dashboard
