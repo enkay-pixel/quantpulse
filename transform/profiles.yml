@@ -1,0 +1,13 @@
+# Committed on purpose: credentials come from env vars (see .env), never from this file.
+quantpulse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | as_number }}"
+      user: "{{ env_var('POSTGRES_USER', 'quantpulse') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'quantpulse') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'market') }}"
+      schema: analytics
+      threads: 4

@@ -31,6 +31,12 @@ htmlcov/
 # Local experiment DBs
 *.db
 
+# dbt build artifacts
+transform/target/
+transform/dbt_packages/
+transform/logs/
+logs/
+
 # Dagster
 .dagster_home/
 tmp*/

@@ -50,6 +50,14 @@ jobs:
       - name: Tests
         run: uv run pytest --cov --cov-report=term-missing
 
+      - name: dbt build (models + tests against service Postgres)
+        env:
+          POSTGRES_PASSWORD: ci-password
+        run: |
+          uv run quantpulse init-db
+          uv run dbt deps --project-dir transform --profiles-dir transform
+          uv run dbt build --project-dir transform --profiles-dir transform
+
   web:
     runs-on: ubuntu-latest
     defaults:

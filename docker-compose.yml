@@ -5,6 +5,11 @@ x-app-env: &app-env
   DAGSTER_PG_URL: postgresql://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/dagster
   MLFLOW_TRACKING_URI: http://mlflow:5000
   QUANTPULSE_UNIVERSE_FILE: /app/configs/universe.yaml
+  # dbt profile (transform/profiles.yml) reads these:
+  DBT_HOST: postgres
+  POSTGRES_USER: ${POSTGRES_USER:-quantpulse}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quantpulse}
+  POSTGRES_DB: ${POSTGRES_DB:-market}
 
 x-dagster-service: &dagster-service
   build:

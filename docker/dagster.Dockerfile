@@ -20,5 +20,10 @@ COPY configs ./configs
 COPY docker/dagster.yaml docker/workspace.yaml /opt/dagster/
 RUN uv sync --frozen --no-dev
 
+# Bake the dbt manifest so the code location loads without parsing at runtime
+COPY transform ./transform
+RUN dbt deps --project-dir transform --profiles-dir transform \
+    && dbt parse --project-dir transform --profiles-dir transform
+
 ENV DAGSTER_HOME=/opt/dagster
 EXPOSE 3000

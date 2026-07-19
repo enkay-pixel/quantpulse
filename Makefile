@@ -2,7 +2,16 @@
 # Local Python work uses the monorepo's shared virtualenv unless VENV_PYTHON is overridden.
 VENV_PYTHON ?= ../../.venv/bin/python
 
-.PHONY: install lock fmt lint type test test-all hooks up down ps logs clean bootstrap
+.PHONY: install lock fmt lint type test test-all hooks up down ps logs clean bootstrap dbt-build dbt-docs
+
+VENV_BIN ?= ../../.venv/bin
+
+dbt-build:  ## Run dbt models + tests against local Postgres
+	set -a && . ./.env && set +a && $(VENV_BIN)/dbt build --project-dir transform --profiles-dir transform
+
+dbt-docs:  ## Generate and serve the dbt documentation site
+	set -a && . ./.env && set +a && $(VENV_BIN)/dbt docs generate --project-dir transform --profiles-dir transform \
+		&& $(VENV_BIN)/dbt docs serve --project-dir transform --profiles-dir transform --port 8081
 
 bootstrap:  ## First-run seed: migrate, universe, backfill, features, train, score
 	$(VENV_PYTHON) -m quantpulse.cli init-db

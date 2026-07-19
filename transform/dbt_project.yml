@@ -1,0 +1,21 @@
+name: quantpulse
+version: "1.0.0"
+profile: quantpulse
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: target
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  quantpulse:
+    staging:
+      +materialized: view
+      +docs:
+        node_color: "#86b6ef"
+    marts:
+      +materialized: table
+      +docs:
+        node_color: "#2a78d6"
