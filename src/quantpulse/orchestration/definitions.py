@@ -4,11 +4,8 @@ import dagster as dg
 from quantpulse.orchestration import assets as qp_assets
 from quantpulse.orchestration.transform_assets import dbt_resource, transform_dbt_assets
 
-ingest_job = dg.define_asset_job(
-    "ingest_job",
-    selection=[qp_assets.raw_prices],
-    partitions_def=qp_assets.daily_partitions,
-)
+# Partitioning is inferred from the selected asset (raw_prices is daily-partitioned).
+ingest_job = dg.define_asset_job("ingest_job", selection=[qp_assets.raw_prices])
 
 process_job = dg.define_asset_job(
     "process_job",
