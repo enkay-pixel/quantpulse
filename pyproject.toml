@@ -23,7 +23,7 @@ dependencies = [
     # ML
     "scipy>=1.13",
     "scikit-learn>=1.5",
-    "lightgbm>=4.4",
+    "lightgbm>=4.7.0",
     "optuna>=3.6",
     "mlflow>=2.15",
     "joblib>=1.4",
