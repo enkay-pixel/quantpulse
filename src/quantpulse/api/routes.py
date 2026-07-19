@@ -1,8 +1,10 @@
 import datetime as dt
-from typing import Annotated
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Engine, func, select, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from quantpulse.api import schemas
@@ -21,6 +23,19 @@ router = APIRouter()
 
 SessionDep = Annotated[Session, Depends(session_dep)]
 EngineDep = Annotated[Engine, Depends(engine_dep)]
+
+
+def _mart_rows(
+    session: Session, sql: str, params: dict[str, Any] | None = None
+) -> Sequence[Mapping[str, Any]] | None:
+    """Query a dbt mart in the analytics schema; None when it doesn't exist yet
+    (fresh database before the first dbt build)."""
+    try:
+        rows = session.execute(text(sql), params or {}).mappings().all()
+        return cast("Sequence[Mapping[str, Any]]", rows)
+    except ProgrammingError:
+        session.rollback()
+        return None
 
 
 @router.get("/health", response_model=schemas.Health)
@@ -97,11 +112,24 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
         return schemas.EquityCurve(points=[], total_return=None, max_drawdown=None, sharpe=None)
     import pandas as pd
 
+    # Enrich with phase + SPY benchmark from the dbt mart when it exists.
+    mart = _mart_rows(
+        session,
+        "SELECT date, phase, benchmark_equity "
+        "FROM analytics.fct_portfolio_vs_benchmark ORDER BY date",
+    )
+    enrich = {m["date"]: m for m in mart or []}
+
     returns = pd.Series([r.daily_return for r in rows])
     return schemas.EquityCurve(
         points=[
             schemas.EquityPoint(
-                date=r.date, equity=r.equity, daily_return=r.daily_return, turnover=r.turnover
+                date=r.date,
+                equity=r.equity,
+                daily_return=r.daily_return,
+                turnover=r.turnover,
+                phase=enrich.get(r.date, {}).get("phase"),
+                benchmark_equity=enrich.get(r.date, {}).get("benchmark_equity"),
             )
             for r in rows
         ],
@@ -109,6 +137,109 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
         max_drawdown=max_drawdown(returns),
         sharpe=sharpe_ratio(returns, TRADING_DAYS_PER_YEAR) if len(returns) > 2 else None,
     )
+
+
+@router.get("/track-record", response_model=schemas.TrackRecord)
+def track_record(session: SessionDep) -> schemas.TrackRecord:
+    live_since = session.scalar(
+        select(func.min(ModelRun.created_at)).where(ModelRun.decision == "promoted")
+    )
+    rows = _mart_rows(
+        session,
+        "SELECT phase, n_days, start_date, end_date, total_return, annualized_volatility, "
+        "sharpe, max_drawdown, win_rate FROM analytics.fct_track_record ORDER BY phase",
+    )
+    return schemas.TrackRecord(
+        live_since=live_since.date() if live_since else None,
+        phases=[schemas.PhaseStats(**dict(r)) for r in rows or []],
+    )
+
+
+@router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
+def signal_quintiles(session: SessionDep) -> schemas.QuintilesOut:
+    overall = _mart_rows(
+        session,
+        "SELECT signal_quintile, count(*) AS n_days, avg(avg_next_day_return) AS "
+        "avg_next_day_return FROM analytics.fct_signal_performance "
+        "GROUP BY signal_quintile ORDER BY signal_quintile",
+    )
+    # Trailing 45 calendar days ~= 30 trading days.
+    recent = _mart_rows(
+        session,
+        "SELECT signal_quintile, count(*) AS n_days, avg(avg_next_day_return) AS "
+        "avg_next_day_return FROM analytics.fct_signal_performance "
+        "WHERE date >= (SELECT max(date) FROM analytics.fct_signal_performance) - 45 "
+        "GROUP BY signal_quintile ORDER BY signal_quintile",
+    )
+    return schemas.QuintilesOut(
+        overall=[schemas.QuintileStat(**dict(r)) for r in overall or []],
+        recent=[schemas.QuintileStat(**dict(r)) for r in recent or []],
+    )
+
+
+@router.get("/portfolio/risk", response_model=schemas.RiskOut)
+def portfolio_risk(session: SessionDep) -> schemas.RiskOut:
+    rows = _mart_rows(
+        session,
+        "SELECT date, drawdown, rolling_sharpe_63d "
+        "FROM analytics.fct_portfolio_daily ORDER BY date",
+    )
+    return schemas.RiskOut(points=[schemas.RiskPoint(**dict(r)) for r in rows or []])
+
+
+@router.get("/portfolio/positions", response_model=schemas.PositionsOut)
+def portfolio_positions(session: SessionDep) -> schemas.PositionsOut:
+    snapshot = session.scalars(
+        select(PortfolioSnapshot).order_by(PortfolioSnapshot.date.desc())
+    ).first()
+    if snapshot is None or not snapshot.positions:
+        return schemas.PositionsOut(date=None, model_version=None, rows=[])
+    tickers = list(snapshot.positions.keys())
+
+    latest_price_date = session.scalar(select(func.max(Price.date)))
+    closes = {
+        p.ticker: p.close
+        for p in session.scalars(
+            select(Price).where(Price.date == latest_price_date, Price.ticker.in_(tickers))
+        )
+    }
+    latest_pred_date = session.scalar(select(func.max(Prediction.date)))
+    scores = {
+        p.ticker: p.score
+        for p in session.scalars(
+            select(Prediction).where(
+                Prediction.date == latest_pred_date, Prediction.ticker.in_(tickers)
+            )
+        )
+    }
+    rows = [
+        schemas.PositionRow(
+            ticker=ticker,
+            weight=weight,
+            side="long" if weight >= 0 else "short",
+            latest_close=closes.get(ticker),
+            latest_score=scores.get(ticker),
+        )
+        for ticker, weight in sorted(snapshot.positions.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+    return schemas.PositionsOut(date=snapshot.date, model_version=snapshot.model_version, rows=rows)
+
+
+@router.get("/models/history", response_model=list[schemas.ModelRunOut])
+def model_history(session: SessionDep) -> list[schemas.ModelRunOut]:
+    runs = session.scalars(select(ModelRun).order_by(ModelRun.id.desc())).all()
+    return [
+        schemas.ModelRunOut(
+            id=r.id,
+            run_type=r.run_type,
+            model_version=r.model_version,
+            decision=r.decision,
+            metrics={k: float(v) for k, v in r.metrics.items()},
+            mlflow_run_id=r.mlflow_run_id,
+            created_at=r.created_at,
+        )
+        for r in runs
+    ]
 
 
 @router.get("/models/current", response_model=schemas.ModelInfo)

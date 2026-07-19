@@ -48,6 +48,8 @@ class EquityPoint(BaseModel):
     equity: float
     daily_return: float
     turnover: float
+    phase: str | None = None  # 'replay' | 'live' once the dbt marts exist
+    benchmark_equity: float | None = None  # SPY buy-and-hold indexed to the same start
 
 
 class EquityCurve(BaseModel):
@@ -76,6 +78,68 @@ class DriftStatus(BaseModel):
     share_drifted: float | None
     drifted: bool | None
     features: list[DriftFeatureOut]
+
+
+class PhaseStats(BaseModel):
+    phase: str  # 'replay' (in-sample) | 'live' (out-of-sample)
+    n_days: int
+    start_date: dt.date
+    end_date: dt.date
+    total_return: float
+    annualized_volatility: float | None
+    sharpe: float | None
+    max_drawdown: float | None
+    win_rate: float | None
+
+
+class TrackRecord(BaseModel):
+    live_since: dt.date | None  # first champion promotion date
+    phases: list[PhaseStats]
+
+
+class QuintileStat(BaseModel):
+    signal_quintile: int
+    n_days: int
+    avg_next_day_return: float
+
+
+class QuintilesOut(BaseModel):
+    overall: list[QuintileStat]
+    recent: list[QuintileStat]  # trailing ~30 trading days
+
+
+class RiskPoint(BaseModel):
+    date: dt.date
+    drawdown: float
+    rolling_sharpe_63d: float | None
+
+
+class RiskOut(BaseModel):
+    points: list[RiskPoint]
+
+
+class PositionRow(BaseModel):
+    ticker: str
+    weight: float
+    side: str  # 'long' | 'short'
+    latest_close: float | None
+    latest_score: float | None
+
+
+class PositionsOut(BaseModel):
+    date: dt.date | None
+    model_version: str | None
+    rows: list[PositionRow]
+
+
+class ModelRunOut(BaseModel):
+    id: int
+    run_type: str
+    model_version: str | None
+    decision: str | None
+    metrics: dict[str, float]
+    mlflow_run_id: str | None
+    created_at: dt.datetime
 
 
 class FreshnessOut(BaseModel):

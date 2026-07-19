@@ -19,5 +19,7 @@ Populated from M1 onward; columns finalized alongside the Alembic migrations.
 | `stg_*` (views) | 1:1 with raw | Typed, renamed staging over the raw tables; `stg_predictions` dedupes to newest model version |
 | `fct_daily_returns` | (ticker, date) | Simple returns + 21-day rolling volatility/mean |
 | `fct_signal_performance` | (date, signal_quintile) | Next-day realized return per signal quintile (1 = strongest) — model-skill readout |
-| `fct_portfolio_daily` | date | Portfolio with cumulative return and running drawdown |
+| `fct_portfolio_daily` | date | Portfolio with cumulative return, running drawdown, rolling 63d Sharpe, and evidence `phase` (replay/live) |
+| `fct_portfolio_vs_benchmark` | date | Strategy equity vs SPY buy-and-hold indexed to the portfolio's first date |
+| `fct_track_record` | phase | Per-phase performance summary — the `live` row is the honest out-of-sample record |
 | `dim_universe` | ticker | Members with price-coverage metadata |

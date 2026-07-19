@@ -38,7 +38,10 @@ models:
         tests: [not_null]
 
   - name: fct_portfolio_daily
-    description: Paper portfolio with cumulative return and running drawdown.
+    description: >
+      Paper portfolio with cumulative return, running drawdown, rolling Sharpe, and
+      the evidence phase: 'replay' before the first champion promotion (in-sample),
+      'live' after (true out-of-sample).
     columns:
       - name: date
         tests: [unique, not_null]
@@ -48,6 +51,46 @@ models:
           - dbt_utils.expression_is_true:
               arguments:
                 expression: "<= 0.0000001"
+      - name: phase
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["replay", "live"]
+
+  - name: fct_portfolio_vs_benchmark
+    description: Strategy equity vs SPY buy-and-hold indexed to the portfolio's first date.
+    columns:
+      - name: date
+        tests: [unique, not_null]
+      - name: portfolio_equity
+        tests: [not_null]
+      - name: benchmark_equity
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
+
+  - name: fct_track_record
+    description: >
+      Per-phase performance summary. The 'live' row is the strategy's honest
+      out-of-sample record; the 'replay' row is labeled in-sample history.
+    columns:
+      - name: phase
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["replay", "live"]
+      - name: n_days
+        tests: [not_null]
+      - name: win_rate
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "between 0 and 1"
 
   - name: dim_universe
     description: Universe members with price-coverage metadata.

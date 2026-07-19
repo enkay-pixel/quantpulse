@@ -31,6 +31,18 @@ scheduled with the daily processing job. Sources map to upstream Dagster assets 
 `meta.dagster.asset_key`, so lineage runs unbroken from yfinance to the marts.
 Run locally with `make dbt-build`; browse docs + lineage with `make dbt-docs`.
 
+## Evidence layer
+
+The dashboard's job is to make the strategy *auditable*, not to sell it. The dbt marts
+split performance into an in-sample `replay` phase and the `live` out-of-sample record
+that starts at the first champion promotion (`fct_portfolio_daily.phase`,
+`fct_track_record`), benchmark it against SPY buy-and-hold
+(`fct_portfolio_vs_benchmark`), and expose signal-quintile forward returns
+(`fct_signal_performance`). The API serves these plus the current paper book and the
+full `model_runs` audit trail; the React app renders them across three tabs
+(Overview / Evidence / Model & Book). All endpoints degrade to empty payloads on a
+fresh database before the first dbt build.
+
 ## The adaptation loop
 
 - **Weekly schedule** (and a **drift sensor**) trigger the training job: purged/embargoed time-series CV, Optuna hyperparameter search (capped trial budget), final LightGBM fit, all logged to MLflow.

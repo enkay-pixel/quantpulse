@@ -13,8 +13,12 @@
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
   --series-1: #2a78d6;
+  --series-2: #1baf7a;
   --seq-250: #86b6ef;
+  --seq-350: #5598e7;
   --seq-450: #2a78d6;
+  --seq-550: #1c5cab;
+  --seq-650: #104281;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
@@ -35,8 +39,12 @@
     --baseline: #383835;
     --border: rgba(255, 255, 255, 0.1);
     --series-1: #3987e5;
+    --series-2: #199e70;
     --seq-250: #184f95;
+    --seq-350: #256abf;
     --seq-450: #3987e5;
+    --seq-550: #5598e7;
+    --seq-650: #86b6ef;
     --delta-up: #0ca30c;
     --delta-down: #d03b3b;
   }

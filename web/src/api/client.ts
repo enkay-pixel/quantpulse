@@ -4,8 +4,13 @@ import type {
   Freshness,
   Health,
   ModelInfo,
+  ModelRunEntry,
+  Positions,
   Predictions,
   PriceSeries,
+  Quintiles,
+  Risk,
+  TrackRecord,
   UniverseMember,
 } from "./types";
 
@@ -32,4 +37,9 @@ export const api = {
   currentModel: () => getJson<ModelInfo>("/models/current"),
   latestDrift: () => getJson<DriftStatus>("/drift/latest"),
   freshness: () => getJson<Freshness>("/freshness"),
+  trackRecord: () => getJson<TrackRecord>("/track-record"),
+  quintiles: () => getJson<Quintiles>("/signals/quintiles"),
+  risk: () => getJson<Risk>("/portfolio/risk"),
+  positions: () => getJson<Positions>("/portfolio/positions"),
+  modelHistory: () => getJson<ModelRunEntry[]>("/models/history"),
 };
