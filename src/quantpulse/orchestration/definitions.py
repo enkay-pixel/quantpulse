@@ -2,6 +2,7 @@
 
 import dagster as dg
 from quantpulse.orchestration import assets as qp_assets
+from quantpulse.orchestration.transform_assets import dbt_resource, transform_dbt_assets
 
 ingest_job = dg.define_asset_job(
     "ingest_job",
@@ -11,12 +12,13 @@ ingest_job = dg.define_asset_job(
 
 process_job = dg.define_asset_job(
     "process_job",
-    selection=[
+    selection=dg.AssetSelection.assets(
         qp_assets.features,
         qp_assets.predictions,
         qp_assets.portfolio_equity,
         qp_assets.drift_report,
-    ],
+    )
+    | dg.AssetSelection.groups("transform"),
 )
 
 training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion_model])
@@ -95,9 +97,11 @@ defs = dg.Definitions(
         qp_assets.portfolio_equity,
         qp_assets.drift_report,
         qp_assets.champion_model,
+        transform_dbt_assets,
     ],
     asset_checks=[qp_assets.recent_prices_quality],
     jobs=[ingest_job, process_job, training_job],
     schedules=[ingest_schedule, process_schedule, training_schedule],
     sensors=[drift_retrain_sensor],
+    resources={"dbt": dbt_resource},
 )

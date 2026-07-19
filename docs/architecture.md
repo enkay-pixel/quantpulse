@@ -20,6 +20,17 @@ Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Dock
 4. `portfolio_equity` maintains a simulated long/short book from predictions for the dashboard.
 5. `drift_report` (Evidently) compares recent feature/prediction distributions against the champion's training reference.
 
+## Transform layer (dbt)
+
+SQL analytics live in a dbt project at `transform/`: staging views (1:1 over raw tables)
+and marts in the `analytics` schema — `fct_daily_returns`, `fct_signal_performance`
+(signal-quintile forward returns: the plainest read of model skill), `fct_portfolio_daily`
+(cumulative return + drawdown), and `dim_universe`. dbt tests add a second data-quality
+layer, and `dagster-dbt` mounts every model into the same asset graph (group `transform`),
+scheduled with the daily processing job. Sources map to upstream Dagster assets via
+`meta.dagster.asset_key`, so lineage runs unbroken from yfinance to the marts.
+Run locally with `make dbt-build`; browse docs + lineage with `make dbt-docs`.
+
 ## The adaptation loop
 
 - **Weekly schedule** (and a **drift sensor**) trigger the training job: purged/embargoed time-series CV, Optuna hyperparameter search (capped trial budget), final LightGBM fit, all logged to MLflow.

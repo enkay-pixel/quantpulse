@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: stg_prices
+    description: 1:1 view over raw daily bars.
+    columns:
+      - name: close
+        tests: [not_null]
+
+  - name: stg_universe
+    description: 1:1 view over the configured universe.
+    columns:
+      - name: ticker
+        tests: [unique, not_null]
+
+  - name: stg_predictions
+    description: One score per (ticker, date) — newest model version wins.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, date]
+
+  - name: stg_portfolio_snapshots
+    description: 1:1 view over portfolio snapshots.
+    columns:
+      - name: date
+        tests: [unique, not_null]

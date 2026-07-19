@@ -11,7 +11,7 @@ def test_definitions_load_and_resolve() -> None:
 
 def test_expected_assets_present() -> None:
     keys = {spec.key.to_user_string() for spec in defs.resolve_all_asset_specs()}
-    assert keys == {
+    core = {
         "raw_prices",
         "features",
         "predictions",
@@ -19,6 +19,22 @@ def test_expected_assets_present() -> None:
         "drift_report",
         "champion_model",
     }
+    dbt_models = {
+        "stg_prices",
+        "stg_predictions",
+        "fct_daily_returns",
+        "fct_signal_performance",
+        "fct_portfolio_daily",
+        "dim_universe",
+    }
+    assert core <= keys
+    assert dbt_models <= keys
+
+
+def test_dbt_assets_grouped_as_transform() -> None:
+    groups = {spec.key.to_user_string(): spec.group_name for spec in defs.resolve_all_asset_specs()}
+    assert groups["fct_signal_performance"] == "transform"
+    assert groups["stg_prices"] == "transform"
 
 
 def test_schedules_default_to_running() -> None:

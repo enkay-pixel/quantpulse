@@ -29,10 +29,13 @@ dependencies = [
     "joblib>=1.4",
     # Monitoring
     "evidently>=0.4.30",
-    # Orchestration
+    # Orchestration & transforms
     "dagster>=1.8",
     "dagster-postgres>=0.24",
     "dagster-webserver>=1.8",
+    "dagster-dbt>=0.24",
+    "dbt-core>=1.9",
+    "dbt-postgres>=1.9",
     # API
     "fastapi>=0.112",
     "uvicorn[standard]>=0.51.0",

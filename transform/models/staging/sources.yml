@@ -1,0 +1,40 @@
+version: 2
+
+sources:
+  - name: market
+    description: Raw platform tables owned by the ingestion and ML pipelines (Alembic-managed).
+    database: "{{ env_var('POSTGRES_DB', 'market') }}"
+    schema: public
+    tables:
+      - name: prices
+        description: Daily OHLCV bars per ticker (yfinance with Stooq fallback), idempotent upserts.
+        meta:
+          dagster:
+            asset_key: raw_prices
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 4, period: day}
+          error_after: {count: 8, period: day}
+        columns:
+          - name: ticker
+            tests: [not_null]
+          - name: close
+            tests: [not_null]
+      - name: universe
+        description: Configured trading universe with active flags.
+        columns:
+          - name: ticker
+            tests: [unique, not_null]
+      - name: predictions
+        description: Champion-model forward-return scores per (ticker, date, model_version).
+        meta:
+          dagster:
+            asset_key: predictions
+      - name: portfolio_snapshots
+        description: Simulated long/short paper book, one row per trading day.
+        meta:
+          dagster:
+            asset_key: portfolio_equity
+        columns:
+          - name: date
+            tests: [unique, not_null]
