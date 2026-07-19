@@ -5,6 +5,18 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: "recharts", test: /node_modules[\\/](recharts|d3-.*)[\\/]/ },
+            { name: "react-vendor", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
   },

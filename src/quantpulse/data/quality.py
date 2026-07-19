@@ -67,7 +67,12 @@ def run_quality_checks(
         )
     )
 
-    returns = bars.sort_values(["ticker", "date"]).groupby("ticker")["close"].pct_change().abs()
+    returns = (
+        bars.sort_values(["ticker", "date"])
+        .groupby("ticker")["close"]
+        .pct_change(fill_method=None)
+        .abs()
+    )
     extreme = int((returns > EXTREME_DAILY_MOVE).sum())
     results.append(CheckResult("no_extreme_moves", extreme == 0, {"extreme_rows": extreme}))
 
