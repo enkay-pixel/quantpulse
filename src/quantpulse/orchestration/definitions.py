@@ -21,9 +21,16 @@ process_job = dg.define_asset_job(
 
 training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion_model])
 
-# Weekday evenings after the NYSE close: ingest today's bars...
+# All schedules default to RUNNING: `make up` must mean fully automated —
+# without this, Dagster ships schedules stopped until toggled in the UI.
+
+# Evenings after the NYSE close: ingest today's bars (non-trading days no-op)...
 ingest_schedule = dg.build_schedule_from_partitioned_job(
-    ingest_job, hour_of_day=18, minute_of_hour=30, name="daily_ingest_schedule"
+    ingest_job,
+    hour_of_day=18,
+    minute_of_hour=30,
+    name="daily_ingest_schedule",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
 )
 
 # ...then run features -> predictions -> portfolio -> drift half an hour later.
@@ -32,6 +39,7 @@ process_schedule = dg.ScheduleDefinition(
     cron_schedule="0 19 * * 1-5",
     execution_timezone="America/New_York",
     name="daily_process_schedule",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
 )
 
 # Weekly retrain, Saturday morning.
@@ -40,6 +48,7 @@ training_schedule = dg.ScheduleDefinition(
     cron_schedule="0 9 * * 6",
     execution_timezone="America/New_York",
     name="weekly_training_schedule",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
 )
 
 

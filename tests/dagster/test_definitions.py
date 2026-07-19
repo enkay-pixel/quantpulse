@@ -21,6 +21,12 @@ def test_expected_assets_present() -> None:
     }
 
 
+def test_schedules_default_to_running() -> None:
+    # `make up` must mean fully automated — schedules may never ship stopped.
+    for schedule in defs.schedules or []:
+        assert schedule.default_status == dg.DefaultScheduleStatus.RUNNING, schedule.name
+
+
 def test_schedules_and_sensors_registered() -> None:
     schedule_names = {s.name for s in defs.schedules or []}
     assert {"daily_ingest_schedule", "daily_process_schedule", "weekly_training_schedule"} <= (
