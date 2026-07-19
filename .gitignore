@@ -51,3 +51,6 @@ web/dist/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# dbt machine-local state
+transform/.user.yml
