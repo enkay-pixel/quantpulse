@@ -85,6 +85,10 @@ select = [
     "PD",  # pandas-vet
 ]
 
+[tool.ruff.lint.isort]
+# Explicit: import grouping must not depend on environment-sensitive inference
+known-first-party = ["quantpulse"]
+
 [tool.ruff.lint.per-file-ignores]
 # pivot (not pivot_table) is deliberate: duplicate keys must raise, not aggregate
 "src/quantpulse/ml/portfolio.py" = ["PD010"]
