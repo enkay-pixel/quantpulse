@@ -4,11 +4,31 @@ Local-first MLOps platform for a self-adapting ML investing model. Dagster orche
 daily ingest (yfinance→Postgres) → features → champion scoring → paper portfolio → drift
 checks, weekly + drift-triggered retraining with champion/challenger promotion via
 MLflow registry aliases, dbt transforms into an `analytics` schema, FastAPI serving,
-React dashboard. Public repo: github.com/enkay-pixel/quantpulse. Zero-cost constraint:
-everything runs free and local; 16 GB MacBook — stack must idle ≤ ~2.5 GB.
+React dashboard (tabs: Overview / Evidence / Model & Book). Public repo:
+github.com/enkay-pixel/quantpulse. Zero-cost constraint: everything runs free and
+local; 16 GB MacBook — stack must idle ≤ ~2.5 GB.
+
+**Read [docs/development-history.md](docs/development-history.md) before nontrivial
+work** — it holds the full build narrative: why each stack choice was made, the
+12-entry incident log with root causes, milestone-by-milestone history, current model
+and data metrics, dependency-policy decisions, testing architecture, and owner
+preferences. This file stays lean on purpose; that one is the deep archive.
 
 **Hard boundary**: this is decision-support tooling. Never generate personalized
 buy/sell/allocation advice; keep the "not investment advice" framing intact.
+
+## Map
+
+- `src/quantpulse/`: `data/` (ingest, calendar, quality) · `features/` · `ml/`
+  (cv, training, backtest, metrics, registry, promotion, portfolio, pipeline) ·
+  `monitoring/drift.py` · `orchestration/` (Dagster defs + dagster-dbt) · `api/` · `cli.py`
+- `transform/`: dbt project → `analytics` schema (staging views + fct_/dim_ marts,
+  incl. fct_track_record's replay-vs-live phase split at first champion promotion)
+- `web/`: React dashboard · `docker/`: images · `alembic/`: migrations ·
+  `tests/`: unit / integration (disposable market_test DB, real dbt build) / dagster
+- Model: LightGBM on 13 technical+cross-sectional features, 21d horizon, purged
+  walk-forward CV, Optuna(15), promotion gate = holdout Sharpe ≥ champion+0.05,
+  IC ≥ 0, DD > −35%. Champion v1: holdout IC 0.026 / Sharpe 0.21.
 
 ## Environment & commands
 
