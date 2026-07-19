@@ -19,11 +19,13 @@ dist/
 .coverage
 htmlcov/
 
-# Data & artifacts (regenerable, live in Postgres/MLflow volumes)
-data/
-mlruns/
-mlartifacts/
-artifacts/
+# Data & artifacts (regenerable, live in Postgres/MLflow volumes).
+# Root-anchored: a bare `data/` would also match src/quantpulse/data and
+# hatchling excludes gitignored paths from the wheel.
+/data/
+/mlruns/
+/mlartifacts/
+/artifacts/
 *.parquet
 
 # Local experiment DBs
