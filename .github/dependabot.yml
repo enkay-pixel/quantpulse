@@ -15,6 +15,18 @@ updates:
     groups:
       js-deps:
         patterns: ["*"]
+    ignore:
+      # Majors deferred until their ecosystems align / a deliberate migration:
+      # typescript 7 conflicts with typescript-eslint 8's peer range, eslint 10
+      # needs typescript-eslint support, recharts 3 changes the chart API.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "recharts"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
