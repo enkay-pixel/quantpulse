@@ -6,5 +6,9 @@
     "bradlc.vscode-tailwindcss",
     "ms-azuretools.vscode-docker",
     "dbt-labs.dbt"
+  ],
+  "unwantedRecommendations": [
+    "ms-mssql.mssql",
+    "ms-kubernetes-tools.vscode-kubernetes-tools"
   ]
 }
