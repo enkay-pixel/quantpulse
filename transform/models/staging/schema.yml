@@ -25,3 +25,9 @@ models:
     columns:
       - name: date
         tests: [unique, not_null]
+
+  - name: stg_model_runs
+    description: 1:1 view over the training/promotion audit log.
+    columns:
+      - name: id
+        tests: [unique, not_null]

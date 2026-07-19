@@ -38,3 +38,11 @@ sources:
         columns:
           - name: date
             tests: [unique, not_null]
+      - name: model_runs
+        description: Training/promotion audit log written by the self-adapting loop.
+        meta:
+          dagster:
+            asset_key: champion_model
+        columns:
+          - name: id
+            tests: [unique, not_null]

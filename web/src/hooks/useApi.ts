@@ -26,6 +26,25 @@ export const useDrift = () =>
 export const useFreshness = () =>
   useQuery({ queryKey: ["freshness"], queryFn: api.freshness, refetchInterval: REFRESH_MS });
 
+export const useTrackRecord = () =>
+  useQuery({ queryKey: ["track-record"], queryFn: api.trackRecord, refetchInterval: REFRESH_MS });
+
+export const useQuintiles = () =>
+  useQuery({ queryKey: ["quintiles"], queryFn: api.quintiles, refetchInterval: REFRESH_MS });
+
+export const useRisk = () =>
+  useQuery({ queryKey: ["risk"], queryFn: api.risk, refetchInterval: REFRESH_MS });
+
+export const usePositions = () =>
+  useQuery({ queryKey: ["positions"], queryFn: api.positions, refetchInterval: REFRESH_MS });
+
+export const useModelHistory = () =>
+  useQuery({
+    queryKey: ["model-history"],
+    queryFn: api.modelHistory,
+    refetchInterval: REFRESH_MS,
+  });
+
 export const usePrices = (ticker: string | null) =>
   useQuery({
     queryKey: ["prices", ticker],

@@ -43,6 +43,8 @@ export interface EquityPoint {
   equity: number;
   daily_return: number;
   turnover: number;
+  phase: "replay" | "live" | null;
+  benchmark_equity: number | null;
 }
 
 export interface EquityCurve {
@@ -71,6 +73,68 @@ export interface DriftStatus {
   share_drifted: number | null;
   drifted: boolean | null;
   features: DriftFeature[];
+}
+
+export interface PhaseStats {
+  phase: "replay" | "live";
+  n_days: number;
+  start_date: string;
+  end_date: string;
+  total_return: number;
+  annualized_volatility: number | null;
+  sharpe: number | null;
+  max_drawdown: number | null;
+  win_rate: number | null;
+}
+
+export interface TrackRecord {
+  live_since: string | null;
+  phases: PhaseStats[];
+}
+
+export interface QuintileStat {
+  signal_quintile: number;
+  n_days: number;
+  avg_next_day_return: number;
+}
+
+export interface Quintiles {
+  overall: QuintileStat[];
+  recent: QuintileStat[];
+}
+
+export interface RiskPoint {
+  date: string;
+  drawdown: number;
+  rolling_sharpe_63d: number | null;
+}
+
+export interface Risk {
+  points: RiskPoint[];
+}
+
+export interface PositionRow {
+  ticker: string;
+  weight: number;
+  side: "long" | "short";
+  latest_close: number | null;
+  latest_score: number | null;
+}
+
+export interface Positions {
+  date: string | null;
+  model_version: string | null;
+  rows: PositionRow[];
+}
+
+export interface ModelRunEntry {
+  id: number;
+  run_type: string;
+  model_version: string | null;
+  decision: string | null;
+  metrics: Record<string, number>;
+  mlflow_run_id: string | null;
+  created_at: string;
 }
 
 export interface Freshness {
