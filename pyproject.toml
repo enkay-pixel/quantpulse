@@ -44,7 +44,8 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-cov>=5.0",
-    "ruff>=0.6",
+    # Pinned exactly: CI lints from uv.lock, so a floating local version drifts
+    "ruff==0.15.22",
     "mypy>=1.11",
     "pre-commit>=3.8",
     "pandas-stubs>=2.2",
@@ -83,6 +84,10 @@ select = [
     "RUF", # ruff-specific
     "PD",  # pandas-vet
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# pivot (not pivot_table) is deliberate: duplicate keys must raise, not aggregate
+"src/quantpulse/ml/portfolio.py" = ["PD010"]
 
 [tool.mypy]
 python_version = "3.12"

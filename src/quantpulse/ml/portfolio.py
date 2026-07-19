@@ -41,10 +41,8 @@ def rebuild_portfolio(engine: Engine, session: Session) -> int:
         logger.info("No predictions or prices — nothing to rebuild")
         return 0
 
-    # noqa-justified: pivot (not pivot_table) so duplicate keys raise instead of aggregating
-    returns = prices.pivot(  # noqa: PD010
-        index="date", columns="ticker", values="close"
-    ).sort_index()
+    # pivot (not pivot_table) so duplicate (date, ticker) keys raise instead of aggregating
+    returns = prices.pivot(index="date", columns="ticker", values="close").sort_index()
     daily_ret = returns.pct_change(fill_method=None).shift(-1)  # next-day realized return
 
     snapshots: list[dict[str, object]] = []
