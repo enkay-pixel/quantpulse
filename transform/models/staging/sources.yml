@@ -46,3 +46,8 @@ sources:
         columns:
           - name: id
             tests: [unique, not_null]
+      - name: option_quotes
+        description: Daily live option-chain snapshots with Black-Scholes Greeks.
+        meta:
+          dagster:
+            asset_key: option_chains

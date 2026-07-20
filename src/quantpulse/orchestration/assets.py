@@ -124,6 +124,20 @@ def drift_report() -> dg.MaterializeResult:
     )
 
 
+@dg.asset(deps=[raw_prices], group_name="options", kinds={"python", "postgres"})
+def option_chains() -> dg.MaterializeResult:
+    """Snapshot live option chains + Greeks. No free history exists, so each run
+    grows our own options dataset going forward."""
+    from quantpulse.data.universe import active_tickers
+    from quantpulse.options.ingest import snapshot_option_chains
+
+    with get_session() as session:
+        tickers = active_tickers(session)
+    with get_session() as session:
+        rows = snapshot_option_chains(session, tickers)
+    return dg.MaterializeResult(metadata={"quotes": rows, "tickers": len(tickers)})
+
+
 @dg.asset(group_name="training", kinds={"python", "mlflow"}, op_tags={"compute": "heavy"})
 def champion_model() -> dg.MaterializeResult:
     """Train a challenger, evaluate on holdout backtest, promote if it beats the champion."""

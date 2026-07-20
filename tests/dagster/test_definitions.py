@@ -17,14 +17,18 @@ def test_expected_assets_present() -> None:
         "predictions",
         "portfolio_equity",
         "drift_report",
+        "option_chains",
         "champion_model",
     }
     dbt_models = {
         "stg_prices",
         "stg_predictions",
+        "stg_option_quotes",
         "fct_daily_returns",
         "fct_signal_performance",
         "fct_portfolio_daily",
+        "fct_option_summary",
+        "fct_iv_surface",
         "dim_universe",
     }
     assert core <= keys

@@ -1,0 +1,22 @@
+select
+    snapshot_date,
+    ticker,
+    expiry,
+    strike,
+    option_type,
+    underlying_close,
+    bid,
+    ask,
+    last_price,
+    volume,
+    open_interest,
+    implied_volatility,
+    in_the_money,
+    theo_value,
+    delta,
+    gamma,
+    theta,
+    vega,
+    strike / nullif(underlying_close, 0) - 1 as moneyness,
+    expiry - snapshot_date as days_to_expiry
+from {{ source('market', 'option_quotes') }}
