@@ -16,7 +16,6 @@ x-dagster-service: &dagster-service
     context: .
     dockerfile: docker/dagster.Dockerfile
   image: quantpulse-dagster
-  pull_policy: build
   environment: *app-env
   depends_on:
     postgres:
@@ -54,7 +53,6 @@ services:
       context: .
       dockerfile: docker/mlflow.Dockerfile
     image: quantpulse-mlflow
-    pull_policy: build
     container_name: quantpulse-mlflow
     environment:
       MLFLOW_BACKEND_URI: postgresql+psycopg2://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/mlflow
@@ -106,7 +104,6 @@ services:
       context: .
       dockerfile: docker/api.Dockerfile
     image: quantpulse-api
-    pull_policy: build
     container_name: quantpulse-api
     environment: *app-env
     command:
@@ -132,7 +129,6 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
     image: quantpulse-web
-    pull_policy: build
     container_name: quantpulse-web
     ports:
       - "8080:80"

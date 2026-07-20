@@ -2,7 +2,7 @@
 # Local Python work uses the monorepo's shared virtualenv unless VENV_PYTHON is overridden.
 VENV_PYTHON ?= ../../.venv/bin/python
 
-.PHONY: install lock fmt lint type test test-all hooks up down ps logs clean bootstrap dbt-build dbt-docs
+.PHONY: install lock fmt lint type test test-all hooks build up up-build down ps logs clean bootstrap dbt-build dbt-docs
 
 VENV_BIN ?= ../../.venv/bin
 
@@ -47,8 +47,14 @@ test-all:  ## All tests incl. integration (needs `make up`)
 hooks:  ## Install pre-commit hooks into .git
 	$(VENV_PYTHON) -m pre_commit install
 
-up:  ## Start the local stack
+build:  ## Build/rebuild all service images (run after changing app or Docker code)
+	docker compose build
+
+up:  ## Start the local stack (reuses existing images; run `make build` after code changes)
 	docker compose up -d --wait
+
+up-build:  ## Rebuild images then start the stack
+	docker compose up -d --wait --build
 
 down:  ## Stop the local stack (data volumes are kept)
 	docker compose down
