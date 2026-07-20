@@ -34,7 +34,7 @@ export const api = {
       `/prices/${encodeURIComponent(ticker)}${start ? `?start=${start}` : ""}`,
     ),
   signalHistory: (ticker: string) =>
-    getJson<SignalSeries>(`/signals/${encodeURIComponent(ticker)}`),
+    getJson<SignalSeries>(`/signals/history/${encodeURIComponent(ticker)}`),
   latestPredictions: () => getJson<Predictions>("/predictions/latest"),
   equityCurve: () => getJson<EquityCurve>("/portfolio/equity-curve"),
   currentModel: () => getJson<ModelInfo>("/models/current"),
