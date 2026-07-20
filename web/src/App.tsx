@@ -25,6 +25,7 @@ import {
   useRisk,
   useTrackRecord,
 } from "./hooks/useApi";
+import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "./lib/format";
 
 const TABS = ["Overview", "Evidence", "Model & Book"];
@@ -44,18 +45,16 @@ function Placeholder({ height = "h-64" }: { height?: string }) {
   return <div className={`${height} animate-pulse rounded-lg`} style={{ background: "var(--grid)" }} />;
 }
 
-function OverviewTab({
-  selectedTicker,
-  setSelectedTicker,
-}: {
-  selectedTicker: string | null;
-  setSelectedTicker: (t: string) => void;
-}) {
+function OverviewTab() {
   const model = useCurrentModel();
   const equity = useEquityCurve();
   const predictions = usePredictions();
   const drift = useDrift();
   const trackRecord = useTrackRecord();
+
+  const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];
+  const rotation = useRotatingTicker(tickers);
+  const activeTicker = rotation.ticker;
 
   return (
     <>
@@ -92,15 +91,22 @@ function OverviewTab({
           <Section title="Strategy vs SPY buy & hold">
             {equity.data ? <BenchmarkEquityChart curve={equity.data} /> : <Placeholder />}
           </Section>
-          <Section title={selectedTicker ? `Price — ${selectedTicker}` : "Price"}>
-            {selectedTicker ? (
-              <PriceChart ticker={selectedTicker} />
+          <Section title={activeTicker ? `Price — ${activeTicker}` : "Price"}>
+            {activeTicker ? (
+              <>
+                <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  {rotation.isPinned
+                    ? "Pinned — rotation resumes in a few minutes."
+                    : "Auto-rotating through today's signals · click a ticker to pin it."}
+                </p>
+                <PriceChart ticker={activeTicker} />
+              </>
             ) : (
               <div
                 className="flex h-64 items-center justify-center text-sm"
                 style={{ color: "var(--text-muted)" }}
               >
-                Select a ticker from the signals table to inspect its price history.
+                Signals load momentarily…
               </div>
             )}
           </Section>
@@ -112,8 +118,8 @@ function OverviewTab({
             {predictions.data ? (
               <PredictionsTable
                 predictions={predictions.data}
-                selectedTicker={selectedTicker}
-                onSelect={setSelectedTicker}
+                selectedTicker={activeTicker}
+                onSelect={rotation.pin}
               />
             ) : (
               <Placeholder height="h-40" />
@@ -163,7 +169,6 @@ function ModelTab() {
 export default function App() {
   const health = useHealth();
   const freshness = useFreshness();
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [tab, setTab] = useState(TABS[0]);
 
   const apiDown = health.isError;
@@ -196,9 +201,7 @@ export default function App() {
         <Tabs tabs={TABS} active={tab} onSelect={setTab} />
       </div>
 
-      {tab === "Overview" ? (
-        <OverviewTab selectedTicker={selectedTicker} setSelectedTicker={setSelectedTicker} />
-      ) : null}
+      {tab === "Overview" ? <OverviewTab /> : null}
       {tab === "Evidence" ? <EvidenceTab /> : null}
       {tab === "Model & Book" ? <ModelTab /> : null}
     </div>
