@@ -92,6 +92,30 @@ models:
               arguments:
                 expression: "between 0 and 1"
 
+  - name: fct_option_summary
+    description: >
+      Per-(ticker, snapshot) option-market read: ATM implied volatility and the
+      put/call open-interest ratio. Accumulates history as snapshots run.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, snapshot_date]
+    columns:
+      - name: atm_iv
+        tests: [not_null]
+      - name: put_call_ratio
+        description: Put OI / call OI (>1 = more put positioning).
+
+  - name: fct_iv_surface
+    description: Mean IV by expiry and moneyness bucket — the volatility smile/skew and term structure.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, snapshot_date, expiry, option_type, moneyness_bucket]
+    columns:
+      - name: avg_iv
+        tests: [not_null]
+
   - name: dim_universe
     description: Universe members with price-coverage metadata.
     columns:

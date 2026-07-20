@@ -31,3 +31,18 @@ models:
     columns:
       - name: id
         tests: [unique, not_null]
+
+  - name: stg_option_quotes
+    description: Option-chain snapshots with moneyness and days-to-expiry derived.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, ticker, expiry, strike, option_type]
+    columns:
+      - name: implied_volatility
+        tests: [not_null]
+      - name: option_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["call", "put"]

@@ -14,6 +14,7 @@ process_job = dg.define_asset_job(
         qp_assets.predictions,
         qp_assets.portfolio_equity,
         qp_assets.drift_report,
+        qp_assets.option_chains,
     )
     | dg.AssetSelection.groups("transform"),
 )
@@ -93,6 +94,7 @@ defs = dg.Definitions(
         qp_assets.predictions,
         qp_assets.portfolio_equity,
         qp_assets.drift_report,
+        qp_assets.option_chains,
         qp_assets.champion_model,
         transform_dbt_assets,
     ],
