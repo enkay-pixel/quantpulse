@@ -112,11 +112,11 @@ def test_prices_with_window_and_404(client: TestClient) -> None:
 
 
 def test_signal_history_series(client: TestClient) -> None:
-    body = client.get("/signals/aapl").json()
+    body = client.get("/signals/history/aapl").json()
     assert body["ticker"] == "AAPL"
     assert len(body["points"]) == 1
     assert body["points"][0]["score"] == pytest.approx(0.05)
-    assert client.get("/signals/ZZZZ").json()["points"] == []
+    assert client.get("/signals/history/ZZZZ").json()["points"] == []
 
 
 def test_latest_predictions_ranked(client: TestClient) -> None:

@@ -82,7 +82,8 @@ def prices(
     return schemas.PriceSeries(ticker=ticker, points=points)
 
 
-@router.get("/signals/{ticker}", response_model=schemas.SignalSeries)
+# Explicit /history/ segment so this never shadows static /signals/* routes.
+@router.get("/signals/history/{ticker}", response_model=schemas.SignalSeries)
 def signal_history(ticker: str, session: SessionDep) -> schemas.SignalSeries:
     """The model's score trail for one ticker (newest model version per date)."""
     ticker = ticker.upper()
