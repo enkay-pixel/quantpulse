@@ -54,7 +54,11 @@ Stack decisions made with the owner (a data engineer who uses Airflow 3.2.2 at w
 ## Current model & data snapshot (as of 2026-07-19)
 
 - Universe: 50 tickers (40 stocks + 10 ETFs) in `configs/universe.yaml`; history from
-  2023-01-01 → 44,350 bars; 41,200 feature/prediction rows; 823 portfolio snapshots.
+  2018-01-02 → ~107k bars, ~104k feature/prediction rows, ~2,083 portfolio snapshots
+  (deepened from 2023+ on 2026-07-20 for multi-regime training). Over the full 8.5-year
+  window the replay strategy returns +20.5% (Sharpe 0.26) and clearly *underperforms*
+  SPY buy-and-hold — a more honest read than the shorter 2023+ window's +85%. Champion
+  v1 was trained on the earlier slice; the next weekly retrain picks up full history.
 - Champion: `quantpulse-lgbm` v1. Holdout (out-of-sample): IC 0.026, Sharpe 0.21,
   max DD −5.0%. Replay (in-sample, 823d): +85.63%, Sharpe 1.85, max DD −9.18%,
   win rate 55%. Signal quintiles (replay): avg next-day 24.9 / 8.3 / 6.3 / 5.3 / 0.4 bps

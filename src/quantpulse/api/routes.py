@@ -82,6 +82,26 @@ def prices(
     return schemas.PriceSeries(ticker=ticker, points=points)
 
 
+@router.get("/signals/{ticker}", response_model=schemas.SignalSeries)
+def signal_history(ticker: str, session: SessionDep) -> schemas.SignalSeries:
+    """The model's score trail for one ticker (newest model version per date)."""
+    ticker = ticker.upper()
+    rows = session.execute(
+        text(
+            "SELECT DISTINCT ON (date) date, score, model_version FROM predictions "
+            "WHERE ticker = :ticker ORDER BY date, model_version DESC"
+        ),
+        {"ticker": ticker},
+    ).all()
+    return schemas.SignalSeries(
+        ticker=ticker,
+        points=[
+            schemas.SignalPoint(date=r.date, score=r.score, model_version=r.model_version)
+            for r in rows
+        ],
+    )
+
+
 @router.get("/predictions/latest", response_model=schemas.PredictionsOut)
 def latest_predictions(session: SessionDep) -> schemas.PredictionsOut:
     latest_date = session.scalar(select(func.max(Prediction.date)))

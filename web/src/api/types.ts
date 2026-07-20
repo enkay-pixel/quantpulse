@@ -75,6 +75,17 @@ export interface DriftStatus {
   features: DriftFeature[];
 }
 
+export interface SignalPoint {
+  date: string;
+  score: number;
+  model_version: string;
+}
+
+export interface SignalSeries {
+  ticker: string;
+  points: SignalPoint[];
+}
+
 export interface PhaseStats {
   phase: "replay" | "live";
   n_days: number;

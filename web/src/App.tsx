@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
 import { DriftPanel } from "./components/DriftPanel";
+import { FreshnessStrip } from "./components/FreshnessStrip";
 import { ModelHistoryTable } from "./components/ModelHistoryTable";
 import { PositionsTable } from "./components/PositionsTable";
 import { PredictionsTable } from "./components/PredictionsTable";
@@ -184,6 +185,12 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {freshness.data ? (
+        <div className="mb-4">
+          <FreshnessStrip freshness={freshness.data} />
+        </div>
+      ) : null}
 
       <div className="mb-4">
         <Tabs tabs={TABS} active={tab} onSelect={setTab} />

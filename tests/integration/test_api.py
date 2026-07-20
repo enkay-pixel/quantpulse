@@ -111,6 +111,14 @@ def test_prices_with_window_and_404(client: TestClient) -> None:
     assert client.get("/prices/ZZZZ").status_code == 404
 
 
+def test_signal_history_series(client: TestClient) -> None:
+    body = client.get("/signals/aapl").json()
+    assert body["ticker"] == "AAPL"
+    assert len(body["points"]) == 1
+    assert body["points"][0]["score"] == pytest.approx(0.05)
+    assert client.get("/signals/ZZZZ").json()["points"] == []
+
+
 def test_latest_predictions_ranked(client: TestClient) -> None:
     body = client.get("/predictions/latest").json()
     assert body["date"] == str(DATES[-1])
