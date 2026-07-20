@@ -109,6 +109,21 @@ def _score(replay: bool) -> None:
     logger.info("Wrote %d predictions", n)
 
 
+def _options_snapshot() -> None:
+    from quantpulse.data.universe import active_tickers
+    from quantpulse.db import get_session
+    from quantpulse.options.ingest import snapshot_option_chains
+
+    with get_session() as session:
+        tickers = active_tickers(session)
+    if not tickers:
+        logger.error("Universe is empty — run `quantpulse sync-universe` first")
+        sys.exit(1)
+    with get_session() as session:
+        n = snapshot_option_chains(session, tickers)
+    logger.info("Wrote %d option quotes", n)
+
+
 def _quality(start: dt.date, end: dt.date) -> None:
     import pandas as pd
 
@@ -150,6 +165,7 @@ def main(argv: list[str] | None = None) -> None:
     quality.add_argument("--end", type=dt.date.fromisoformat, required=True)
 
     sub.add_parser("features", help="Compute and store features from ingested bars")
+    sub.add_parser("options-snapshot", help="Snapshot live option chains for the universe")
     sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
     score = sub.add_parser("score", help="Score features with the champion model")
     score.add_argument(
@@ -169,6 +185,8 @@ def main(argv: list[str] | None = None) -> None:
         _quality(args.start, args.end)
     elif args.command == "features":
         _features()
+    elif args.command == "options-snapshot":
+        _options_snapshot()
     elif args.command == "train":
         _train()
     elif args.command == "score":

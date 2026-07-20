@@ -129,3 +129,38 @@ class PortfolioSnapshot(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class OptionQuote(Base):
+    __tablename__ = "option_quotes"
+
+    snapshot_date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    expiry: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    strike: Mapped[float] = mapped_column(Float, primary_key=True)
+    option_type: Mapped[str] = mapped_column(String(4), primary_key=True)  # 'call' | 'put'
+
+    underlying_close: Mapped[float] = mapped_column(Float)
+    bid: Mapped[float | None] = mapped_column(Float)
+    ask: Mapped[float | None] = mapped_column(Float)
+    last_price: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[int] = mapped_column(BigInteger, default=0)
+    open_interest: Mapped[int] = mapped_column(BigInteger, default=0)
+    implied_volatility: Mapped[float] = mapped_column(Float)
+    in_the_money: Mapped[bool] = mapped_column(Boolean)
+
+    # Black-Scholes from market IV, computed at ingest time (quantpulse.options.pricing)
+    theo_value: Mapped[float] = mapped_column(Float)
+    delta: Mapped[float] = mapped_column(Float)
+    gamma: Mapped[float] = mapped_column(Float)
+    theta: Mapped[float] = mapped_column(Float)
+    vega: Mapped[float] = mapped_column(Float)
+
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("option_type IN ('call', 'put')", name="option_type_valid"),
+        Index("ix_option_quotes_ticker_date", "ticker", "snapshot_date"),
+    )
