@@ -51,3 +51,10 @@ export const usePrices = (ticker: string | null) =>
     queryFn: () => api.prices(ticker as string),
     enabled: ticker !== null,
   });
+
+export const useSignalHistory = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["signals", ticker],
+    queryFn: () => api.signalHistory(ticker as string),
+    enabled: ticker !== null,
+  });

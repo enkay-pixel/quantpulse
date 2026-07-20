@@ -10,6 +10,7 @@ import type {
   PriceSeries,
   Quintiles,
   Risk,
+  SignalSeries,
   TrackRecord,
   UniverseMember,
 } from "./types";
@@ -32,6 +33,8 @@ export const api = {
     getJson<PriceSeries>(
       `/prices/${encodeURIComponent(ticker)}${start ? `?start=${start}` : ""}`,
     ),
+  signalHistory: (ticker: string) =>
+    getJson<SignalSeries>(`/signals/${encodeURIComponent(ticker)}`),
   latestPredictions: () => getJson<Predictions>("/predictions/latest"),
   equityCurve: () => getJson<EquityCurve>("/portfolio/equity-curve"),
   currentModel: () => getJson<ModelInfo>("/models/current"),

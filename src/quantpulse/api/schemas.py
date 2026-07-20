@@ -80,6 +80,17 @@ class DriftStatus(BaseModel):
     features: list[DriftFeatureOut]
 
 
+class SignalPoint(BaseModel):
+    date: dt.date
+    score: float
+    model_version: str
+
+
+class SignalSeries(BaseModel):
+    ticker: str
+    points: list[SignalPoint]
+
+
 class PhaseStats(BaseModel):
     phase: str  # 'replay' (in-sample) | 'live' (out-of-sample)
     n_days: int
