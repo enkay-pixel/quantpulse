@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     quantpulse_universe_file: Path = Path("configs/universe.yaml")
     quantpulse_history_start: str = "2018-01-01"
 
+    # Options snapshot bounds (keep yfinance calls + row volume sane)
+    quantpulse_option_expiries: int = 6  # nearest N expiries per ticker
+    quantpulse_option_moneyness: float = 0.2  # keep strikes within ±20% of spot
+    quantpulse_risk_free_rate: float = 0.04  # for Black-Scholes Greeks
+
 
 @lru_cache
 def get_settings() -> Settings:
