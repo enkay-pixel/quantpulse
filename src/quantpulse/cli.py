@@ -119,8 +119,7 @@ def _options_snapshot() -> None:
     if not tickers:
         logger.error("Universe is empty — run `quantpulse sync-universe` first")
         sys.exit(1)
-    with get_session() as session:
-        n = snapshot_option_chains(session, tickers)
+    n = snapshot_option_chains(get_session, tickers)
     logger.info("Wrote %d option quotes", n)
 
 

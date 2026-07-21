@@ -133,8 +133,7 @@ def option_chains() -> dg.MaterializeResult:
 
     with get_session() as session:
         tickers = active_tickers(session)
-    with get_session() as session:
-        rows = snapshot_option_chains(session, tickers)
+    rows = snapshot_option_chains(get_session, tickers)  # commits per ticker
     return dg.MaterializeResult(metadata={"quotes": rows, "tickers": len(tickers)})
 
 
