@@ -12,6 +12,7 @@ from quantpulse.api.deps import engine_dep, session_dep
 from quantpulse.db import (
     DriftMetric,
     ModelRun,
+    OptionQuote,
     PortfolioSnapshot,
     Prediction,
     Price,
@@ -80,6 +81,198 @@ def prices(
         for r in rows
     ]
     return schemas.PriceSeries(ticker=ticker, points=points)
+
+
+@router.get("/options/{ticker}/summary", response_model=schemas.OptionSummary)
+def option_summary(ticker: str, session: SessionDep) -> schemas.OptionSummary:
+    """ATM IV + put/call ratio for the latest snapshot (empty before the first run)."""
+    ticker = ticker.upper()
+    rows = _mart_rows(
+        session,
+        "SELECT ticker, snapshot_date, atm_iv, atm_days, put_call_ratio, call_oi, put_oi, "
+        "n_contracts FROM analytics.fct_option_summary WHERE ticker = :ticker "
+        "ORDER BY snapshot_date DESC LIMIT 1",
+        {"ticker": ticker},
+    )
+    latest = dict(rows[0]) if rows else {}
+    expiries = _mart_rows(
+        session,
+        "SELECT DISTINCT expiry FROM analytics.stg_option_quotes WHERE ticker = :ticker "
+        "AND snapshot_date = (SELECT max(snapshot_date) FROM analytics.stg_option_quotes "
+        "WHERE ticker = :ticker) ORDER BY expiry",
+        {"ticker": ticker},
+    )
+    spot = session.scalar(
+        select(OptionQuote.underlying_close)
+        .where(OptionQuote.ticker == ticker)
+        .order_by(OptionQuote.snapshot_date.desc())
+        .limit(1)
+    )
+    return schemas.OptionSummary(
+        ticker=ticker,
+        snapshot_date=latest.get("snapshot_date"),
+        underlying_close=spot,
+        atm_iv=latest.get("atm_iv"),
+        atm_days=latest.get("atm_days"),
+        put_call_ratio=latest.get("put_call_ratio"),
+        call_oi=latest.get("call_oi"),
+        put_oi=latest.get("put_oi"),
+        n_contracts=latest.get("n_contracts"),
+        expiries=[r["expiry"] for r in expiries or []],
+    )
+
+
+@router.get("/options/{ticker}/chain", response_model=schemas.OptionChainOut)
+def option_chain(
+    ticker: str,
+    session: SessionDep,
+    expiry: Annotated[dt.date | None, Query()] = None,
+) -> schemas.OptionChainOut:
+    """Latest snapshot's chain with Greeks; defaults to the nearest expiry."""
+    ticker = ticker.upper()
+    snapshot = session.scalar(
+        select(func.max(OptionQuote.snapshot_date)).where(OptionQuote.ticker == ticker)
+    )
+    if snapshot is None:
+        return schemas.OptionChainOut(
+            ticker=ticker, snapshot_date=None, expiry=None, underlying_close=None, contracts=[]
+        )
+    if expiry is None:
+        expiry = session.scalar(
+            select(func.min(OptionQuote.expiry)).where(
+                OptionQuote.ticker == ticker, OptionQuote.snapshot_date == snapshot
+            )
+        )
+    rows = session.scalars(
+        select(OptionQuote)
+        .where(
+            OptionQuote.ticker == ticker,
+            OptionQuote.snapshot_date == snapshot,
+            OptionQuote.expiry == expiry,
+        )
+        .order_by(OptionQuote.strike, OptionQuote.option_type)
+    ).all()
+    return schemas.OptionChainOut(
+        ticker=ticker,
+        snapshot_date=snapshot,
+        expiry=expiry,
+        underlying_close=rows[0].underlying_close if rows else None,
+        contracts=[
+            schemas.OptionContract(
+                expiry=r.expiry,
+                strike=r.strike,
+                option_type=r.option_type,
+                bid=r.bid,
+                ask=r.ask,
+                last_price=r.last_price,
+                volume=r.volume,
+                open_interest=r.open_interest,
+                implied_volatility=r.implied_volatility,
+                in_the_money=r.in_the_money,
+                theo_value=r.theo_value,
+                delta=r.delta,
+                gamma=r.gamma,
+                theta=r.theta,
+                vega=r.vega,
+            )
+            for r in rows
+        ],
+    )
+
+
+@router.get("/options/{ticker}/idea", response_model=schemas.OptionIdeaOut)
+def option_idea(ticker: str, session: SessionDep) -> schemas.OptionIdeaOut:
+    """Tier 2: a HYPOTHETICAL structure expressing the model's signal. Not advice."""
+    from quantpulse.options.strategy import ChainRow, build_idea
+
+    ticker = ticker.upper()
+    empty = schemas.OptionIdeaOut(
+        ticker=ticker,
+        available=False,
+        signal=None,
+        direction=None,
+        structure=None,
+        rationale=None,
+        expiry=None,
+        legs=[],
+        net_debit=None,
+        max_profit=None,
+        max_loss=None,
+        breakeven=None,
+    )
+
+    latest_pred_date = session.scalar(select(func.max(Prediction.date)))
+    score = session.scalar(
+        select(Prediction.score)
+        .where(Prediction.ticker == ticker, Prediction.date == latest_pred_date)
+        .order_by(Prediction.model_version.desc())
+        .limit(1)
+    )
+    snapshot = session.scalar(
+        select(func.max(OptionQuote.snapshot_date)).where(OptionQuote.ticker == ticker)
+    )
+    if score is None or snapshot is None:
+        return empty
+
+    # Prefer the nearest expiry ~2 weeks out so the 21d view has time to play out;
+    # if the snapshot only holds short-dated weeklies, fall back to the longest one.
+    expiry = session.scalar(
+        select(func.min(OptionQuote.expiry)).where(
+            OptionQuote.ticker == ticker,
+            OptionQuote.snapshot_date == snapshot,
+            OptionQuote.expiry >= snapshot + dt.timedelta(days=14),
+        )
+    ) or session.scalar(
+        select(func.max(OptionQuote.expiry)).where(
+            OptionQuote.ticker == ticker, OptionQuote.snapshot_date == snapshot
+        )
+    )
+    if expiry is None:
+        return empty
+
+    quotes = session.scalars(
+        select(OptionQuote).where(
+            OptionQuote.ticker == ticker,
+            OptionQuote.snapshot_date == snapshot,
+            OptionQuote.expiry == expiry,
+        )
+    ).all()
+    if not quotes:
+        return empty
+
+    spot = quotes[0].underlying_close
+    chain_rows = [
+        ChainRow(
+            strike=q.strike,
+            option_type=q.option_type,
+            # mid when quotable, else the model's theoretical value
+            price=((q.bid + q.ask) / 2 if q.bid and q.ask else q.theo_value),
+        )
+        for q in quotes
+    ]
+    idea = build_idea(float(score), spot, chain_rows)
+    if idea is None:
+        return schemas.OptionIdeaOut(**{**empty.model_dump(), "signal": float(score)})
+
+    return schemas.OptionIdeaOut(
+        ticker=ticker,
+        available=True,
+        signal=float(score),
+        direction=idea.direction,
+        structure=idea.structure,
+        rationale=idea.rationale,
+        expiry=expiry,
+        legs=[
+            schemas.OptionLegOut(
+                action=leg.action, option_type=leg.option_type, strike=leg.strike, price=leg.price
+            )
+            for leg in idea.legs
+        ],
+        net_debit=idea.net_debit,
+        max_profit=idea.max_profit,
+        max_loss=idea.max_loss,
+        breakeven=idea.breakeven,
+    )
 
 
 # Explicit /history/ segment so this never shadows static /signals/* routes.

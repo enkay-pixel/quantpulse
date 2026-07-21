@@ -114,7 +114,7 @@ def evidence_client(test_db_url: str) -> Iterator[TestClient]:
         conn.execute(
             text(
                 "TRUNCATE prices, features, predictions, model_runs, drift_metrics, "
-                "portfolio_snapshots, universe RESTART IDENTITY CASCADE"
+                "portfolio_snapshots, option_quotes, universe RESTART IDENTITY CASCADE"
             )
         )
     _seed(engine)
