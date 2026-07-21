@@ -52,6 +52,27 @@ export const usePrices = (ticker: string | null) =>
     enabled: ticker !== null,
   });
 
+export const useOptionSummary = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["option-summary", ticker],
+    queryFn: () => api.optionSummary(ticker as string),
+    enabled: ticker !== null,
+  });
+
+export const useOptionChain = (ticker: string | null, expiry?: string) =>
+  useQuery({
+    queryKey: ["option-chain", ticker, expiry ?? null],
+    queryFn: () => api.optionChain(ticker as string, expiry),
+    enabled: ticker !== null,
+  });
+
+export const useOptionIdea = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["option-idea", ticker],
+    queryFn: () => api.optionIdea(ticker as string),
+    enabled: ticker !== null,
+  });
+
 export const useSignalHistory = (ticker: string | null) =>
   useQuery({
     queryKey: ["signals", ticker],
