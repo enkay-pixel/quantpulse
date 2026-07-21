@@ -50,7 +50,7 @@ def db_engine(test_db_url: str) -> Iterator[Engine]:
         conn.execute(
             text(
                 "TRUNCATE prices, features, predictions, model_runs, drift_metrics, "
-                "portfolio_snapshots, universe RESTART IDENTITY CASCADE"
+                "portfolio_snapshots, option_quotes, universe RESTART IDENTITY CASCADE"
             )
         )
     yield engine

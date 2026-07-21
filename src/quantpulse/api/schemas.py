@@ -80,6 +80,69 @@ class DriftStatus(BaseModel):
     features: list[DriftFeatureOut]
 
 
+class OptionSummary(BaseModel):
+    ticker: str
+    snapshot_date: dt.date | None
+    underlying_close: float | None
+    atm_iv: float | None
+    atm_days: int | None
+    put_call_ratio: float | None
+    call_oi: int | None
+    put_oi: int | None
+    n_contracts: int | None
+    expiries: list[dt.date]
+
+
+class OptionContract(BaseModel):
+    expiry: dt.date
+    strike: float
+    option_type: str
+    bid: float | None
+    ask: float | None
+    last_price: float | None
+    volume: int
+    open_interest: int
+    implied_volatility: float
+    in_the_money: bool
+    theo_value: float
+    delta: float
+    gamma: float
+    theta: float
+    vega: float
+
+
+class OptionChainOut(BaseModel):
+    ticker: str
+    snapshot_date: dt.date | None
+    expiry: dt.date | None
+    underlying_close: float | None
+    contracts: list[OptionContract]
+
+
+class OptionLegOut(BaseModel):
+    action: str
+    option_type: str
+    strike: float
+    price: float
+
+
+class OptionIdeaOut(BaseModel):
+    """A HYPOTHETICAL illustration of the model's directional view — not advice."""
+
+    ticker: str
+    available: bool
+    signal: float | None
+    direction: str | None
+    structure: str | None
+    rationale: str | None
+    expiry: dt.date | None
+    legs: list[OptionLegOut]
+    net_debit: float | None
+    max_profit: float | None
+    max_loss: float | None
+    breakeven: float | None
+
+
 class SignalPoint(BaseModel):
     date: dt.date
     score: float

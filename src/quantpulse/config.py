@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     quantpulse_history_start: str = "2018-01-01"
 
     # Options snapshot bounds (keep yfinance calls + row volume sane)
-    quantpulse_option_expiries: int = 6  # nearest N expiries per ticker
+    # Nearest N expiries per ticker. 10 reaches past the weeklies to the monthlies so
+    # the 21-day model horizon has a matching expiry.
+    quantpulse_option_expiries: int = 10
     quantpulse_option_moneyness: float = 0.2  # keep strikes within ±20% of spot
     quantpulse_risk_free_rate: float = 0.04  # for Black-Scholes Greeks
 
