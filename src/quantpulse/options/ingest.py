@@ -5,6 +5,8 @@ what *builds* our options history — one snapshot per run, accumulating going f
 
 import datetime as dt
 import logging
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 
 import pandas as pd
 import yfinance as yf
@@ -133,16 +135,45 @@ def dedupe_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     return list(best.values())
 
 
-def snapshot_option_chains(
-    session: Session, tickers: list[str], snapshot_date: dt.date | None = None
-) -> int:
-    """Fetch, enrich, and upsert one option-chain snapshot for `tickers`. Returns rows written.
+def upsert_quotes(session: Session, rows: list[dict[str, object]]) -> int:
+    """Idempotent upsert of option quotes (deduped on the primary key first)."""
+    if not rows:
+        return 0
+    deduped = dedupe_rows(rows)
+    if len(deduped) != len(rows):
+        logger.info("Dropped %d duplicate contracts (adjusted)", len(rows) - len(deduped))
 
-    Per-ticker failures are logged and skipped so one bad symbol can't sink the run.
+    updatable = [c for c in QUOTE_COLUMNS if c not in _PK_COLUMNS]
+    for chunk in chunked(deduped):
+        stmt = pg_insert(OptionQuote).values(list(chunk))
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[
+                OptionQuote.snapshot_date,
+                OptionQuote.ticker,
+                OptionQuote.expiry,
+                OptionQuote.strike,
+                OptionQuote.option_type,
+            ],
+            set_={c: getattr(stmt.excluded, c) for c in updatable},
+        )
+        session.execute(stmt)
+    return len(deduped)
+
+
+def snapshot_option_chains(
+    session_factory: Callable[[], AbstractContextManager[Session]],
+    tickers: list[str],
+    snapshot_date: dt.date | None = None,
+) -> int:
+    """Fetch, enrich, and upsert an option-chain snapshot, COMMITTING PER TICKER.
+
+    A full universe takes ~10 minutes of network calls; committing per ticker means an
+    interruption (timeout, crash, rate limit) keeps everything already fetched and the
+    run is simply resumable. Per-ticker failures are logged and skipped.
     """
     settings = get_settings()
     snapshot_date = snapshot_date or dt.date.today()
-    all_rows: list[dict[str, object]] = []
+    total = 0
     for ticker in tickers:
         try:
             spot, chains = _fetch_ticker_chain(ticker, settings.quantpulse_option_expiries)
@@ -160,34 +191,17 @@ def snapshot_option_chains(
             settings.quantpulse_option_moneyness,
             settings.quantpulse_risk_free_rate,
         )
-        all_rows.extend(rows)
-        logger.info("%s: %d option quotes", ticker, len(rows))
+        try:
+            with session_factory() as session:  # one transaction per ticker
+                written = upsert_quotes(session, rows)
+        except Exception:
+            logger.warning("Option quote upsert failed for %s", ticker, exc_info=True)
+            continue
+        total += written
+        logger.info("%s: %d option quotes", ticker, written)
 
-    if not all_rows:
-        logger.warning("No option quotes collected for %s", snapshot_date)
-        return 0
-
-    deduped = dedupe_rows(all_rows)
-    if len(deduped) != len(all_rows):
-        logger.info("Dropped %d duplicate contracts (adjusted)", len(all_rows) - len(deduped))
-    all_rows = deduped
-
-    updatable = [c for c in QUOTE_COLUMNS if c not in _PK_COLUMNS]
-    for chunk in chunked(all_rows):
-        stmt = pg_insert(OptionQuote).values(list(chunk))
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[
-                OptionQuote.snapshot_date,
-                OptionQuote.ticker,
-                OptionQuote.expiry,
-                OptionQuote.strike,
-                OptionQuote.option_type,
-            ],
-            set_={c: getattr(stmt.excluded, c) for c in updatable},
-        )
-        session.execute(stmt)
-    logger.info("Snapshot %s: wrote %d option quotes", snapshot_date, len(all_rows))
-    return len(all_rows)
+    logger.info("Snapshot %s: wrote %d option quotes", snapshot_date, total)
+    return total
 
 
 def latest_snapshot_date(engine: Engine) -> dt.date | None:
