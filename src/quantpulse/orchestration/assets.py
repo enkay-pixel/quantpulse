@@ -137,6 +137,33 @@ def option_chains() -> dg.MaterializeResult:
     return dg.MaterializeResult(metadata={"quotes": rows, "tickers": len(tickers)})
 
 
+@dg.asset_check(asset=option_chains, blocking=False)
+def option_snapshot_quality() -> dg.AssetCheckResult:
+    """Guard the options dataset: coverage, plausible IV (catches stale/pre-market
+    snapshots), traded contracts present, and no missing Greeks."""
+    import pandas as pd
+
+    from quantpulse.data.quality import failed_checks
+    from quantpulse.data.universe import active_tickers
+    from quantpulse.options.quality import run_option_quality_checks
+
+    with get_session() as session:
+        n_tickers = len(active_tickers(session))
+    quotes = pd.read_sql(
+        "SELECT ticker, implied_volatility, open_interest, delta, gamma, theta, vega, "
+        "theo_value FROM option_quotes WHERE snapshot_date = "
+        "(SELECT max(snapshot_date) FROM option_quotes)",
+        get_engine(),
+    )
+    results = run_option_quality_checks(quotes, n_tickers)
+    return dg.AssetCheckResult(
+        passed=not failed_checks(results),
+        metadata={
+            r.name: dg.MetadataValue.json({"passed": bool(r.passed), **r.details}) for r in results
+        },
+    )
+
+
 @dg.asset(group_name="training", kinds={"python", "mlflow"}, op_tags={"compute": "heavy"})
 def champion_model() -> dg.MaterializeResult:
     """Train a challenger, evaluate on holdout backtest, promote if it beats the champion."""
