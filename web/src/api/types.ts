@@ -164,6 +164,22 @@ export interface TrackRecord {
   phases: PhaseStats[];
 }
 
+export interface AlphaBetaStats {
+  phase: "replay" | "live";
+  n_days: number;
+  beta: number | null;
+  alpha_daily: number | null;
+  alpha_annualized: number | null;
+  r_squared: number | null;
+  correlation: number | null;
+  tracking_error: number | null;
+  information_ratio: number | null;
+}
+
+export interface AlphaBeta {
+  phases: AlphaBetaStats[];
+}
+
 export interface QuintileStat {
   signal_quintile: number;
   n_days: number;

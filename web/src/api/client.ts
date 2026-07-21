@@ -1,4 +1,5 @@
 import type {
+  AlphaBeta,
   DriftStatus,
   EquityCurve,
   Freshness,
@@ -42,6 +43,7 @@ export const api = {
   equityCurve: () => getJson<EquityCurve>("/portfolio/equity-curve"),
   currentModel: () => getJson<ModelInfo>("/models/current"),
   latestDrift: () => getJson<DriftStatus>("/drift/latest"),
+  alphaBeta: () => getJson<AlphaBeta>("/portfolio/alpha-beta"),
   freshness: () => getJson<Freshness>("/freshness"),
   trackRecord: () => getJson<TrackRecord>("/track-record"),
   quintiles: () => getJson<Quintiles>("/signals/quintiles"),

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { AlphaBetaCard } from "./components/AlphaBetaCard";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
 import { DriftPanel } from "./components/DriftPanel";
 import { FreshnessStrip } from "./components/FreshnessStrip";
@@ -16,6 +17,7 @@ import { StatCard } from "./components/StatCard";
 import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
 import {
+  useAlphaBeta,
   useCurrentModel,
   useDrift,
   useEquityCurve,
@@ -143,9 +145,15 @@ function OverviewTab() {
 function EvidenceTab() {
   const quintiles = useQuintiles();
   const risk = useRisk();
+  const alphaBeta = useAlphaBeta();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <div className="lg:col-span-2">
+        <Section title="Market exposure vs genuine skill (CAPM decomposition)">
+          {alphaBeta.data ? <AlphaBetaCard data={alphaBeta.data} /> : <Placeholder height="h-32" />}
+        </Section>
+      </div>
       <Section title="Does the ranking work? Signal quintiles vs next-day returns">
         {quintiles.data ? <QuintileChart quintiles={quintiles.data} /> : <Placeholder height="h-56" />}
       </Section>
