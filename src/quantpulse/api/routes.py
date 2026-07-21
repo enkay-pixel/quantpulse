@@ -369,6 +369,18 @@ def track_record(session: SessionDep) -> schemas.TrackRecord:
     )
 
 
+@router.get("/portfolio/alpha-beta", response_model=schemas.AlphaBetaOut)
+def alpha_beta(session: SessionDep) -> schemas.AlphaBetaOut:
+    """Market exposure vs market-independent return — the fair read on a long/short book."""
+    rows = _mart_rows(
+        session,
+        "SELECT phase, n_days, beta, alpha_daily, alpha_annualized, r_squared, "
+        "correlation, tracking_error, information_ratio "
+        "FROM analytics.fct_alpha_beta ORDER BY phase",
+    )
+    return schemas.AlphaBetaOut(phases=[schemas.AlphaBetaStats(**dict(r)) for r in rows or []])
+
+
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
 def signal_quintiles(session: SessionDep) -> schemas.QuintilesOut:
     overall = _mart_rows(

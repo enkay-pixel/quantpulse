@@ -171,6 +171,24 @@ class TrackRecord(BaseModel):
     phases: list[PhaseStats]
 
 
+class AlphaBetaStats(BaseModel):
+    """CAPM decomposition vs the benchmark for one evidence phase."""
+
+    phase: str
+    n_days: int
+    beta: float | None
+    alpha_daily: float | None
+    alpha_annualized: float | None
+    r_squared: float | None
+    correlation: float | None
+    tracking_error: float | None
+    information_ratio: float | None
+
+
+class AlphaBetaOut(BaseModel):
+    phases: list[AlphaBetaStats]
+
+
 class QuintileStat(BaseModel):
     signal_quintile: int
     n_days: int

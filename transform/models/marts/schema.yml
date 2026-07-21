@@ -92,6 +92,23 @@ models:
               arguments:
                 expression: "between 0 and 1"
 
+  - name: fct_alpha_beta
+    description: >
+      CAPM decomposition vs SPY per evidence phase: beta (market exposure — a
+      market-neutral book should sit near 0), annualized alpha (return earned
+      independently of the market), R², tracking error, and information ratio. This is
+      the fair read on a long/short strategy; raw return vs SPY is not.
+    columns:
+      - name: phase
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["replay", "live"]
+      - name: n_days
+        tests: [not_null]
+
   - name: fct_option_summary
     description: >
       Per-(ticker, snapshot) option-market read: ATM implied volatility and the

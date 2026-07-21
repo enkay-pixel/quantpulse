@@ -2,6 +2,10 @@ name: quantpulse
 version: "1.0.0"
 profile: quantpulse
 
+vars:
+  # Annualized risk-free rate used for CAPM excess returns (fct_alpha_beta).
+  risk_free_rate: 0.04
+
 model-paths: ["models"]
 test-paths: ["tests"]
 macro-paths: ["macros"]
