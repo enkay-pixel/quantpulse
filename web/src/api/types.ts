@@ -75,6 +75,67 @@ export interface DriftStatus {
   features: DriftFeature[];
 }
 
+export interface OptionSummary {
+  ticker: string;
+  snapshot_date: string | null;
+  underlying_close: number | null;
+  atm_iv: number | null;
+  atm_days: number | null;
+  put_call_ratio: number | null;
+  call_oi: number | null;
+  put_oi: number | null;
+  n_contracts: number | null;
+  expiries: string[];
+}
+
+export interface OptionContract {
+  expiry: string;
+  strike: number;
+  option_type: "call" | "put";
+  bid: number | null;
+  ask: number | null;
+  last_price: number | null;
+  volume: number;
+  open_interest: number;
+  implied_volatility: number;
+  in_the_money: boolean;
+  theo_value: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+}
+
+export interface OptionChain {
+  ticker: string;
+  snapshot_date: string | null;
+  expiry: string | null;
+  underlying_close: number | null;
+  contracts: OptionContract[];
+}
+
+export interface OptionLeg {
+  action: string;
+  option_type: string;
+  strike: number;
+  price: number;
+}
+
+export interface OptionIdea {
+  ticker: string;
+  available: boolean;
+  signal: number | null;
+  direction: string | null;
+  structure: string | null;
+  rationale: string | null;
+  expiry: string | null;
+  legs: OptionLeg[];
+  net_debit: number | null;
+  max_profit: number | null;
+  max_loss: number | null;
+  breakeven: number | null;
+}
+
 export interface SignalPoint {
   date: string;
   score: number;

@@ -3,7 +3,10 @@ import { useState } from "react";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
 import { DriftPanel } from "./components/DriftPanel";
 import { FreshnessStrip } from "./components/FreshnessStrip";
+import { IvSkewChart } from "./components/IvSkewChart";
 import { ModelHistoryTable } from "./components/ModelHistoryTable";
+import { OptionChainTable } from "./components/OptionChainTable";
+import { OptionIdeaCard } from "./components/OptionIdeaCard";
 import { PositionsTable } from "./components/PositionsTable";
 import { PredictionsTable } from "./components/PredictionsTable";
 import { PriceChart } from "./components/PriceChart";
@@ -19,6 +22,9 @@ import {
   useFreshness,
   useHealth,
   useModelHistory,
+  useOptionChain,
+  useOptionIdea,
+  useOptionSummary,
   usePositions,
   usePredictions,
   useQuintiles,
@@ -28,7 +34,7 @@ import {
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "./lib/format";
 
-const TABS = ["Overview", "Evidence", "Model & Book"];
+const TABS = ["Overview", "Evidence", "Options", "Model & Book"];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -150,6 +156,91 @@ function EvidenceTab() {
   );
 }
 
+function OptionsTab() {
+  const predictions = usePredictions();
+  const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];
+  const rotation = useRotatingTicker(tickers);
+  const ticker = rotation.ticker;
+
+  const summary = useOptionSummary(ticker);
+  const chain = useOptionChain(ticker);
+  const idea = useOptionIdea(ticker);
+
+  return (
+    <>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+          Ticker
+          <select
+            value={ticker ?? ""}
+            onChange={(e) => rotation.pin(e.target.value)}
+            className="card px-2 py-1 text-sm"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {tickers.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {ticker ? (
+            <>
+              {rotation.isPinned ? "Pinned — rotation resumes shortly." : "Auto-rotating."} Chains
+              are daily snapshots (no free history exists, so this dataset builds forward from
+              the first run).
+            </>
+          ) : (
+            "Signals load momentarily…"
+          )}
+        </p>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard
+          label="ATM implied vol"
+          value={formatPercent(summary.data?.atm_iv)}
+          sub={
+            summary.data?.atm_days !== null && summary.data?.atm_days !== undefined
+              ? `${summary.data.atm_days}d to expiry`
+              : "awaiting snapshot"
+          }
+        />
+        <StatCard
+          label="Put/call ratio"
+          value={formatNumber(summary.data?.put_call_ratio)}
+          sub=">1 = more put open interest"
+        />
+        <StatCard
+          label="Contracts captured"
+          value={summary.data?.n_contracts ? String(summary.data.n_contracts) : "—"}
+          sub={summary.data?.snapshot_date ? `as of ${formatDate(summary.data.snapshot_date)}` : "—"}
+        />
+        <StatCard
+          label="Underlying"
+          value={
+            summary.data?.underlying_close ? `$${formatNumber(summary.data.underlying_close)}` : "—"
+          }
+          sub={ticker ?? "—"}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Section title="Volatility smile / skew">
+          {chain.data ? <IvSkewChart chain={chain.data} /> : <Placeholder height="h-56" />}
+        </Section>
+        <Section title="If the model's view were expressed in options">
+          {idea.data ? <OptionIdeaCard idea={idea.data} /> : <Placeholder height="h-56" />}
+        </Section>
+        <Section title={`Chain with Greeks${chain.data?.expiry ? ` — ${chain.data.expiry}` : ""}`}>
+          {chain.data ? <OptionChainTable chain={chain.data} /> : <Placeholder height="h-40" />}
+        </Section>
+      </div>
+    </>
+  );
+}
+
 function ModelTab() {
   const history = useModelHistory();
   const positions = usePositions();
@@ -203,6 +294,7 @@ export default function App() {
 
       {tab === "Overview" ? <OverviewTab /> : null}
       {tab === "Evidence" ? <EvidenceTab /> : null}
+      {tab === "Options" ? <OptionsTab /> : null}
       {tab === "Model & Book" ? <ModelTab /> : null}
     </div>
   );

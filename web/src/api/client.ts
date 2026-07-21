@@ -5,6 +5,9 @@ import type {
   Health,
   ModelInfo,
   ModelRunEntry,
+  OptionChain,
+  OptionIdea,
+  OptionSummary,
   Positions,
   Predictions,
   PriceSeries,
@@ -45,4 +48,12 @@ export const api = {
   risk: () => getJson<Risk>("/portfolio/risk"),
   positions: () => getJson<Positions>("/portfolio/positions"),
   modelHistory: () => getJson<ModelRunEntry[]>("/models/history"),
+  optionSummary: (ticker: string) =>
+    getJson<OptionSummary>(`/options/${encodeURIComponent(ticker)}/summary`),
+  optionChain: (ticker: string, expiry?: string) =>
+    getJson<OptionChain>(
+      `/options/${encodeURIComponent(ticker)}/chain${expiry ? `?expiry=${expiry}` : ""}`,
+    ),
+  optionIdea: (ticker: string) =>
+    getJson<OptionIdea>(`/options/${encodeURIComponent(ticker)}/idea`),
 };
