@@ -76,6 +76,28 @@ Note: yfinance returns a *partial* bar for the current session during market hou
 intraday ingest stores a mid-session price. The scheduled post-close run upserts the true
 close over it — self-healing, no action needed.
 
+## Checking whether costs would kill the strategy
+
+```bash
+quantpulse sensitivity
+```
+
+Sweeps the backtest across round-trip trading cost and annualized short-borrow rate,
+printing annual return / Sharpe / max drawdown per combination plus the breakeven
+round-trip cost. Shorting is charged a borrow fee (default 1%/yr on the short leg) —
+it was previously modeled as free.
+
+Read the output with the caveat in [roadmap.md](roadmap.md): replay scoring covers the
+champion's own training window, so the figures are largely in-sample.
+
+## Options snapshot quality
+
+The `option_snapshot_quality` asset check runs with `option_chains` and fails the
+snapshot when ticker coverage is thin, median IV among *traded* contracts is implausible
+(the pre-market staleness signature), no contracts carry open interest, or Greeks are
+missing. Non-blocking — it flags rather than halts, since a partial snapshot is still
+worth keeping. See it in the Dagster UI under the asset's checks.
+
 ## Troubleshooting
 
 - **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait for the whale icon, retry `make up`.

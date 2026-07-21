@@ -45,6 +45,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `cd web && npm run lint && npm run test && npm run build` · `make dbt-build`.
 - Stack: `make up` / `make down` (docker compose; Docker Desktop must be running).
 - First-run seed on empty DB: `make bootstrap`.
+- Analysis: `quantpulse sensitivity` sweeps backtest cost x short-borrow and reports the
+  breakeven round-trip cost. Note the open horizon-mismatch finding in docs/roadmap.md
+  (21-day model signal vs daily paper-book rebalancing) — resolve before tuning anything.
+- Options snapshots are guarded by the `option_snapshot_quality` asset check (coverage,
+  plausible median IV among traded contracts, Greeks present).
 - Ports: Dagster 3000 · MLflow **5001** (AirPlay owns 5000; in-network mlflow:5000) ·
   API 8000 · dashboard 8080 · Postgres 5432 (DB `market`, creds in `.env`).
 

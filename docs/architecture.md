@@ -42,6 +42,10 @@ per ticker into `option_quotes`, enriching each contract with Black-Scholes Gree
 into `fct_option_summary` (ATM IV, put/call ratio) and `fct_iv_surface` (mean IV by
 expiry and moneyness bucket — the smile/skew and term structure).
 
+Snapshots are guarded by the `option_snapshot_quality` asset check (`options/quality.py`):
+ticker coverage, plausible median IV among *traded* contracts — the signature that
+catches stale/pre-market feeds — traded contracts present, and Greeks non-null.
+
 **Tier 2** (`options/strategy.py`) translates the equity model's 21-day forecast into a
 *hypothetical* defined-risk structure (bull call / bear put spread) with cost, max
 profit/loss and breakeven. It is an illustration of the model's directional view — never
@@ -57,6 +61,15 @@ construction, so trailing the index in a bull run says nothing about skill. Beta
 "how much of this is just the market?" and alpha answers "what does the signal actually
 add?". Served at `/portfolio/alpha-beta`; the Evidence tab renders it with a plain-English
 verdict, and switches from the replay to the live phase once ~20 live days exist.
+
+## Cost realism
+
+`ml/backtest.py` charges commission, slippage, *and* an annualized borrow fee on the
+short leg (shorting is not free). `ml/sensitivity.py` sweeps both dimensions so results
+are reported as a range rather than one optimistic number, and computes the breakeven
+round-trip cost — exposed via `quantpulse sensitivity`. The first run showed costs are
+not the binding constraint here; see the horizon-mismatch finding in
+[roadmap.md](roadmap.md).
 
 ## Reliability: alerts and catch-up
 
