@@ -43,6 +43,19 @@ The trained model **files** (pickled LightGBM boosters) are not in Postgres — 
 | Re-run a slice of ingestion | Dagster UI → Assets → `raw_prices` → Materialize with a partition range (backfill) |
 | Force a retrain | Dagster UI → Jobs → training job → Launch run |
 
+## Options snapshots: run them after the close
+
+Yahoo's implied-volatility field is only trustworthy when the market has been trading.
+Measured on the same universe: a snapshot taken after the close averaged **33% ATM IV**
+(range 11–52%, realistic), while one taken pre-market at ~3:30am ET averaged **2.1%**
+(range 1.6–6.3%, junk — stale contracts with no recent trades). The scheduled pipeline
+runs post-close, which is correct; avoid drawing conclusions from ad-hoc overnight runs.
+Because the grain includes `snapshot_date`, a later same-day run simply overwrites the
+bad rows.
+
+A full 50-ticker snapshot takes ~10 minutes (500 network calls). It commits per ticker,
+so interrupting it is safe and it can simply be re-run.
+
 ## Troubleshooting
 
 - **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait for the whale icon, retry `make up`.
