@@ -11,6 +11,35 @@ A local-first MLOps platform for a **self-adapting ML investing model**. Fully f
 
 ![QuantPulse dashboard](docs/assets/dashboard.png)
 
+<details>
+<summary><b>More screenshots</b> — Evidence, Options, and Model &amp; Book tabs</summary>
+
+### Evidence — does the model actually have skill?
+
+![Evidence tab](docs/assets/evidence-tab.png)
+
+The CAPM decomposition is the headline: **beta −0.05 and R² 0.006 confirm the book is
+genuinely market-neutral**, so comparing its raw return to SPY was never the right test.
+What matters is alpha — currently **−0.56% annualized**, i.e. the signal adds nothing
+independent of the market over this window. Below it, signal quintiles still slope the
+right way (Q1 highest → Q5 lowest: real ranking skill, modest in size) alongside drawdown
+and rolling Sharpe.
+
+### Options — implied volatility, Greeks, and a hypothetical expression of the signal
+
+![Options tab](docs/assets/options-tab.png)
+
+The volatility smile is built from **out-of-the-money contracts with open interest only** —
+deep in-the-money options barely trade, so their quoted IV is stale noise that would
+otherwise spike both wings past 150%. The right-hand card translates the model's
+directional view into a defined-risk spread, clearly labelled as illustration, never advice.
+
+### Model &amp; Book — every champion/challenger decision, and the current paper positions
+
+![Model and book tab](docs/assets/model-book-tab.png)
+
+</details>
+
 ## What it does
 
 ```mermaid
@@ -35,6 +64,8 @@ flowchart LR
 - **Self-adapting model** — LightGBM forward-return model retrained weekly *and* whenever feature drift is detected; a challenger only replaces the champion if it wins on an out-of-sample backtest.
 - **Transforms** — a dbt project ([transform/](transform/)) builds staging views and analytics marts (daily returns, signal-quintile performance, portfolio drawdown) with dbt tests, integrated into the Dagster asset graph via `dagster-dbt`.
 - **Options analytics** — daily live option-chain snapshots (free via yfinance) enriched with Black-Scholes Greeks, surfaced as an implied-volatility smile/skew, put/call ratio, and a chain browser. Because no free *historical* chain data exists, the pipeline **builds its own options history forward** from the first run. A clearly-disclaimered panel also illustrates how the model's directional view *would* translate into a defined-risk spread — an illustration, never advice.
+- **Measured honestly** — a CAPM decomposition separates market exposure (beta) from genuine skill (alpha) and reports the information ratio, because raw return vs SPY is a meaningless test for a market-neutral book. The dashboard states the verdict in plain English so the numbers can't be misread.
+- **Fails loudly, catches up by itself** — a run-failure sensor logs every failure (served at `/alerts`, plus a desktop notification) and a catch-up sensor re-requests any trading day the schedule slept through, so a laptop that sleeps doesn't silently cost you irreplaceable history.
 - **Evidence, not vibes** — the dashboard separates the in-sample replay from the **live out-of-sample track record**, benchmarks the strategy against SPY buy-and-hold, charts signal-quintile forward returns and rolling risk, and shows every champion/challenger decision the self-adapting loop ever made.
 - **Serving** — FastAPI exposes predictions, portfolio equity curve, model metadata, and drift status.
 - **Dashboard** — React app with templated charts that refresh from the API.

@@ -47,6 +47,31 @@ expiry and moneyness bucket — the smile/skew and term structure).
 profit/loss and breakeven. It is an illustration of the model's directional view — never
 a recommendation, and the UI says so prominently.
 
+## Measuring skill vs market exposure
+
+`fct_alpha_beta` regresses strategy excess returns on benchmark excess returns (Postgres
+`regr_slope` / `regr_intercept` / `regr_r2`) per evidence phase, yielding beta, annualized
+alpha, R², tracking error and information ratio. This exists because raw return vs SPY is
+the wrong test for a market-neutral long/short book: it gives up market beta by
+construction, so trailing the index in a bull run says nothing about skill. Beta answers
+"how much of this is just the market?" and alpha answers "what does the signal actually
+add?". Served at `/portfolio/alpha-beta`; the Evidence tab renders it with a plain-English
+verdict, and switches from the replay to the live phase once ~20 live days exist.
+
+## Reliability: alerts and catch-up
+
+Two Dagster sensors (`orchestration/definitions.py`) close the two failure modes a
+local-first platform actually hits:
+
+- `pipeline_failure_alert` — a run-failure sensor writing to a JSONL log in
+  `DAGSTER_HOME` (`monitoring/alerts.py`, served at `/alerts`) plus a best-effort macOS
+  notification. Silent failure is the worst outcome for a system whose value is
+  accumulating daily history that cannot be backfilled.
+- `missed_partition_catchup_sensor` — compares expected NYSE sessions against actual price
+  coverage (`orchestration/catchup.py`) and re-requests any day below 80% universe
+  coverage, bounded per tick. Schedules only fire while the stack is up, and this runs on
+  a laptop that sleeps.
+
 ## Evidence layer
 
 The dashboard's job is to make the strategy *auditable*, not to sell it. The dbt marts

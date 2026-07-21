@@ -51,6 +51,25 @@ Stack decisions made with the owner (a data engineer who uses Airflow 3.2.2 at w
   positions table, three-tab UI; integration tests run a REAL `dbt build` inside the
   throwaway test DB.
 
+- **M10** rigor & reliability: CAPM alpha/beta decomposition (`fct_alpha_beta`), pipeline
+  failure alerts + missed-day catch-up sensors, hash-routed (deep-linkable) dashboard tabs.
+
+## Options data-quality findings (M9/M10, learned the hard way)
+
+Yahoo's option feed is only trustworthy where contracts actually trade, and it fails at
+*both* extremes:
+
+- **Near-zero IV** on same-day/untraded contracts made ATM IV read ≈0.00%. Fixed by
+  following the ~30-day (VIX) convention with a ≥7-day and IV>0.01 filter.
+- **Absurdly high IV** (120–160%) on deep in-the-money contracts with zero open interest
+  turned the volatility "smile" into noise spikes at both wings. Fixed by building the
+  smile from **out-of-the-money contracts with open interest only**, which is how real vol
+  surfaces are constructed; the chain table likewise shows only contracts with OI, sorted
+  by liquidity.
+- **Timing matters more than anything**: the same universe averaged ≈33% ATM IV post-close
+  and ≈36% during market hours, versus ≈2.1% pre-market. Snapshots must run when the
+  market has been trading.
+
 ## Current model & data snapshot (as of 2026-07-19)
 
 - Universe: 50 tickers (40 stocks + 10 ETFs) in `configs/universe.yaml`; history from
