@@ -34,6 +34,7 @@ flowchart LR
 - **Ingestion** — daily OHLCV bars for a configurable US stock + ETF universe ([configs/universe.yaml](configs/universe.yaml)), with retries, rate-limit respect, and data-quality checks as Dagster asset checks.
 - **Self-adapting model** — LightGBM forward-return model retrained weekly *and* whenever feature drift is detected; a challenger only replaces the champion if it wins on an out-of-sample backtest.
 - **Transforms** — a dbt project ([transform/](transform/)) builds staging views and analytics marts (daily returns, signal-quintile performance, portfolio drawdown) with dbt tests, integrated into the Dagster asset graph via `dagster-dbt`.
+- **Options analytics** — daily live option-chain snapshots (free via yfinance) enriched with Black-Scholes Greeks, surfaced as an implied-volatility smile/skew, put/call ratio, and a chain browser. Because no free *historical* chain data exists, the pipeline **builds its own options history forward** from the first run. A clearly-disclaimered panel also illustrates how the model's directional view *would* translate into a defined-risk spread — an illustration, never advice.
 - **Evidence, not vibes** — the dashboard separates the in-sample replay from the **live out-of-sample track record**, benchmarks the strategy against SPY buy-and-hold, charts signal-quintile forward returns and rolling risk, and shows every champion/challenger decision the self-adapting loop ever made.
 - **Serving** — FastAPI exposes predictions, portfolio equity curve, model metadata, and drift status.
 - **Dashboard** — React app with templated charts that refresh from the API.
@@ -82,6 +83,7 @@ Postgres is exposed on `localhost:5432` (DBeaver-friendly; credentials in your `
 - [x] M6 — Docs polish & first release
 - [x] M7 — dbt transform layer (staging + marts, tests in CI, dagster-dbt lineage)
 - [x] M8 — Evidence dashboard (live vs replay track record, SPY benchmark, quintile & risk charts, model audit trail)
+- [x] M9 — Options layer (chain snapshots + Greeks, IV surface & put/call marts, Options tab, hypothetical signal→spread translation)
 
 ## Development
 

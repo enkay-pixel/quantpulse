@@ -116,6 +116,23 @@ def _rows_for_ticker(
     return rows
 
 
+def dedupe_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Collapse duplicate (snapshot, ticker, expiry, strike, type) keys.
+
+    Yahoo chains can list two contracts at the same strike/expiry/type — a standard
+    contract plus an adjusted one (post-split/special-dividend). They collide in a
+    single ON CONFLICT batch, so keep the more liquid (higher open interest) row,
+    which is the standard contract.
+    """
+    best: dict[tuple[object, ...], dict[str, object]] = {}
+    for row in rows:
+        key = tuple(row[c] for c in ("snapshot_date", "ticker", "expiry", "strike", "option_type"))
+        current = best.get(key)
+        if current is None or int(row["open_interest"]) > int(current["open_interest"]):  # type: ignore[call-overload]
+            best[key] = row
+    return list(best.values())
+
+
 def snapshot_option_chains(
     session: Session, tickers: list[str], snapshot_date: dt.date | None = None
 ) -> int:
@@ -149,6 +166,11 @@ def snapshot_option_chains(
     if not all_rows:
         logger.warning("No option quotes collected for %s", snapshot_date)
         return 0
+
+    deduped = dedupe_rows(all_rows)
+    if len(deduped) != len(all_rows):
+        logger.info("Dropped %d duplicate contracts (adjusted)", len(all_rows) - len(deduped))
+    all_rows = deduped
 
     updatable = [c for c in QUOTE_COLUMNS if c not in _PK_COLUMNS]
     for chunk in chunked(all_rows):

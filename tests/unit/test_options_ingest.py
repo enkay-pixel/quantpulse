@@ -2,7 +2,7 @@ import datetime as dt
 
 import pandas as pd
 
-from quantpulse.options.ingest import _rows_for_ticker
+from quantpulse.options.ingest import _rows_for_ticker, dedupe_rows
 
 
 def chain_frame(strikes: list[float], itm_below: float) -> pd.DataFrame:
@@ -40,6 +40,27 @@ def test_rows_respect_moneyness_bound_and_compute_greeks() -> None:
     assert call_atm["gamma"] > 0
     assert call_atm["theo_value"] > 0
     assert call_atm["open_interest"] == 100
+
+
+def test_dedupe_keeps_the_more_liquid_contract() -> None:
+    """Yahoo can list a standard and an adjusted contract at the same strike."""
+    base = {
+        "snapshot_date": dt.date(2026, 7, 20),
+        "ticker": "AAPL",
+        "expiry": dt.date(2026, 8, 21),
+        "strike": 100.0,
+        "option_type": "call",
+    }
+    rows = [
+        {**base, "open_interest": 5, "last_price": 9.9},  # adjusted, illiquid
+        {**base, "open_interest": 5000, "last_price": 4.2},  # standard
+        {**base, "strike": 105.0, "open_interest": 1, "last_price": 2.0},  # distinct key
+    ]
+    deduped = dedupe_rows(rows)
+    assert len(deduped) == 2
+    kept = next(r for r in deduped if r["strike"] == 100.0)
+    assert kept["open_interest"] == 5000
+    assert kept["last_price"] == 4.2
 
 
 def test_empty_when_no_strikes_in_band() -> None:

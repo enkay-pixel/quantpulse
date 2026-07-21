@@ -11,6 +11,7 @@ Populated from M1 onward; columns finalized alongside the Alembic migrations.
 | `model_runs` | run id | Training/evaluation/promotion audit log (metrics, decision, MLflow run id) |
 | `drift_metrics` | (date, metric) | Evidently drift results per feature set |
 | `portfolio_snapshots` | date | Simulated long/short book equity, exposure, turnover |
+| `option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Daily live option-chain snapshots + Black-Scholes Greeks. Accumulates forward — no free history exists to backfill |
 
 ## `analytics` schema (dbt-managed — see `transform/`)
 
@@ -23,3 +24,5 @@ Populated from M1 onward; columns finalized alongside the Alembic migrations.
 | `fct_portfolio_vs_benchmark` | date | Strategy equity vs SPY buy-and-hold indexed to the portfolio's first date |
 | `fct_track_record` | phase | Per-phase performance summary — the `live` row is the honest out-of-sample record |
 | `dim_universe` | ticker | Members with price-coverage metadata |
+| `fct_option_summary` | (ticker, snapshot_date) | ATM implied volatility and put/call open-interest ratio |
+| `fct_iv_surface` | (ticker, snapshot_date, expiry, option_type, moneyness_bucket) | Mean IV — the volatility smile/skew and term structure |

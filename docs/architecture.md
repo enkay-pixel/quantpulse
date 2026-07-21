@@ -31,6 +31,22 @@ scheduled with the daily processing job. Sources map to upstream Dagster assets 
 `meta.dagster.asset_key`, so lineage runs unbroken from yfinance to the marts.
 Run locally with `make dbt-build`; browse docs + lineage with `make dbt-docs`.
 
+## Options layer
+
+yfinance provides free **live** option chains but **no history** — you cannot backfill
+past chains at any price short of a paid vendor. So options are not a backtested
+strategy here; they are a live analytics layer that *builds its own history forward*:
+the daily `option_chains` asset snapshots the nearest ~10 expiries within ±20% moneyness
+per ticker into `option_quotes`, enriching each contract with Black-Scholes Greeks
+(`options/pricing.py`, market IV so nothing is solved for). dbt turns those snapshots
+into `fct_option_summary` (ATM IV, put/call ratio) and `fct_iv_surface` (mean IV by
+expiry and moneyness bucket — the smile/skew and term structure).
+
+**Tier 2** (`options/strategy.py`) translates the equity model's 21-day forecast into a
+*hypothetical* defined-risk structure (bull call / bear put spread) with cost, max
+profit/loss and breakeven. It is an illustration of the model's directional view — never
+a recommendation, and the UI says so prominently.
+
 ## Evidence layer
 
 The dashboard's job is to make the strategy *auditable*, not to sell it. The dbt marts
