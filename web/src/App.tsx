@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
@@ -33,12 +33,13 @@ import {
   useRisk,
   useTrackRecord,
 } from "./hooks/useApi";
+import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "./lib/format";
 
 const TABS = ["Overview", "Evidence", "Options", "Model & Book"];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
       <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -268,7 +269,7 @@ function ModelTab() {
 export default function App() {
   const health = useHealth();
   const freshness = useFreshness();
-  const [tab, setTab] = useState(TABS[0]);
+  const [tab, setTab] = useHashTab(TABS);
 
   const apiDown = health.isError;
 

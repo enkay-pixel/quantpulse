@@ -9,6 +9,19 @@ export function OptionChainTable({ chain }: { chain: OptionChain }) {
       </p>
     );
   }
+  // Contracts with no open interest have never traded; their quotes and IV are stale
+  // noise, so show the tradeable book ordered by liquidity.
+  const contracts = chain.contracts
+    .filter((c) => c.open_interest > 0)
+    .sort((a, b) => b.open_interest - a.open_interest);
+
+  if (contracts.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+        No contracts with open interest in this snapshot.
+      </p>
+    );
+  }
   return (
     <div className="max-h-96 overflow-y-auto">
       <table className="w-full text-sm">
@@ -25,7 +38,7 @@ export function OptionChainTable({ chain }: { chain: OptionChain }) {
           </tr>
         </thead>
         <tbody>
-          {chain.contracts.map((c) => {
+          {contracts.map((c) => {
             const mid = c.bid !== null && c.ask !== null ? (c.bid + c.ask) / 2 : c.last_price;
             return (
               <tr

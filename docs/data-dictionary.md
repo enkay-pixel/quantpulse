@@ -24,5 +24,6 @@ Populated from M1 onward; columns finalized alongside the Alembic migrations.
 | `fct_portfolio_vs_benchmark` | date | Strategy equity vs SPY buy-and-hold indexed to the portfolio's first date |
 | `fct_track_record` | phase | Per-phase performance summary — the `live` row is the honest out-of-sample record |
 | `dim_universe` | ticker | Members with price-coverage metadata |
+| `fct_alpha_beta` | phase | CAPM decomposition vs SPY: beta, annualized alpha, R², tracking error, information ratio (Postgres regression aggregates over excess returns) |
 | `fct_option_summary` | (ticker, snapshot_date) | ATM implied volatility and put/call open-interest ratio |
 | `fct_iv_surface` | (ticker, snapshot_date, expiry, option_type, moneyness_bucket) | Mean IV — the volatility smile/skew and term structure |

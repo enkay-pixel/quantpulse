@@ -36,14 +36,34 @@ export function IvSkewChart({ chain }: { chain: OptionChain }) {
     );
   }
 
+  // Build the smile from OUT-OF-THE-MONEY contracts only (calls above spot, puts below),
+  // and require open interest. Deep-ITM options barely trade, so their quoted IV is stale
+  // noise — including them turns the smile into a 150% spike at both wings.
+  const spot = chain.underlying_close;
+  const liquid = chain.contracts.filter(
+    (c) =>
+      c.open_interest > 0 &&
+      c.implied_volatility > 0.01 &&
+      (spot === null ||
+        (c.option_type === "call" ? c.strike >= spot : c.strike <= spot)),
+  );
+
   const byStrike = new Map<number, { strike: number; call?: number; put?: number }>();
-  for (const c of chain.contracts) {
+  for (const c of liquid) {
     const row = byStrike.get(c.strike) ?? { strike: c.strike };
     if (c.option_type === "call") row.call = c.implied_volatility;
     else row.put = c.implied_volatility;
     byStrike.set(c.strike, row);
   }
   const data = [...byStrike.values()].sort((a, b) => a.strike - b.strike);
+
+  if (data.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+        No liquid out-of-the-money contracts in this snapshot.
+      </p>
+    );
+  }
 
   return (
     <div>
@@ -52,7 +72,8 @@ export function IvSkewChart({ chain }: { chain: OptionChain }) {
         <LegendChip color="var(--series-2)" label="Put IV" />
         {chain.underlying_close !== null ? (
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            spot ${formatNumber(chain.underlying_close)} · expiry {chain.expiry}
+            spot ${formatNumber(chain.underlying_close)} · expiry {chain.expiry} · OTM, open
+            interest &gt; 0
           </span>
         ) : null}
       </div>
