@@ -18,6 +18,10 @@ class BacktestConfig:
     short_quantile: float = 0.2
     transaction_cost: float = 0.0005  # one-way, per unit of turnover
     slippage: float = 0.0005
+    # Shorting is not free: brokers charge an annualized borrow fee on the short leg.
+    # ~1%/yr is typical for liquid large caps; hard-to-borrow names cost far more.
+    borrow_rate: float = 0.01
+    short_weight: float = 0.5  # share of gross capital on the short side
     rebalance_freq: str = "M"  # pandas *period* alias: monthly
     min_names_per_period: int = 10
 
@@ -51,7 +55,9 @@ def run_backtest(panel: pd.DataFrame, config: BacktestConfig | None = None) -> B
             continue
         gross = float(longs["fwd_ret"].mean() - shorts["fwd_ret"].mean()) / 2
         turnover = (len(longs) + len(shorts)) / len(snapshot)
-        net = gross - (cfg.transaction_cost + cfg.slippage) * turnover
+        # Borrow accrues over the holding period, not per trade.
+        borrow = cfg.borrow_rate * cfg.short_weight / MONTHS_PER_YEAR
+        net = gross - (cfg.transaction_cost + cfg.slippage) * turnover - borrow
         rows.append(
             {
                 "period": period.to_timestamp(how="end").normalize(),

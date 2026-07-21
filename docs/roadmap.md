@@ -46,6 +46,31 @@ compose validation — all enforced in CI.
 - **Signal quality:** quintile forward returns are monotonic (Q1 ≈ 24.9bp → Q5 ≈ 0.4bp)
   across the replay window: real ranking skill, modest in magnitude.
 
+## Open finding: horizon mismatch between the model and the paper book
+
+`quantpulse sensitivity` sweeps the backtest across trading-cost and short-borrow
+assumptions. Two things came out of the first run, and the second matters more:
+
+- **Costs are not what's holding the strategy back.** On the monthly-rebalanced
+  backtest the result degrades gracefully — 17.2% annualized at zero cost, still ~10%
+  at a punitive 1% round trip plus 3% borrow. Breakeven round-trip cost is ~1%, far
+  above realistic levels for liquid large caps.
+- **But that backtest and the live paper book are not the same strategy.** The model
+  forecasts **21-day** forward returns, and the backtest holds positions for roughly
+  that long. The paper portfolio (`ml/portfolio.py`) rebalances **daily** and realizes
+  the **next day's** return — using a 21-day signal to bet on tomorrow. That mismatch is
+  the leading suspect for why the paper book shows ~0.26 Sharpe and negative alpha while
+  the horizon-matched backtest looks far healthier.
+
+**Caveat that keeps this honest:** the sensitivity run scores the champion over its own
+training window, so those figures are largely *in-sample*. The champion's true holdout
+Sharpe was 0.21. Do not read 1.33 as a real edge — read it as evidence that the two
+constructions disagree, which is a question about design, not about alpha.
+
+Next step when picking this up: decide deliberately whether the paper book should hold
+positions for the model's horizon (or the model should forecast a 1-day target), then
+re-measure. Do not tune anything until the horizons agree.
+
 ## Operating notes
 
 - `make up` (fast, reuses images) · `make build` after code changes · `make down`.
