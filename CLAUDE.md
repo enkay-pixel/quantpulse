@@ -22,6 +22,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - `src/quantpulse/`: `data/` (ingest, calendar, quality) · `features/` · `ml/`
   (cv, training, backtest, metrics, registry, promotion, portfolio, pipeline) ·
   `monitoring/drift.py` · `orchestration/` (Dagster defs + dagster-dbt) · `api/` · `cli.py`
+- `src/quantpulse/options/`: `pricing.py` (Black-Scholes + Greeks, market IV) ·
+  `ingest.py` (daily live chain snapshots — no free history exists, so this table only
+  grows forward) · `strategy.py` (Tier 2 hypothetical spread from the equity signal —
+  illustration, never advice)
 - `transform/`: dbt project → `analytics` schema (staging views + fct_/dim_ marts,
   incl. fct_track_record's replay-vs-live phase split at first champion promotion)
 - `web/`: React dashboard · `docker/`: images · `alembic/`: migrations ·
