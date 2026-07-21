@@ -95,7 +95,8 @@ make test-all   # includes integration tests (needs `make up`)
 make hooks      # install pre-commit hooks
 ```
 
-Design decisions are recorded in [docs/adr/](docs/adr/). Architecture details in [docs/architecture.md](docs/architecture.md); operational how-tos in [docs/runbook.md](docs/runbook.md).
+Current state, honest performance, and what's next: [docs/roadmap.md](docs/roadmap.md).
+Design decisions are recorded in [docs/adr/](docs/adr/). Architecture details in [docs/architecture.md](docs/architecture.md); operational how-tos in [docs/runbook.md](docs/runbook.md); the full build narrative and incident log in [docs/development-history.md](docs/development-history.md).
 
 ## License
 
