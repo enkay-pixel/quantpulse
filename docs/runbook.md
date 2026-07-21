@@ -56,6 +56,26 @@ bad rows.
 A full 50-ticker snapshot takes ~10 minutes (500 network calls). It commits per ticker,
 so interrupting it is safe and it can simply be re-run.
 
+## Failure alerts & missed-day catch-up
+
+Two sensors keep the pipeline honest without any paid service:
+
+- **`pipeline_failure_alert`** — a Dagster run-failure sensor appends every failure to
+  `$DAGSTER_HOME/alerts.jsonl` (surfaced at `GET /alerts`) and fires a macOS desktop
+  notification when running outside a container. Without it a broken evening run is only
+  noticed days later via stale dates on the dashboard.
+- **`missed_partition_catchup_sensor`** — every 30 minutes it compares expected NYSE
+  sessions over the last 30 days against actual price coverage and requests the missing
+  daily partitions (max 3 per tick so a long sleep can't stampede the queue). A session
+  counts as ingested only above 80% universe coverage, so a partially-written day is
+  retried rather than treated as done.
+
+Check both from the Dagster UI (Automation → Sensors) or `GET /alerts`.
+
+Note: yfinance returns a *partial* bar for the current session during market hours, so an
+intraday ingest stores a mid-session price. The scheduled post-close run upserts the true
+close over it — self-healing, no action needed.
+
 ## Troubleshooting
 
 - **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait for the whale icon, retry `make up`.

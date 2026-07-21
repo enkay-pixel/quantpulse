@@ -171,6 +171,17 @@ class TrackRecord(BaseModel):
     phases: list[PhaseStats]
 
 
+class AlertEntry(BaseModel):
+    timestamp: str
+    job_name: str
+    run_id: str
+    error: str
+
+
+class AlertsOut(BaseModel):
+    alerts: list[AlertEntry]
+
+
 class AlphaBetaStats(BaseModel):
     """CAPM decomposition vs the benchmark for one evidence phase."""
 

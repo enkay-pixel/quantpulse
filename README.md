@@ -84,6 +84,7 @@ Postgres is exposed on `localhost:5432` (DBeaver-friendly; credentials in your `
 - [x] M7 — dbt transform layer (staging + marts, tests in CI, dagster-dbt lineage)
 - [x] M8 — Evidence dashboard (live vs replay track record, SPY benchmark, quintile & risk charts, model audit trail)
 - [x] M9 — Options layer (chain snapshots + Greeks, IV surface & put/call marts, Options tab, hypothetical signal→spread translation)
+- [x] M10 — Rigor & reliability (CAPM alpha/beta, failure alerts, missed-day catch-up)
 
 ## Development
 

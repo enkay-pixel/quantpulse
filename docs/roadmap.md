@@ -29,6 +29,7 @@ give investment advice, and the disclaimer stays.
 | M7 | dbt layer | `transform/` staging + marts, dbt tests in CI, dagster-dbt lineage (group `transform`) |
 | M8 | Evidence dashboard | replay-vs-live track record split, SPY benchmark, quintile + risk charts, model audit trail |
 | M9 | Options layer | Black-Scholes Greeks, daily chain snapshots, IV-surface/put-call marts, Options tab, hypothetical spread translation |
+| M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 
 **Quality gates:** 114 Python tests (unit + integration against a disposable database that
 runs a real `dbt build`), 30 Vitest, 53 dbt data tests, plus mypy / ruff / eslint / tsc /
