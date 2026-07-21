@@ -123,6 +123,44 @@ def _options_snapshot() -> None:
     logger.info("Wrote %d option quotes", n)
 
 
+def _sensitivity() -> None:
+    """Report how the backtest holds up across trading-cost and borrow assumptions."""
+    import pandas as pd
+
+    from quantpulse.db import get_engine
+    from quantpulse.ml.sensitivity import breakeven_cost, cost_sensitivity
+
+    panel = pd.read_sql(
+        "SELECT p.date, p.ticker, p.score AS pred, f.fwd_ret FROM predictions p JOIN ("
+        "  SELECT ticker, date, lead(close, 21) OVER (PARTITION BY ticker ORDER BY date)"
+        "   / close - 1 AS fwd_ret FROM prices"
+        ") f ON f.ticker = p.ticker AND f.date = p.date WHERE f.fwd_ret IS NOT NULL",
+        get_engine(),
+    )
+    if panel.empty:
+        logger.error("No scored panel available — run `quantpulse score --replay` first")
+        sys.exit(1)
+
+    rows = cost_sensitivity(panel)
+    logger.info(
+        "%-12s %-10s %-12s %-8s %-10s", "round-trip", "borrow", "annual ret", "sharpe", "max dd"
+    )
+    for r in rows:
+        logger.info(
+            "%-12.2f%% %-9.1f%% %-11.2f%% %-8.2f %-9.2f%%",
+            r.round_trip_cost * 100,
+            r.borrow_rate * 100,
+            r.annual_return * 100,
+            r.sharpe,
+            r.max_drawdown * 100,
+        )
+    be = breakeven_cost(rows)
+    logger.info(
+        "Breakeven round-trip cost (no borrow): %s",
+        f"{be * 100:.2f}%" if be is not None else "never profitable — no edge to erode",
+    )
+
+
 def _quality(start: dt.date, end: dt.date) -> None:
     import pandas as pd
 
@@ -165,6 +203,7 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("features", help="Compute and store features from ingested bars")
     sub.add_parser("options-snapshot", help="Snapshot live option chains for the universe")
+    sub.add_parser("sensitivity", help="Backtest sensitivity to trading cost and borrow rate")
     sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
     score = sub.add_parser("score", help="Score features with the champion model")
     score.add_argument(
@@ -186,6 +225,8 @@ def main(argv: list[str] | None = None) -> None:
         _features()
     elif args.command == "options-snapshot":
         _options_snapshot()
+    elif args.command == "sensitivity":
+        _sensitivity()
     elif args.command == "train":
         _train()
     elif args.command == "score":
