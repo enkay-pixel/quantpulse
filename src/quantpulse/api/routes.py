@@ -369,6 +369,16 @@ def track_record(session: SessionDep) -> schemas.TrackRecord:
     )
 
 
+@router.get("/alerts", response_model=schemas.AlertsOut)
+def alerts(limit: Annotated[int, Query(ge=1, le=50)] = 10) -> schemas.AlertsOut:
+    """Recent pipeline failures, newest last. Empty when nothing has failed."""
+    from quantpulse.monitoring.alerts import read_alerts
+
+    return schemas.AlertsOut(
+        alerts=[schemas.AlertEntry(**entry) for entry in read_alerts(limit=limit)]
+    )
+
+
 @router.get("/portfolio/alpha-beta", response_model=schemas.AlphaBetaOut)
 def alpha_beta(session: SessionDep) -> schemas.AlphaBetaOut:
     """Market exposure vs market-independent return — the fair read on a long/short book."""

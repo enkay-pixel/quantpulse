@@ -21,6 +21,11 @@ process_job = dg.define_asset_job(
 
 training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion_model])
 
+# Catch-up bounds: how far back to look for skipped sessions, and how many to request
+# per sensor tick (so a long sleep doesn't stampede the queue).
+LOOKBACK_DAYS = 30
+MAX_CATCHUP_PER_TICK = 3
+
 # All schedules default to RUNNING: `make up` must mean fully automated —
 # without this, Dagster ships schedules stopped until toggled in the UI.
 
@@ -87,6 +92,53 @@ def drift_retrain_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult
     )
 
 
+@dg.run_failure_sensor(
+    default_status=dg.DefaultSensorStatus.RUNNING,
+    monitor_all_code_locations=True,
+)
+def pipeline_failure_alert(context: dg.RunFailureSensorContext) -> None:
+    """Make failures visible. A local-first platform whose whole premise is accumulating
+    irreplaceable daily history cannot fail silently — without this, a broken 7pm run is
+    only noticed days later via stale dates on the dashboard."""
+    from quantpulse.monitoring.alerts import record_failure
+
+    record_failure(
+        job_name=context.dagster_run.job_name,
+        run_id=context.dagster_run.run_id,
+        error=str(context.failure_event.message or "unknown error"),
+    )
+    context.log.error("ALERT: %s failed — see alerts log", context.dagster_run.job_name)
+
+
+@dg.sensor(
+    job=ingest_job,
+    minimum_interval_seconds=1800,
+    default_status=dg.DefaultSensorStatus.RUNNING,
+)
+def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+    """Backfill trading days the schedule slept through.
+
+    Schedules only fire while the stack is up, and this runs on a laptop that sleeps.
+    Rather than silently skipping those days, request the missing daily partitions
+    (bounded per tick) whenever the stack comes back.
+    """
+    import datetime as dt
+
+    from quantpulse.data.calendar import trading_days
+    from quantpulse.orchestration.catchup import missing_trading_days
+
+    today = dt.date.today()
+    recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), today)
+    missing = missing_trading_days(recent)[:MAX_CATCHUP_PER_TICK]
+    if not missing:
+        return dg.SensorResult(skip_reason="no missed trading days in the lookback window")
+    return dg.SensorResult(
+        run_requests=[
+            dg.RunRequest(partition_key=str(day), run_key=f"catchup-{day}") for day in missing
+        ]
+    )
+
+
 defs = dg.Definitions(
     assets=[
         qp_assets.raw_prices,
@@ -101,6 +153,6 @@ defs = dg.Definitions(
     asset_checks=[qp_assets.recent_prices_quality],
     jobs=[ingest_job, process_job, training_job],
     schedules=[ingest_schedule, process_schedule, training_schedule],
-    sensors=[drift_retrain_sensor],
+    sensors=[drift_retrain_sensor, pipeline_failure_alert, missed_partition_catchup_sensor],
     resources={"dbt": dbt_resource},
 )
