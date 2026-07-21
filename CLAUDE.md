@@ -8,6 +8,9 @@ React dashboard (tabs: Overview / Evidence / Model & Book). Public repo:
 github.com/enkay-pixel/quantpulse. Zero-cost constraint: everything runs free and
 local; 16 GB MacBook — stack must idle ≤ ~2.5 GB.
 
+**Start with [docs/roadmap.md](docs/roadmap.md)** for current state, honest performance
+numbers, operating notes, and what's next.
+
 **Read [docs/development-history.md](docs/development-history.md) before nontrivial
 work** — it holds the full build narrative: why each stack choice was made, the
 12-entry incident log with root causes, milestone-by-milestone history, current model
