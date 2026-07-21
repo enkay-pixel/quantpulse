@@ -1,6 +1,9 @@
 -- Per (ticker, snapshot): the option market's headline read on the name — ATM implied
 -- volatility (nearest expiry, strike closest to spot) and the put/call ratio, a common
 -- positioning/sentiment gauge (>1 = more put than call open interest).
+-- ATM IV follows the ~30-day convention (as VIX does) rather than the nearest expiry:
+-- same-day contracts are illiquid and the feed reports junk near-zero IV for them,
+-- so require a week of life and a sane IV before calling anything "at the money".
 with atm as (
     select distinct on (ticker, snapshot_date)
         ticker,
@@ -8,8 +11,11 @@ with atm as (
         implied_volatility as atm_iv,
         days_to_expiry as atm_days
     from {{ ref('stg_option_quotes') }}
-    where option_type = 'call'
-    order by ticker, snapshot_date, days_to_expiry, abs(moneyness)
+    where
+        option_type = 'call'
+        and days_to_expiry >= 7
+        and implied_volatility > 0.01
+    order by ticker, snapshot_date, abs(days_to_expiry - 30), abs(moneyness)
 ),
 
 oi as (
