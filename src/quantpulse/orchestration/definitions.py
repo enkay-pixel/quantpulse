@@ -150,7 +150,7 @@ defs = dg.Definitions(
         qp_assets.champion_model,
         transform_dbt_assets,
     ],
-    asset_checks=[qp_assets.recent_prices_quality],
+    asset_checks=[qp_assets.recent_prices_quality, qp_assets.option_snapshot_quality],
     jobs=[ingest_job, process_job, training_job],
     schedules=[ingest_schedule, process_schedule, training_schedule],
     sensors=[drift_retrain_sensor, pipeline_failure_alert, missed_partition_catchup_sensor],
