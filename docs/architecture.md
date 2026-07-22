@@ -53,21 +53,21 @@ a recommendation, and the UI says so prominently.
 
 ## Two paper books, one difference
 
-`ml/portfolio.py` runs **two** books over the same predictions, stored in
-`portfolio_snapshots` keyed by `variant`:
+A *book* is one way of turning the signal into a portfolio. `ml/portfolio.py` runs **two**
+of them over the same predictions, stored in `portfolio_snapshots` keyed by `variant`:
 
 | variant | rebalances | asks |
 |---|---|---|
 | `daily` | every day | what if I trade this signal aggressively? |
 | `horizon` | every 21 trading days | what does the thing the model predicts actually earn? |
 
-They share quantile widths, capital convention, cost model and borrow rate, and differ
-in **exactly one** dimension — rebalance frequency. That is what makes the spread
-between them a measurement rather than a coincidence, and a unit test
+They share quantile widths, capital convention, cost model and borrow rate, and differ in
+**exactly one** thing — rebalance frequency. That is what makes the gap between them a
+measurement rather than a coincidence, and a unit test
 (`test_books_differ_only_in_rebalance_frequency`) fails if any other field diverges.
-Keeping both is deliberate: the gap quantifies how much the churn costs and how fast
-the signal decays, which one book alone cannot show. Compared at `GET /portfolio/books`;
-the finding is written up in [roadmap.md](roadmap.md).
+Keeping both is deliberate: the gap says how much the extra trading costs and how fast
+the signal goes stale, neither of which one book alone can show. Compared at
+`GET /portfolio/books`; the finding is written up in [roadmap.md](roadmap.md).
 
 The dashboard and every dbt mart describe the `daily` book — `stg_portfolio_snapshots`
 pins the variant so additional books cannot double-count downstream.

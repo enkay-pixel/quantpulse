@@ -17,12 +17,12 @@ function verdict(books: BookStats[]): string | null {
   if (!daily || !horizon) return null;
   const gap = horizon.annualized_return - daily.annualized_return;
   if (gap <= 0) {
-    return `Rebalancing daily costs ${formatPercent(daily.annualized_cost_drag, 1)} a year and is not currently behind the slower book — unusual, and worth re-checking once more live days exist.`;
+    return `Trading every day costs ${formatPercent(daily.annualized_cost_drag, 1)} a year in commissions and slippage, yet the daily book is not behind the slower one here. That is unusual — worth re-checking once more live days have accumulated.`;
   }
   // Split the gap: what survives before costs is picks, the remainder is friction.
   const grossGap = horizon.annualized_gross_return - daily.annualized_gross_return;
   const share = Math.round(((gap - grossGap) / gap) * 100);
-  return `Holding for the full horizon earns ${formatPercent(gap, 1)} a year more, and about ${share}% of that gap is trading cost rather than better picks — the same signal, just acted on less often.`;
+  return `Holding for the full 21 days earns ${formatPercent(gap, 1)} a year more. About ${share}% of that difference is trading cost rather than better stock picking — it is the same signal either way, just acted on less often.`;
 }
 
 export function BookComparisonCard({ data }: { data: BookComparison }) {
@@ -38,8 +38,9 @@ export function BookComparisonCard({ data }: { data: BookComparison }) {
   return (
     <div>
       <p className="mb-3 text-xs" style={{ color: "var(--text-secondary)" }}>
-        Both books run over the <strong>same predictions</strong> and differ only in how often they
-        rebalance, so the gap between them isolates what churn costs.
+        A <strong>book</strong> is one way of turning the signal into a portfolio. These two run
+        over the <strong>same predictions</strong> and differ only in how often they rebalance — so
+        whatever separates them is the cost of trading more often, and nothing else.
       </p>
 
       <div className="overflow-x-auto">
@@ -90,7 +91,8 @@ export function BookComparisonCard({ data }: { data: BookComparison }) {
           className="mt-3 rounded-lg px-3 py-2 text-xs"
           style={{ background: "var(--grid)", color: "var(--text-secondary)" }}
         >
-          {summary} Replay figures are in-sample — read the ranking, not the level.
+          {summary} These are in-sample replay figures, so compare the two books against each
+          other rather than reading either return as achievable.
         </p>
       ) : null}
     </div>

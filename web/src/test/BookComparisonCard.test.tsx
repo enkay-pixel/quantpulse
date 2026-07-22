@@ -46,7 +46,7 @@ describe("BookComparisonCard", () => {
     render(<BookComparisonCard data={{ books: [DAILY, HORIZON] }} />);
     // 6.64pp net gap, only 0.96pp of it survives before costs, so ~86% is friction
     // (the docs quote 85% off unrounded inputs; these fixtures are rounded).
-    expect(screen.getByText(/about 86% of that gap is trading cost/)).toBeInTheDocument();
+    expect(screen.getByText(/About 86% of that difference is trading cost/)).toBeInTheDocument();
     expect(screen.getByText(/in-sample/)).toBeInTheDocument();
   });
 
@@ -58,8 +58,8 @@ describe("BookComparisonCard", () => {
   it("does not claim a cost story when the slower book is not ahead", () => {
     const flipped = { ...HORIZON, annualized_return: 0.01 };
     render(<BookComparisonCard data={{ books: [DAILY, flipped] }} />);
-    expect(screen.queryByText(/of that gap is trading cost/)).not.toBeInTheDocument();
-    expect(screen.getByText(/not currently behind the slower book/)).toBeInTheDocument();
+    expect(screen.queryByText(/of that difference is trading cost/)).not.toBeInTheDocument();
+    expect(screen.getByText(/not behind the slower one here/)).toBeInTheDocument();
   });
 
   it("renders a placeholder before any book exists", () => {

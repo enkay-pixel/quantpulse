@@ -89,7 +89,7 @@ export function BenchmarkEquityChart({ curve }: { curve: EquityCurve }) {
           <LegendChip color="var(--series-1)" label={hasReplay ? "Strategy — live" : "Strategy"} />
         ) : null}
         {hasHorizon ? (
-          <LegendChip color="var(--series-3)" label="Same signal, rebalanced every 21 days" />
+          <LegendChip color="var(--series-3)" label="Same signal, held 21 days" />
         ) : null}
         {hasBenchmark ? <LegendChip color="var(--series-2)" label="SPY buy & hold" /> : null}
       </div>
