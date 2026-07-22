@@ -164,6 +164,56 @@ def option_snapshot_quality() -> dg.AssetCheckResult:
     )
 
 
+@dg.asset(group_name="monitoring", kinds={"python", "postgres"})
+def resource_report() -> dg.MaterializeResult:
+    """Database growth and memory headroom, expressed as runway rather than raw bytes.
+
+    Materialization metadata is the storage: Dagster charts numeric metadata over time, so
+    the trend is visible without a new table, a new container, or a metrics stack.
+
+    The memory figure is the **run process's** RSS against the container cap, not the
+    daemon's idle footprint — runs execute in-process under the launcher. That is the more
+    useful of the two: it measures the process that could actually exhaust the cap, which
+    on a Saturday is the Optuna/LightGBM retrain.
+    """
+    from quantpulse.monitoring.resources import check_headroom, collect_resource_report
+
+    report = collect_resource_report(get_engine())
+    breaches = check_headroom(report)
+    gb = 1024**3
+    metadata: dict[str, float | int | str] = {
+        f"db_{name}_mb": round(size / 1024**2, 1) for name, size in report.database_bytes.items()
+    }
+    metadata["total_gb"] = round(sum(report.database_bytes.values()) / gb, 3)
+    if report.bytes_per_day:
+        metadata["growth_mb_per_day"] = round(report.bytes_per_day / 1024**2, 2)
+    if report.runway_days is not None:
+        metadata["runway_days"] = round(report.runway_days)
+        metadata["runway_years"] = round(report.runway_days / 365, 1)
+    if report.memory_fraction is not None:
+        metadata["memory_pct_of_cap"] = round(report.memory_fraction * 100, 1)
+    metadata["breaches"] = len(breaches)
+    for breach in breaches:
+        metadata[f"breach_{breach.name}"] = breach.detail
+    return dg.MaterializeResult(metadata=metadata)
+
+
+@dg.asset_check(asset=resource_report, blocking=False)
+def resource_headroom() -> dg.AssetCheckResult:
+    """Fail when runway or memory headroom drops below its floor.
+
+    Non-blocking on purpose: running low on disk is a reason to be told, not a reason to
+    stop collecting the options history that is using the disk.
+    """
+    from quantpulse.monitoring.resources import check_headroom, collect_resource_report
+
+    breaches = check_headroom(collect_resource_report(get_engine()))
+    return dg.AssetCheckResult(
+        passed=not breaches,
+        metadata={b.name: b.detail for b in breaches} or {"status": "all within limits"},
+    )
+
+
 @dg.asset(group_name="training", kinds={"python", "mlflow"}, op_tags={"compute": "heavy"})
 def champion_model() -> dg.MaterializeResult:
     """Train a challenger, evaluate on holdout backtest, promote if it beats the champion."""
