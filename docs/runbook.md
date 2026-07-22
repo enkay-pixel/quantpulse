@@ -90,6 +90,21 @@ it was previously modeled as free.
 Read the output with the caveat in [roadmap.md](roadmap.md): replay scoring covers the
 champion's own training window, so the figures are largely in-sample.
 
+## Comparing the paper books
+
+```bash
+curl -s localhost:8000/portfolio/books | jq
+```
+
+Two books run over the same predictions and differ only in how often they rebalance
+(`daily` vs `horizon`, every 21 trading days). The comparison shows annualized return,
+Sharpe, drawdown, mean turnover and the annualized cost drag for each. Rebuilt whenever
+`portfolio_equity` materializes; the dashboard continues to show the `daily` book.
+
+If you add a book, change **only** `rebalance_days` in
+`quantpulse.ml.portfolio.BOOKS` — a unit test fails if any other field diverges,
+because a book that differs in two ways cannot attribute its own results.
+
 ## Options snapshot quality
 
 The `option_snapshot_quality` asset check runs with `option_chains` and fails the
@@ -97,6 +112,12 @@ snapshot when ticker coverage is thin, median IV among *traded* contracts is imp
 (the pre-market staleness signature), no contracts carry open interest, or Greeks are
 missing. Non-blocking — it flags rather than halts, since a partial snapshot is still
 worth keeping. See it in the Dagster UI under the asset's checks.
+
+`option_snapshot_repair_sensor` then re-runs a thin snapshot automatically, up to 3
+times a day. **It only repairs today.** Option chains are live-only, so a day that ended
+under-covered is a permanent hole in the dataset — re-running tomorrow would just
+snapshot tomorrow. (This is not hypothetical: 2026-07-20 captured 5 of 50 tickers before
+being interrupted, and those 45 are gone.) If you see a thin day, fix it *that day*.
 
 ## Troubleshooting
 

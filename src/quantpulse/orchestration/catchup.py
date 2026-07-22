@@ -43,3 +43,26 @@ def missing_trading_days(expected: list[dt.date]) -> list[dt.date]:
     if missing:
         logger.info("Catch-up: %d session(s) below coverage: %s", len(missing), missing[:5])
     return missing
+
+
+def option_snapshot_incomplete(today: dt.date) -> float | None:
+    """Coverage of *today's* option snapshot when it is below par, else None.
+
+    Deliberately today-only. Option chains are live-only — re-running tomorrow
+    snapshots tomorrow's chains, so a thin past day is a permanent hole and there is
+    nothing to repair. An interrupted run *today* is the one case that can still be
+    salvaged, because `snapshot_option_chains` commits per ticker and upserts on
+    (snapshot_date, ticker, ...), so a re-run fills the gaps it left.
+    """
+    with get_engine().connect() as conn:
+        universe_size = conn.execute(
+            text("SELECT count(*) FROM universe WHERE active")
+        ).scalar_one()
+        covered = conn.execute(
+            text("SELECT count(DISTINCT ticker) FROM option_quotes WHERE snapshot_date = :day"),
+            {"day": today},
+        ).scalar_one()
+    if not universe_size or not covered:
+        return None  # nothing snapshotted yet today — that is the schedule's job, not repair
+    coverage = covered / universe_size
+    return coverage if coverage < MIN_COVERAGE else None

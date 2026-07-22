@@ -47,11 +47,28 @@ def _seed(engine) -> None:  # type: ignore[no-untyped-def]
             session.add(
                 PortfolioSnapshot(
                     date=day,
+                    variant="daily",
                     equity=equity,
                     daily_return=ret,
                     gross_exposure=2.0,
                     net_exposure=0.0,
                     turnover=0.5,
+                    positions={"AAPL": 0.5, "SPY": -0.5},
+                    model_version="1",
+                )
+            )
+            # A second book sharing the table, deliberately dated one day later and
+            # with a different equity, so any leak into the live-book endpoints shows up
+            # as an extra point or a wrong freshness date rather than passing silently.
+            session.add(
+                PortfolioSnapshot(
+                    date=day + dt.timedelta(days=1),
+                    variant="horizon",
+                    equity=equity * 3,
+                    daily_return=ret,
+                    gross_exposure=1.0,
+                    net_exposure=0.0,
+                    turnover=0.0,
                     positions={"AAPL": 0.5, "SPY": -0.5},
                     model_version="1",
                 )
@@ -173,6 +190,22 @@ def test_positions_with_context(evidence_client: TestClient) -> None:
     assert rows["SPY"]["side"] == "short"
     assert rows["AAPL"]["latest_close"] == pytest.approx(110.0)
     assert rows["AAPL"]["latest_score"] == pytest.approx(0.05)
+
+
+def test_book_comparison_reports_every_variant(evidence_client: TestClient) -> None:
+    body = evidence_client.get("/portfolio/books").json()
+    variants = {b["variant"]: b for b in body["books"]}
+    assert "daily" in variants
+    assert variants["daily"]["rebalance_days"] == 1
+    assert variants["daily"]["n_days"] == len(DATES)
+
+
+def test_evidence_endpoints_ignore_non_live_books(evidence_client: TestClient) -> None:
+    """The dashboard's track record must describe one book. A second variant sharing
+    the table must not leak into the equity curve, positions, or freshness."""
+    before = evidence_client.get("/portfolio/equity-curve").json()
+    assert len(before["points"]) == len(DATES)
+    assert evidence_client.get("/freshness").json()["latest_snapshot_date"] == str(DATES[-1])
 
 
 def test_model_history(evidence_client: TestClient) -> None:

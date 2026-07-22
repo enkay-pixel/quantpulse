@@ -119,6 +119,9 @@ class PortfolioSnapshot(Base):
     __tablename__ = "portfolio_snapshots"
 
     date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    # Which book this row belongs to — see quantpulse.ml.portfolio.BOOKS. Several
+    # constructions run over the same predictions so they can be compared.
+    variant: Mapped[str] = mapped_column(String(16), primary_key=True, default="daily")
     equity: Mapped[float] = mapped_column(Float)
     daily_return: Mapped[float] = mapped_column(Float)
     gross_exposure: Mapped[float] = mapped_column(Float)

@@ -31,13 +31,23 @@ sources:
           dagster:
             asset_key: predictions
       - name: portfolio_snapshots
-        description: Simulated long/short paper book, one row per trading day.
+        description: >
+          Simulated long/short paper books, one row per trading day per book. Several
+          constructions (see quantpulse.ml.portfolio.BOOKS) run over the same
+          predictions and differ only in rebalance frequency, so the grain is
+          (date, variant) — the staging model pins the live daily book.
         meta:
           dagster:
             asset_key: portfolio_equity
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [date, variant]
         columns:
           - name: date
-            tests: [unique, not_null]
+            tests: [not_null]
+          - name: variant
+            tests: [not_null]
       - name: model_runs
         description: Training/promotion audit log written by the self-adapting loop.
         meta:
