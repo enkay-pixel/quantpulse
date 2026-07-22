@@ -21,7 +21,7 @@ class BacktestConfig:
     # Shorting is not free: brokers charge an annualized borrow fee on the short leg.
     # ~1%/yr is typical for liquid large caps; hard-to-borrow names cost far more.
     borrow_rate: float = 0.01
-    short_weight: float = 0.5  # share of gross capital on the short side
+    short_weight: float = 0.5  # capital share per side; 0.5/0.5 is a dollar-neutral book
     rebalance_freq: str = "M"  # pandas *period* alias: monthly
     min_names_per_period: int = 10
 
@@ -40,6 +40,7 @@ def run_backtest(panel: pd.DataFrame, config: BacktestConfig | None = None) -> B
     df["period"] = pd.PeriodIndex(pd.to_datetime(df["date"]), freq=cfg.rebalance_freq)
 
     rows = []
+    prev_weights: dict[str, float] = {}
     for period_key, group in df.groupby("period"):
         period = cast(pd.Period, period_key)
         # Rebalance decisions use only the first date of each period.
@@ -54,7 +55,22 @@ def run_backtest(panel: pd.DataFrame, config: BacktestConfig | None = None) -> B
         if longs.empty or shorts.empty:
             continue
         gross = float(longs["fwd_ret"].mean() - shorts["fwd_ret"].mean()) / 2
-        turnover = (len(longs) + len(shorts)) / len(snapshot)
+        # Capital weights: half the book long, half short (gross exposure 1.0) — exactly
+        # the convention the `gross` spread above assumes.
+        weights = {t: cfg.short_weight / len(longs) for t in longs["ticker"]} | {
+            t: -cfg.short_weight / len(shorts) for t in shorts["ticker"]
+        }
+        # One-way turnover: half the summed absolute weight change. Rotating into a
+        # disjoint book costs 1.0; holding the same names costs 0. Charging a flat
+        # quantile width here (the previous shortcut) made costs blind to churn.
+        turnover = (
+            sum(
+                abs(weights.get(t, 0.0) - prev_weights.get(t, 0.0))
+                for t in set(weights) | set(prev_weights)
+            )
+            / 2
+        )
+        prev_weights = weights
         # Borrow accrues over the holding period, not per trade.
         borrow = cfg.borrow_rate * cfg.short_weight / MONTHS_PER_YEAR
         net = gross - (cfg.transaction_cost + cfg.slippage) * turnover - borrow

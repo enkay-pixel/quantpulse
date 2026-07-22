@@ -3,6 +3,7 @@
 import argparse
 import datetime as dt
 import logging
+import math
 import sys
 from pathlib import Path
 
@@ -155,10 +156,14 @@ def _sensitivity() -> None:
             r.max_drawdown * 100,
         )
     be = breakeven_cost(rows)
-    logger.info(
-        "Breakeven round-trip cost (no borrow): %s",
-        f"{be * 100:.2f}%" if be is not None else "never profitable — no edge to erode",
-    )
+    ceiling = max(r.round_trip_cost for r in rows)
+    if be is None:
+        summary = "never profitable — no edge to erode"
+    elif math.isinf(be):
+        summary = f"above {ceiling * 100:.2f}% — still profitable at the harshest cost tested"
+    else:
+        summary = f"{be * 100:.2f}%"
+    logger.info("Breakeven round-trip cost (no borrow): %s", summary)
 
 
 def _quality(start: dt.date, end: dt.date) -> None:

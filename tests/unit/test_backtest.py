@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from quantpulse.ml.backtest import BacktestConfig, BacktestResult, run_backtest
 
@@ -40,6 +41,54 @@ def test_costs_reduce_net() -> None:
     free = run_backtest(panel, BacktestConfig(transaction_cost=0.0, slippage=0.0))
     costly = run_backtest(panel, BacktestConfig(transaction_cost=0.01, slippage=0.01))
     assert (costly.period_frame["net"] < free.period_frame["net"]).all()
+
+
+def test_held_book_pays_turnover_only_on_the_first_rebalance() -> None:
+    """Same picks every period means nothing is traded after the book is built."""
+    rows = []
+    for m in range(6):
+        date = pd.Timestamp(2023, 1, 2) + pd.DateOffset(months=m)
+        for i in range(20):
+            # Ranking is identical every period, so the book never changes.
+            rows.append({"date": date.date(), "ticker": f"T{i}", "pred": float(i), "fwd_ret": 0.01})
+    result = run_backtest(pd.DataFrame(rows))
+    turnover = result.period_frame["turnover"].to_numpy()
+    assert turnover[0] == pytest.approx(0.5)  # building from cash trades half the capital
+    assert (turnover[1:] == 0).all()
+
+
+def test_rotating_book_pays_full_turnover() -> None:
+    """A book that rotates into entirely different names trades 100% of capital."""
+    rows = []
+    for m in range(4):
+        date = pd.Timestamp(2023, 1, 2) + pd.DateOffset(months=m)
+        for i in range(20):
+            # Flip the ranking every period so longs become shorts and vice versa.
+            pred = float(i) if m % 2 == 0 else float(-i)
+            rows.append({"date": date.date(), "ticker": f"T{i}", "pred": pred, "fwd_ret": 0.01})
+    result = run_backtest(pd.DataFrame(rows))
+    assert result.period_frame["turnover"].to_numpy()[1:] == pytest.approx(1.0)
+
+
+def test_turnover_responds_to_churn_not_just_quantile_width() -> None:
+    """Regression: turnover used to be a constant of the quantile width, so a held book
+    and a churning book were charged identically."""
+    held = run_backtest(make_panel(prescient=True))
+    frozen = run_backtest(
+        pd.DataFrame(
+            [
+                {
+                    "date": (pd.Timestamp(2023, 1, 2) + pd.DateOffset(months=m)).date(),
+                    "ticker": f"T{i}",
+                    "pred": float(i),
+                    "fwd_ret": 0.01,
+                }
+                for m in range(12)
+                for i in range(20)
+            ]
+        )
+    )
+    assert held.period_frame["turnover"].sum() > frozen.period_frame["turnover"].sum()
 
 
 def test_thin_universe_produces_empty_result() -> None:

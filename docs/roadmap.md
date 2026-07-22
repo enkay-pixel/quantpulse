@@ -31,9 +31,9 @@ give investment advice, and the disclaimer stays.
 | M9 | Options layer | Black-Scholes Greeks, daily chain snapshots, IV-surface/put-call marts, Options tab, hypothetical spread translation |
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 
-**Quality gates:** 114 Python tests (unit + integration against a disposable database that
-runs a real `dbt build`), 30 Vitest, 53 dbt data tests, plus mypy / ruff / eslint / tsc /
-compose validation — all enforced in CI.
+**Quality gates:** 141 Python tests (108 unit + 33 integration against a disposable
+database that runs a real `dbt build`), 39 Vitest, 53 dbt data tests, plus mypy / ruff /
+eslint / tsc / compose validation — all enforced in CI.
 
 ## Current state
 
@@ -52,9 +52,11 @@ compose validation — all enforced in CI.
 assumptions. Two things came out of the first run, and the second matters more:
 
 - **Costs are not what's holding the strategy back.** On the monthly-rebalanced
-  backtest the result degrades gracefully — 17.2% annualized at zero cost, still ~10%
-  at a punitive 1% round trip plus 3% borrow. Breakeven round-trip cost is ~1%, far
-  above realistic levels for liquid large caps.
+  backtest the result degrades gracefully — 17.2% annualized at zero cost, still 8.3%
+  at a punitive 1% round trip plus 3% borrow. The breakeven round-trip cost is
+  **above 1%**: the sweep never found it, because the strategy stays profitable at the
+  harshest cost tested. (Re-measured 2026-07-22 after the turnover fix below; the
+  earlier "~1%" figure was the grid ceiling being misreported as a measurement.)
 - **But that backtest and the live paper book are not the same strategy.** The model
   forecasts **21-day** forward returns, and the backtest holds positions for roughly
   that long. The paper portfolio (`ml/portfolio.py`) rebalances **daily** and realizes
@@ -70,6 +72,42 @@ constructions disagree, which is a question about design, not about alpha.
 Next step when picking this up: decide deliberately whether the paper book should hold
 positions for the model's horizon (or the model should forecast a 1-day target), then
 re-measure. Do not tune anything until the horizons agree.
+
+## Known biases in the replay
+
+Every backtested number on this project carries these. They are stated rather than fixed,
+because fixing them needs data that costs money — but a result you cannot caveat is a
+result you should not quote.
+
+- **Survivorship bias (the big one).** `configs/universe.yaml` lists 50 tickers *as they
+  exist today*, and the replay runs back to 2018-01-02. Every name in it survived to
+  2026: no delistings, no bankruptcies, no index deletions, no acquisitions. Free
+  point-in-time index constituents effectively do not exist, so the honest move is to
+  treat replay returns as an **upper bound**, not an estimate. It biases in the same
+  direction as every other soft assumption here, which is exactly why it is written down.
+- **In-sample scoring.** `quantpulse sensitivity` and the replay equity curve score the
+  champion over its own training window. The champion's true holdout Sharpe was 0.21,
+  against 1.33 in the sweep. Do not read the sweep as an edge — read it as evidence that
+  two constructions disagree.
+- **Cost model resolution.** Trading costs are linear in turnover with no market-impact
+  term and no bid-ask spread by name. Fine for 50 liquid large caps at small size;
+  wrong the moment the universe widens or size grows.
+- **No shorting constraints.** The book assumes every name is shortable at the modeled
+  borrow rate. Hard-to-borrow names cost far more, and sometimes are simply unavailable.
+
+Fixed on 2026-07-22: the backtest previously charged a **flat** turnover equal to the
+quantile width (0.4) rather than measuring position churn, so costs were blind to
+whether the book actually traded. Measured turnover averages 0.533 (range 0.28–0.85) —
+the old proxy understated trading costs by ~33%.
+
+**Still open — the two books disagree on capital convention.** `ml/backtest.py` now
+weights each side at 0.5 (gross exposure 1.0), matching the `(long − short) / 2` return
+it computes. `ml/portfolio.py` weights each side at 1.0 (gross exposure 2.0) while
+computing the *same* halved return, so its turnover — and therefore its cost charge —
+is ~2× the backtest's for identical churn. It errs conservative, so the live curve is if
+anything understated, but the two constructions are not cost-comparable. Fold this into
+the horizon-mismatch work above: both need to describe the same portfolio before
+comparing them means anything.
 
 ## Operating notes
 
