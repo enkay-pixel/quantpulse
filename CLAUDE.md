@@ -46,8 +46,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Stack: `make up` / `make down` (docker compose; Docker Desktop must be running).
 - First-run seed on empty DB: `make bootstrap`.
 - Analysis: `quantpulse sensitivity` sweeps backtest cost x short-borrow and reports the
-  breakeven round-trip cost. Note the open horizon-mismatch finding in docs/roadmap.md
-  (21-day model signal vs daily paper-book rebalancing) — resolve before tuning anything.
+  breakeven round-trip cost (`inf` = still profitable at the harshest cost tested, i.e.
+  not measured — never quote the grid ceiling as a breakeven). Note the open
+  horizon-mismatch finding in docs/roadmap.md (21-day model signal vs daily paper-book
+  rebalancing) — resolve before tuning anything. Replay numbers carry survivorship bias
+  (universe is today's 50 survivors back to 2018): treat them as an upper bound. Full
+  caveat list: "Known biases in the replay" in docs/roadmap.md.
 - Options snapshots are guarded by the `option_snapshot_quality` asset check (coverage,
   plausible median IV among traded contracts, Greeks present).
 - Ports: Dagster 3000 · MLflow **5001** (AirPlay owns 5000; in-network mlflow:5000) ·

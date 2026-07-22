@@ -65,11 +65,16 @@ verdict, and switches from the replay to the live phase once ~20 live days exist
 ## Cost realism
 
 `ml/backtest.py` charges commission, slippage, *and* an annualized borrow fee on the
-short leg (shorting is not free). `ml/sensitivity.py` sweeps both dimensions so results
-are reported as a range rather than one optimistic number, and computes the breakeven
-round-trip cost — exposed via `quantpulse sensitivity`. The first run showed costs are
-not the binding constraint here; see the horizon-mismatch finding in
-[roadmap.md](roadmap.md).
+short leg (shorting is not free). Costs scale with **measured** turnover — half the
+summed absolute change in capital weights between rebalances, so holding the same names
+is free and rotating into a disjoint book costs a full unit. (It previously charged a
+flat rate equal to the quantile width, which made costs blind to churn and understated
+them by ~33%.) `ml/sensitivity.py` sweeps cost against borrow so results are reported as
+a range rather than one optimistic number, and `breakeven_cost` returns `inf` — rather
+than the grid ceiling — when the strategy survives the harshest cost tested, so a sweep
+that never found the breakeven cannot be misread as having measured one. Exposed via
+`quantpulse sensitivity`. Costs are not the binding constraint here; see the
+horizon-mismatch finding and the bias list in [roadmap.md](roadmap.md).
 
 ## Reliability: alerts and catch-up
 

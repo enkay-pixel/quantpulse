@@ -54,5 +54,14 @@ def test_no_edge_reports_no_breakeven() -> None:
     assert breakeven_cost(rows) is None
 
 
+def test_breakeven_above_the_grid_reports_infinity_not_the_ceiling() -> None:
+    """Regression: a strategy still profitable at the most punitive cost tested used to
+    report the grid ceiling, which reads as a measured breakeven but is just the last
+    grid point."""
+    rows = cost_sensitivity(panel(), cost_grid=[0.0, 0.0001], borrow_grid=[0.0])
+    assert all(r.annual_return > 0 for r in rows)  # grid is far too gentle to bite
+    assert breakeven_cost(rows) == float("inf")
+
+
 def test_default_config_now_charges_borrow() -> None:
     assert BacktestConfig().borrow_rate == pytest.approx(0.01)

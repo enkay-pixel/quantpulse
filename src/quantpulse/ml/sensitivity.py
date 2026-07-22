@@ -58,9 +58,21 @@ def cost_sensitivity(
 
 
 def breakeven_cost(rows: list[SensitivityRow], borrow_rate: float = 0.0) -> float | None:
-    """Highest round-trip cost at which the strategy still earns a positive return
-    (at the given borrow rate). None when it never does — i.e. no edge to erode."""
-    viable = [
-        r.round_trip_cost for r in rows if r.borrow_rate == borrow_rate and r.annual_return > 0
-    ]
-    return max(viable) if viable else None
+    """Highest round-trip cost at which the strategy still earns a positive return.
+
+    Three outcomes, and the distinction matters:
+
+    - a cost inside the grid — the sweep bracketed the breakeven;
+    - ``None`` — never profitable, so there is no edge to erode;
+    - ``inf`` — still profitable at the most punitive cost tested, meaning the sweep
+      never found the breakeven at all. Returning the grid ceiling here (the previous
+      behaviour) silently reported "the last thing we tried" as if it were a measured
+      limit, which understates the result and reads as a finding it isn't.
+    """
+    at_borrow = [r for r in rows if r.borrow_rate == borrow_rate]
+    viable = [r.round_trip_cost for r in at_borrow if r.annual_return > 0]
+    if not viable:
+        return None
+    if max(viable) >= max(r.round_trip_cost for r in at_borrow):
+        return float("inf")
+    return max(viable)
