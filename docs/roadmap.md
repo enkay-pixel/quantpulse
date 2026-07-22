@@ -184,6 +184,16 @@ change to the signal: it had been paying double for its trades.
    the data is far too small to justify it, and being able to say so is the stronger
    engineering signal.
 
+## Deliberately not doing
+
+- **A local LLM question-answering layer.** Scoped 2026-07-22 and declined — see
+  [ADR 0004](adr/0004-no-llm-question-answering-layer.md). Short version: any design safe
+  enough to trust reduces the model to restating what the dashboard already says in
+  English, because the deterministic `verdict()` functions are the summarization layer and
+  they cannot fabricate a number. Ad-hoc questions belong in DBeaver against the
+  `analytics` marts. If it is ever revisited, the ADR fixes the order of work.
+- **Spark / Databricks in this repo** — see item 6 above; the data does not justify it.
+
 ## Why options work the way they do
 
 Free option data is **live-only** — yfinance gives full chains but no history, and real

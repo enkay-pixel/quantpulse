@@ -140,4 +140,8 @@ Single installable package `quantpulse` (src layout). Dagster definitions live i
 
 ## Why these tools
 
-See [adr/](adr/) — notably [0002](adr/0002-consolidate-two-prototypes.md) (consolidation) and [0003](adr/0003-orchestrator-and-stack-choices.md) (Dagster, React+FastAPI, zero-cost constraints).
+See [adr/](adr/) — notably [0002](adr/0002-consolidate-two-prototypes.md) (consolidation),
+[0003](adr/0003-orchestrator-and-stack-choices.md) (Dagster, React+FastAPI, zero-cost
+constraints), and [0004](adr/0004-no-llm-question-answering-layer.md) (why there is no LLM
+question-answering layer — the deterministic verdict functions already do that job, and
+cannot fabricate a number).
