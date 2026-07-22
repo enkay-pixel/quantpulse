@@ -20,6 +20,7 @@ interface Row {
   equity_replay: number | null;
   equity_live: number | null;
   benchmark: number | null;
+  horizon: number | null;
 }
 
 function toRows(curve: EquityCurve): {
@@ -41,6 +42,7 @@ function toRows(curve: EquityCurve): {
       equity_replay: hasPhases ? (live ? null : p.equity) : null,
       equity_live: !hasPhases || live || bridges ? p.equity : null,
       benchmark: p.benchmark_equity,
+      horizon: p.horizon_equity,
     };
   });
   return { rows, liveStart, hasReplay };
@@ -75,6 +77,7 @@ export function BenchmarkEquityChart({ curve }: { curve: EquityCurve }) {
   }
   const { rows, liveStart, hasReplay } = toRows(curve);
   const hasBenchmark = rows.some((r) => r.benchmark !== null);
+  const hasHorizon = rows.some((r) => r.horizon !== null);
 
   return (
     <div>
@@ -85,9 +88,16 @@ export function BenchmarkEquityChart({ curve }: { curve: EquityCurve }) {
         {liveStart || !hasReplay ? (
           <LegendChip color="var(--series-1)" label={hasReplay ? "Strategy — live" : "Strategy"} />
         ) : null}
+        {hasHorizon ? (
+          <LegendChip color="var(--series-3)" label="Same signal, rebalanced every 21 days" />
+        ) : null}
         {hasBenchmark ? <LegendChip color="var(--series-2)" label="SPY buy & hold" /> : null}
       </div>
-      <div className="h-64" role="img" aria-label="Strategy equity vs SPY buy-and-hold benchmark">
+      <div
+        className="h-64"
+        role="img"
+        aria-label="Daily-rebalanced strategy equity versus the 21-day book and SPY buy-and-hold"
+      >
         <ResponsiveContainer>
           <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid stroke="var(--grid)" strokeWidth={1} vertical={false} />
@@ -140,6 +150,18 @@ export function BenchmarkEquityChart({ curve }: { curve: EquityCurve }) {
               isAnimationActive={false}
               connectNulls={false}
             />
+            {hasHorizon ? (
+              <Line
+                type="monotone"
+                dataKey="horizon"
+                stroke="var(--series-3)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                isAnimationActive={false}
+                connectNulls={false}
+              />
+            ) : null}
             {hasBenchmark ? (
               <Line
                 type="monotone"

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
+import { BookComparisonCard } from "./components/BookComparisonCard";
 import { DriftPanel } from "./components/DriftPanel";
 import { FreshnessStrip } from "./components/FreshnessStrip";
 import { IvSkewChart } from "./components/IvSkewChart";
@@ -18,6 +19,7 @@ import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
 import {
   useAlphaBeta,
+  useBooks,
   useCurrentModel,
   useDrift,
   useEquityCurve,
@@ -147,12 +149,18 @@ function EvidenceTab() {
   const quintiles = useQuintiles();
   const risk = useRisk();
   const alphaBeta = useAlphaBeta();
+  const books = useBooks();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="lg:col-span-2">
         <Section title="Market exposure vs genuine skill (CAPM decomposition)">
           {alphaBeta.data ? <AlphaBetaCard data={alphaBeta.data} /> : <Placeholder height="h-32" />}
+        </Section>
+      </div>
+      <div className="lg:col-span-2">
+        <Section title="What does rebalancing frequency cost? Same signal, two books">
+          {books.data ? <BookComparisonCard data={books.data} /> : <Placeholder height="h-32" />}
         </Section>
       </div>
       <Section title="Does the ranking work? Signal quintiles vs next-day returns">

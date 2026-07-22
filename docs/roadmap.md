@@ -72,6 +72,13 @@ horizon-matched backtest (1.33). They disagreed before because they described di
 portfolios *and* the paper book double-charged costs through a mismatched capital
 convention — both fixed.
 
+**Knock-on effect worth knowing about:** correcting the double-charged costs moved the
+daily book's CAPM alpha from **−0.56% to +4.74% annualized** (beta −0.05, R² 0.007
+unchanged). Nothing about the signal changed — the old figure was measuring a portfolio
+that paid twice for its trades. The information ratio is still negative (−0.34), and the
+window is still in-sample, so this is *not* evidence of skill; it is one bug's worth of
+distortion removed from a number the dashboard reports.
+
 **The caveat still applies:** this is replay, scored in-sample over the champion's own
 training window, and carries the survivorship bias below. The champion's true holdout
 Sharpe was 0.21. Read the table as "daily rebalancing destroys value through costs" —
@@ -156,7 +163,12 @@ change to the signal: it had been paying double for its trades.
 
 1. **Let it run.** The live track record and the options history only accrue with time;
    no code substitutes for weeks of scheduled runs. Highest value, zero effort.
-2. **Refresh the README screenshot** after the next retrain, once the on-screen numbers move.
+2. **Screenshots** are current as of 2026-07-22 (all four tabs). Regenerate with headless
+   Chrome against a running stack rather than by hand:
+   `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
+   --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,1230
+   --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000 "http://localhost:8080/#overview"`
+   (tab slugs: `overview`, `evidence`, `options`, `model-book`; tune the height per tab).
 3. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
    realized-vs-implied volatility, IV-change signals. This is the payoff for the
    snapshot-forward design, and it needs no new data source.

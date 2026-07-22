@@ -45,6 +45,24 @@ export interface EquityPoint {
   turnover: number;
   phase: "replay" | "live" | null;
   benchmark_equity: number | null;
+  horizon_equity: number | null;
+}
+
+export interface BookStats {
+  variant: string;
+  rebalance_days: number;
+  n_days: number;
+  total_return: number;
+  annualized_return: number;
+  annualized_gross_return: number;
+  sharpe: number | null;
+  max_drawdown: number;
+  mean_turnover: number;
+  annualized_cost_drag: number;
+}
+
+export interface BookComparison {
+  books: BookStats[];
 }
 
 export interface EquityCurve {

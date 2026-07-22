@@ -14,6 +14,7 @@
   --border: rgba(11, 11, 11, 0.1);
   --series-1: #2a78d6;
   --series-2: #1baf7a;
+  --series-3: #8a5cd0; /* third line: the 21-day book alongside strategy and benchmark */
   --seq-250: #86b6ef;
   --seq-350: #5598e7;
   --seq-450: #2a78d6;
@@ -40,6 +41,7 @@
     --border: rgba(255, 255, 255, 0.1);
     --series-1: #3987e5;
     --series-2: #199e70;
+    --series-3: #a37ae0;
     --seq-250: #184f95;
     --seq-350: #256abf;
     --seq-450: #3987e5;

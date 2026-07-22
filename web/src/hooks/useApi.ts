@@ -32,6 +32,9 @@ export const useTrackRecord = () =>
 export const useAlphaBeta = () =>
   useQuery({ queryKey: ["alpha-beta"], queryFn: api.alphaBeta, refetchInterval: REFRESH_MS });
 
+export const useBooks = () =>
+  useQuery({ queryKey: ["books"], queryFn: api.books, refetchInterval: REFRESH_MS });
+
 export const useQuintiles = () =>
   useQuery({ queryKey: ["quintiles"], queryFn: api.quintiles, refetchInterval: REFRESH_MS });
 

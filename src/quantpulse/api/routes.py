@@ -25,6 +25,8 @@ router = APIRouter()
 # The book the dashboard treats as "the" track record. Other variants exist for
 # comparison (quantpulse.ml.portfolio.BOOKS) and are served at /portfolio/books.
 LIVE_BOOK = "daily"
+# Overlaid on the equity curve so the cost of daily churn is visible, not just tabulated.
+COMPARISON_BOOK = "horizon"
 
 SessionDep = Annotated[Session, Depends(session_dep)]
 EngineDep = Annotated[Engine, Depends(engine_dep)]
@@ -342,6 +344,17 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
     )
     enrich = {m["date"]: m for m in mart or []}
 
+    # The horizon book runs over the same predictions and the same days, so it overlays
+    # directly — no re-indexing needed. Both start at equity 1.0 on the same date.
+    horizon: dict[dt.date, float] = {
+        row.date: row.equity
+        for row in session.execute(
+            select(PortfolioSnapshot.date, PortfolioSnapshot.equity).where(
+                PortfolioSnapshot.variant == COMPARISON_BOOK
+            )
+        )
+    }
+
     returns = pd.Series([r.daily_return for r in rows])
     return schemas.EquityCurve(
         points=[
@@ -352,6 +365,7 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
                 turnover=r.turnover,
                 phase=enrich.get(r.date, {}).get("phase"),
                 benchmark_equity=enrich.get(r.date, {}).get("benchmark_equity"),
+                horizon_equity=horizon.get(r.date),
             )
             for r in rows
         ],
@@ -384,6 +398,14 @@ def portfolio_books(session: SessionDep) -> schemas.BookComparison:
         returns = pd.Series([r.daily_return for r in series])
         turnover = pd.Series([r.turnover for r in series])
         cfg = rebalance.get(variant)
+        # Add the charged frictions back to recover the pre-cost return.
+        gross = returns.copy()
+        if cfg:
+            gross = (
+                returns
+                + cfg.cost_per_turnover * turnover
+                + cfg.borrow_rate * cfg.side_weight / TRADING_DAYS_PER_YEAR
+            )
         books.append(
             schemas.BookStats(
                 variant=variant,
@@ -391,6 +413,7 @@ def portfolio_books(session: SessionDep) -> schemas.BookComparison:
                 n_days=len(series),
                 total_return=series[-1].equity - 1.0,
                 annualized_return=annualized_return(returns, TRADING_DAYS_PER_YEAR),
+                annualized_gross_return=annualized_return(gross, TRADING_DAYS_PER_YEAR),
                 sharpe=sharpe_ratio(returns, TRADING_DAYS_PER_YEAR) if len(returns) > 2 else None,
                 max_drawdown=max_drawdown(returns),
                 mean_turnover=float(turnover.mean()),
