@@ -104,4 +104,12 @@ can't attribute its own results. Measured: daily 7.8%/0.73 Sharpe vs horizon
   (dashboard Evidence tab splits replay vs live; judge only the live row).
 - Backlog: rename dbt `tests:`→`data_tests:` when tooling nags; Databricks Free Edition
   companion project (same pipeline as PySpark/Delta); richer features/models only after
-  live evidence accumulates; screenshot refresh when the live curve exists.
+  live evidence accumulates; options history analytics once ~20+ snapshots exist.
+  Screenshots are current as of 2026-07-22 — regenerate via headless Chrome, recipe in
+  docs/roadmap.md "Next".
+- **Declined, don't re-propose**: a local LLM Q&A layer over the data
+  ([ADR 0004](docs/adr/0004-no-llm-question-answering-layer.md)). The `verdict()` functions
+  in the React cards ARE the summarization layer — deterministic, unit-tested, cannot
+  fabricate a statistic; any safe LLM design just restates them. Ad-hoc questions go to
+  DBeaver. Write new explanations as verdict functions, not model calls. Same call as
+  declining Spark.
