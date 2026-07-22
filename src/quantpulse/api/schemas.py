@@ -50,6 +50,7 @@ class EquityPoint(BaseModel):
     turnover: float
     phase: str | None = None  # 'replay' | 'live' once the dbt marts exist
     benchmark_equity: float | None = None  # SPY buy-and-hold indexed to the same start
+    horizon_equity: float | None = None  # the 21-day book over the same predictions
 
 
 class EquityCurve(BaseModel):
@@ -253,6 +254,9 @@ class BookStats(BaseModel):
     n_days: int
     total_return: float
     annualized_return: float
+    # Before costs, so the gap between books can be split into "picks" vs "friction"
+    # rather than approximated from the cost drag.
+    annualized_gross_return: float
     sharpe: float | None
     max_drawdown: float
     mean_turnover: float

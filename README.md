@@ -18,12 +18,16 @@ A local-first MLOps platform for a **self-adapting ML investing model**. Fully f
 
 ![Evidence tab](docs/assets/evidence-tab.png)
 
-The CAPM decomposition is the headline: **beta −0.05 and R² 0.006 confirm the book is
+The CAPM decomposition is the headline: **beta −0.05 and R² 0.007 confirm the book is
 genuinely market-neutral**, so comparing its raw return to SPY was never the right test.
-What matters is alpha — currently **−0.56% annualized**, i.e. the signal adds nothing
-independent of the market over this window. Below it, signal quintiles still slope the
-right way (Q1 highest → Q5 lowest: real ranking skill, modest in size) alongside drawdown
-and rolling Sharpe.
+Alpha is **+4.74% annualized** over the replay — but read that with two caveats the panel
+states plainly: the window is in-sample, and the information ratio is still **negative
+(−0.34)**. (Alpha was −0.56% until the paper book stopped double-charging its trading
+costs — see [docs/roadmap.md](docs/roadmap.md); a measurement bug, not a strategy change.)
+
+Below it, the two-book panel shows what rebalancing frequency actually costs, then signal
+quintiles slope the right way (Q1 highest → Q5 lowest: real ranking skill, modest in size)
+alongside drawdown and rolling Sharpe.
 
 ### Options — implied volatility, Greeks, and a hypothetical expression of the signal
 
