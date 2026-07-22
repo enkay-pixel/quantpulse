@@ -99,7 +99,7 @@ function OverviewTab() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <Section title="Strategy vs SPY buy & hold">
+          <Section title="Paper equity vs SPY buy & hold">
             {equity.data ? <BenchmarkEquityChart curve={equity.data} /> : <Placeholder />}
           </Section>
           <Section title={activeTicker ? `Price — ${activeTicker}` : "Price"}>
@@ -154,12 +154,12 @@ function EvidenceTab() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="lg:col-span-2">
-        <Section title="Market exposure vs genuine skill (CAPM decomposition)">
+        <Section title="How much of this is the market, and how much is the signal?">
           {alphaBeta.data ? <AlphaBetaCard data={alphaBeta.data} /> : <Placeholder height="h-32" />}
         </Section>
       </div>
       <div className="lg:col-span-2">
-        <Section title="What does rebalancing frequency cost? Same signal, two books">
+        <Section title="What does trading more often cost?">
           {books.data ? <BookComparisonCard data={books.data} /> : <Placeholder height="h-32" />}
         </Section>
       </div>

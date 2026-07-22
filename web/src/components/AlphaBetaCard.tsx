@@ -30,17 +30,39 @@ function Metric({
   );
 }
 
-// Plain-English read of the decomposition, so the numbers can't be misread.
+/**
+ * Plain-English read of the decomposition. Two rules keep it honest:
+ *
+ * 1. Alpha and the information ratio can disagree in sign — one is market-adjusted, the
+ *    other benchmark-relative — so when they do, say so instead of quoting whichever
+ *    flatters. Claiming "it earns positive alpha" next to a negative IR reads as a
+ *    verdict the numbers haven't reached.
+ * 2. An in-sample window describes a fit, never skill. Label it that way every time.
+ */
 function verdict(s: AlphaBetaStats): string {
   const neutral = s.beta !== null && Math.abs(s.beta) < 0.2;
-  const posAlpha = (s.alpha_annualized ?? 0) > 0;
+  const alpha = s.alpha_annualized ?? 0;
+  const ir = s.information_ratio ?? 0;
+
   const exposure = neutral
-    ? "Market-neutral as designed (beta ≈ 0), so comparing raw return to SPY is not the right test"
-    : `Carries real market exposure (beta ${formatNumber(s.beta)}), so part of its return is simply the market`;
-  const skill = posAlpha
-    ? "and it earns positive alpha — return independent of the market."
-    : "but it earns no positive alpha: after accounting for market exposure the signal adds nothing over this window.";
-  return `${exposure}, ${skill}`;
+    ? `Beta ${formatNumber(s.beta)} means this book barely moves with the market — which is the design, so comparing its raw return to SPY would tell you nothing.`
+    : `Beta ${formatNumber(s.beta)} means a real share of this return is the market moving, not the signal working.`;
+
+  const te = formatPercent(s.tracking_error, 1);
+  let skill: string;
+  if (alpha > 0 && ir < 0) {
+    skill = `Strip the market out and ${formatSignedPercent(alpha)} a year is left — but against ${te} of tracking error the information ratio is negative (${formatNumber(ir)}), so it still trails the benchmark for the risk it takes. The two measure different things and here they point opposite ways, so neither one settles it.`;
+  } else if (alpha > 0) {
+    skill = `Strip the market out and ${formatSignedPercent(alpha)} a year is left, and against ${te} of tracking error the information ratio agrees at ${formatNumber(ir)}.`;
+  } else {
+    skill = `Strip the market out and ${formatSignedPercent(alpha)} a year is left — over this window the signal is not paying for itself (information ratio ${formatNumber(ir)} against ${te} tracking error).`;
+  }
+
+  const caveat =
+    s.phase === "replay"
+      ? " Remember these are in-sample: the model was fitted on this very window, so read them as a description of the fit, not as evidence of skill."
+      : "";
+  return `${exposure} ${skill}${caveat}`;
 }
 
 export function AlphaBetaCard({ data }: { data: AlphaBeta }) {
@@ -67,24 +89,24 @@ export function AlphaBetaCard({ data }: { data: AlphaBeta }) {
         <Metric
           label="Beta vs SPY"
           value={formatNumber(shown.beta)}
-          hint="market exposure (0 = neutral)"
+          hint="how much it moves with the market (0 = not at all)"
         />
         <Metric
           label="Alpha (annualized)"
           value={formatSignedPercent(shown.alpha_annualized)}
           color={deltaColor(shown.alpha_annualized)}
-          hint="return independent of market"
+          hint="what's left once market moves are removed"
         />
         <Metric
           label="Information ratio"
           value={formatNumber(shown.information_ratio)}
           color={deltaColor(shown.information_ratio)}
-          hint="active return per unit risk"
+          hint="return vs the benchmark, per unit of risk"
         />
         <Metric
           label="R²"
           value={formatNumber(shown.r_squared, 3)}
-          hint="variance explained by market"
+          hint="share of its ups and downs the market explains"
         />
       </div>
 
@@ -92,7 +114,7 @@ export function AlphaBetaCard({ data }: { data: AlphaBeta }) {
         className="mt-3 rounded-lg px-3 py-2 text-xs"
         style={{ background: "var(--grid)", color: "var(--text-secondary)" }}
       >
-        {verdict(shown)} Tracking error {formatPercent(shown.tracking_error, 1)}.
+        {verdict(shown)}
       </p>
     </div>
   );

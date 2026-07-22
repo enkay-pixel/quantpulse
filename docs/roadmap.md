@@ -50,22 +50,23 @@ tsc / compose validation — all enforced in CI.
 
 **Settled 2026-07-22.** The model forecasts 21-day returns while the paper book
 rebalanced daily, and the two disagreed wildly (Sharpe 0.26 vs 1.33). Rather than pick
-one, both now run as **books over the same predictions**, differing in exactly one
-dimension — rebalance frequency — so the difference is attributable. Measured over the
-full replay:
+one, both now run over the same predictions as separate *books* — a book being one way
+of turning the signal into a portfolio. They differ in exactly one thing, how often they
+rebalance, which is what lets the difference between them be blamed on that and nothing
+else. Measured over the full replay:
 
 | book | rebalance | ann. return | Sharpe | max DD | mean turnover | cost drag |
 |---|---|---|---|---|---|---|
 | `daily` | every day | 7.76% | 0.73 | −26.9% | 0.230 | **5.79%/yr** |
 | `horizon` | every 21 days | **14.40%** | **1.31** | −16.2% | 0.026 | 0.65%/yr |
 
-Decomposing the 6.64pp gap by stripping costs back out:
+Add the charged costs back to each book and the 6.64 percentage-point gap splits cleanly:
 
-- **85% of it (5.68pp) is trading cost.** The daily book churns 9× harder to chase a
-  signal that only refreshes meaningfully every few weeks.
-- **15% (0.97pp) is signal.** Gross of costs the two are close — 14.76% vs 15.72% —
-  so the 21-day forecast is *not* badly degraded when applied daily. It is simply not
-  worth 7%/yr in commissions and slippage to act on it every day.
+- **85% of it (5.68 points) is trading cost.** The daily book trades 9× as much to chase
+  a signal that only refreshes meaningfully every few weeks.
+- **15% (0.97 points) is the signal itself.** Before costs the two books are close —
+  14.76% vs 15.72% — so the 21-day forecast is *not* badly degraded when applied daily.
+  It simply isn't worth 7%/yr in commissions and slippage to act on it that often.
 
 This also closes the confound: the horizon book (Sharpe 1.31) now agrees with the
 horizon-matched backtest (1.33). They disagreed before because they described different
@@ -79,10 +80,11 @@ that paid twice for its trades. The information ratio is still negative (−0.34
 window is still in-sample, so this is *not* evidence of skill; it is one bug's worth of
 distortion removed from a number the dashboard reports.
 
-**The caveat still applies:** this is replay, scored in-sample over the champion's own
-training window, and carries the survivorship bias below. The champion's true holdout
-Sharpe was 0.21. Read the table as "daily rebalancing destroys value through costs" —
-a robust, mechanical conclusion — not as "this earns 14% a year."
+**The caveat that governs every number above:** this is replay, scored in-sample over the
+champion's own training window, and it carries the survivorship bias described below. The
+champion's true out-of-sample Sharpe was 0.21. Read the table as *"trading daily destroys
+value through costs"* — a mechanical conclusion that holds regardless of whether the
+signal is any good — and not as *"this earns 14% a year."*
 
 Both books are rebuilt on every `portfolio_equity` materialization, stored in
 `portfolio_snapshots` keyed by `variant`, and compared at `GET /portfolio/books`. The

@@ -1,6 +1,10 @@
 import type { TrackRecord } from "../api/types";
 import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
 
+// Ratios need a sample before they mean anything. Two days of returns annualize to a
+// confident-looking Sharpe that is pure noise, so withhold it rather than print it.
+const MIN_DAYS_FOR_RATIOS = 20;
+
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div>
@@ -30,17 +34,33 @@ export function TrackRecordCard({ record }: { record: TrackRecord }) {
       </div>
 
       {live ? (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-          <Stat label="Days" value={String(live.n_days)} />
-          <Stat
-            label="Return"
-            value={formatSignedPercent(live.total_return)}
-            color={deltaColor(live.total_return)}
-          />
-          <Stat label="Sharpe" value={formatNumber(live.sharpe)} />
-          <Stat label="Max DD" value={formatPercent(live.max_drawdown)} />
-          <Stat label="Win rate" value={formatPercent(live.win_rate, 0)} />
-        </div>
+        <>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+            <Stat label="Days" value={String(live.n_days)} />
+            <Stat
+              label="Return"
+              value={formatSignedPercent(live.total_return)}
+              color={deltaColor(live.total_return)}
+            />
+            <Stat
+              label="Sharpe"
+              value={live.n_days >= MIN_DAYS_FOR_RATIOS ? formatNumber(live.sharpe) : "—"}
+            />
+            <Stat label="Max DD" value={formatPercent(live.max_drawdown)} />
+            <Stat
+              label="Win rate"
+              value={live.n_days >= MIN_DAYS_FOR_RATIOS ? formatPercent(live.win_rate, 0) : "—"}
+            />
+          </div>
+          {live.n_days < MIN_DAYS_FOR_RATIOS ? (
+            <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+              Sharpe and win rate stay blank until {MIN_DAYS_FOR_RATIOS} trading days.
+              Annualizing a handful of days produces a precise-looking number that means
+              nothing — {live.n_days === 1 ? "one day" : `${live.n_days} days`} cannot tell
+              you about a year.
+            </p>
+          ) : null}
+        </>
       ) : (
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           Accumulating — the first live out-of-sample day lands with the next scheduled

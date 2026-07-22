@@ -20,15 +20,35 @@ describe("AlphaBetaCard", () => {
     render(<AlphaBetaCard data={{ phases: [REPLAY] }} />);
     expect(screen.getByText("-0.05")).toBeInTheDocument(); // beta
     expect(screen.getByText("-0.56%")).toBeInTheDocument(); // annualized alpha
-    expect(screen.getByText(/Market-neutral as designed/)).toBeInTheDocument();
-    expect(screen.getByText(/earns no positive alpha/)).toBeInTheDocument();
+    expect(screen.getByText(/barely moves with the market/)).toBeInTheDocument();
+    expect(screen.getByText(/the signal is not paying for itself/)).toBeInTheDocument();
   });
 
-  it("prefers the live phase once it has enough days", () => {
-    const live = { ...REPLAY, phase: "live" as const, n_days: 40, alpha_annualized: 0.03 };
+  it("names the disagreement when alpha is positive but the information ratio is not", () => {
+    // Regression: the card used to read "it earns positive alpha" while a negative IR sat
+    // in the next column — a verdict the numbers had not reached.
+    const conflicted = { ...REPLAY, alpha_annualized: 0.0474, information_ratio: -0.34 };
+    render(<AlphaBetaCard data={{ phases: [conflicted] }} />);
+    expect(screen.getByText(/information ratio is negative/)).toBeInTheDocument();
+    expect(screen.getByText(/point opposite ways, so neither one settles it/)).toBeInTheDocument();
+  });
+
+  it("says the two agree when they actually agree", () => {
+    const good = { ...REPLAY, alpha_annualized: 0.03, information_ratio: 0.4 };
+    render(<AlphaBetaCard data={{ phases: [good] }} />);
+    expect(screen.getByText(/information ratio agrees/)).toBeInTheDocument();
+  });
+
+  it("labels a replay window as a fit, never as skill", () => {
+    render(<AlphaBetaCard data={{ phases: [REPLAY] }} />);
+    expect(screen.getByText(/not as evidence of skill/)).toBeInTheDocument();
+  });
+
+  it("drops the in-sample caveat once the window is genuinely out-of-sample", () => {
+    const live = { ...REPLAY, phase: "live" as const, n_days: 40 };
     render(<AlphaBetaCard data={{ phases: [REPLAY, live] }} />);
     expect(screen.getByText(/Live out-of-sample, 40 days/)).toBeInTheDocument();
-    expect(screen.getByText(/earns positive alpha/)).toBeInTheDocument();
+    expect(screen.queryByText(/not as evidence of skill/)).not.toBeInTheDocument();
   });
 
   it("falls back to replay while the live phase is too short to regress", () => {
