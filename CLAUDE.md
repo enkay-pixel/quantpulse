@@ -23,7 +23,8 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 ## Map
 
 - `src/quantpulse/`: `data/` (ingest, calendar, quality) · `features/` · `ml/`
-  (cv, training, backtest, metrics, registry, promotion, portfolio, pipeline) ·
+  (cv, training, backtest, metrics, registry, promotion, portfolio, sensitivity,
+  pipeline) ·
   `monitoring/drift.py` · `orchestration/` (Dagster defs + dagster-dbt) · `api/` · `cli.py`
 - `src/quantpulse/options/`: `pricing.py` (Black-Scholes + Greeks, market IV) ·
   `ingest.py` (daily live chain snapshots — no free history exists, so this table only
@@ -86,6 +87,16 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Shell working directory resets between tool calls — always `cd` explicitly.
 - Docker CLI symlinks live in `/opt/homebrew/bin` (the `/usr/local/bin` ones point at a
   dead DMG mount).
+
+## Paper books (don't collapse them)
+
+`ml/portfolio.py` runs TWO books over the same predictions, stored in
+`portfolio_snapshots` keyed by `variant`: `daily` (rebalances daily) and `horizon`
+(every 21 days, matching the model's forecast horizon). They must differ in
+**rebalance_days only** — a unit test enforces it, because a book differing in two ways
+can't attribute its own results. Measured: daily 7.8%/0.73 Sharpe vs horizon
+14.4%/1.31, and 85% of that gap is trading cost, not signal decay. dbt + dashboard pin
+`variant = 'daily'` (in `stg_portfolio_snapshots`); compare at `GET /portfolio/books`.
 
 ## State & near-term ideas
 

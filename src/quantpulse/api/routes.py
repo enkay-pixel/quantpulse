@@ -22,6 +22,10 @@ from quantpulse.ml.metrics import TRADING_DAYS_PER_YEAR, max_drawdown, sharpe_ra
 
 router = APIRouter()
 
+# The book the dashboard treats as "the" track record. Other variants exist for
+# comparison (quantpulse.ml.portfolio.BOOKS) and are served at /portfolio/books.
+LIVE_BOOK = "daily"
+
 SessionDep = Annotated[Session, Depends(session_dep)]
 EngineDep = Annotated[Engine, Depends(engine_dep)]
 
@@ -321,7 +325,11 @@ def latest_predictions(session: SessionDep) -> schemas.PredictionsOut:
 
 @router.get("/portfolio/equity-curve", response_model=schemas.EquityCurve)
 def equity_curve(session: SessionDep) -> schemas.EquityCurve:
-    rows = session.scalars(select(PortfolioSnapshot).order_by(PortfolioSnapshot.date)).all()
+    rows = session.scalars(
+        select(PortfolioSnapshot)
+        .where(PortfolioSnapshot.variant == LIVE_BOOK)
+        .order_by(PortfolioSnapshot.date)
+    ).all()
     if not rows:
         return schemas.EquityCurve(points=[], total_return=None, max_drawdown=None, sharpe=None)
     import pandas as pd
@@ -351,6 +359,47 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
         max_drawdown=max_drawdown(returns),
         sharpe=sharpe_ratio(returns, TRADING_DAYS_PER_YEAR) if len(returns) > 2 else None,
     )
+
+
+@router.get("/portfolio/books", response_model=schemas.BookComparison)
+def portfolio_books(session: SessionDep) -> schemas.BookComparison:
+    """Compare the paper books that run over the same predictions.
+
+    They differ only in rebalance frequency, so the spread between them is a clean
+    read on how fast the signal decays and what the extra churn costs.
+    """
+    import pandas as pd
+
+    from quantpulse.ml.metrics import annualized_return
+    from quantpulse.ml.portfolio import BOOKS
+
+    rebalance = {b.variant: b for b in BOOKS}
+    rows = session.scalars(
+        select(PortfolioSnapshot).order_by(PortfolioSnapshot.variant, PortfolioSnapshot.date)
+    ).all()
+
+    books = []
+    for variant in sorted({r.variant for r in rows}):
+        series = [r for r in rows if r.variant == variant]
+        returns = pd.Series([r.daily_return for r in series])
+        turnover = pd.Series([r.turnover for r in series])
+        cfg = rebalance.get(variant)
+        books.append(
+            schemas.BookStats(
+                variant=variant,
+                rebalance_days=cfg.rebalance_days if cfg else 0,
+                n_days=len(series),
+                total_return=series[-1].equity - 1.0,
+                annualized_return=annualized_return(returns, TRADING_DAYS_PER_YEAR),
+                sharpe=sharpe_ratio(returns, TRADING_DAYS_PER_YEAR) if len(returns) > 2 else None,
+                max_drawdown=max_drawdown(returns),
+                mean_turnover=float(turnover.mean()),
+                annualized_cost_drag=float(turnover.mean())
+                * (cfg.cost_per_turnover if cfg else 0.0)
+                * TRADING_DAYS_PER_YEAR,
+            )
+        )
+    return schemas.BookComparison(books=books)
 
 
 @router.get("/track-record", response_model=schemas.TrackRecord)
@@ -426,7 +475,9 @@ def portfolio_risk(session: SessionDep) -> schemas.RiskOut:
 @router.get("/portfolio/positions", response_model=schemas.PositionsOut)
 def portfolio_positions(session: SessionDep) -> schemas.PositionsOut:
     snapshot = session.scalars(
-        select(PortfolioSnapshot).order_by(PortfolioSnapshot.date.desc())
+        select(PortfolioSnapshot)
+        .where(PortfolioSnapshot.variant == LIVE_BOOK)
+        .order_by(PortfolioSnapshot.date.desc())
     ).first()
     if snapshot is None or not snapshot.positions:
         return schemas.PositionsOut(date=None, model_version=None, rows=[])
@@ -526,5 +577,7 @@ def freshness(session: SessionDep) -> schemas.FreshnessOut:
         latest_price_date=session.scalar(select(func.max(Price.date))),
         latest_feature_date=session.scalar(select(func.max(Feature.date))),
         latest_prediction_date=session.scalar(select(func.max(Prediction.date))),
-        latest_snapshot_date=session.scalar(select(func.max(PortfolioSnapshot.date))),
+        latest_snapshot_date=session.scalar(
+            select(func.max(PortfolioSnapshot.date)).where(PortfolioSnapshot.variant == LIVE_BOOK)
+        ),
     )

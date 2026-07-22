@@ -245,6 +245,24 @@ class ModelRunOut(BaseModel):
     created_at: dt.datetime
 
 
+class BookStats(BaseModel):
+    """One paper-book construction, summarized for side-by-side comparison."""
+
+    variant: str
+    rebalance_days: int
+    n_days: int
+    total_return: float
+    annualized_return: float
+    sharpe: float | None
+    max_drawdown: float
+    mean_turnover: float
+    annualized_cost_drag: float  # what trading this book costs per year
+
+
+class BookComparison(BaseModel):
+    books: list[BookStats]
+
+
 class FreshnessOut(BaseModel):
     latest_price_date: dt.date | None
     latest_feature_date: dt.date | None

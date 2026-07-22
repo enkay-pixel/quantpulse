@@ -17,7 +17,7 @@ Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Dock
 1. `raw_prices` (daily-partitioned Dagster asset) pulls OHLCV bars from yfinance (Stooq fallback) and upserts into `market.prices`.
 2. `features` computes technical + cross-sectional features into `market.features`.
 3. `predictions` loads the MLflow registry model aliased `@champion` and scores the latest features.
-4. `portfolio_equity` maintains a simulated long/short book from predictions for the dashboard.
+4. `portfolio_equity` maintains the simulated long/short paper books from predictions.
 5. `drift_report` (Evidently) compares recent feature/prediction distributions against the champion's training reference.
 
 ## Transform layer (dbt)
@@ -50,6 +50,27 @@ catches stale/pre-market feeds — traded contracts present, and Greeks non-null
 *hypothetical* defined-risk structure (bull call / bear put spread) with cost, max
 profit/loss and breakeven. It is an illustration of the model's directional view — never
 a recommendation, and the UI says so prominently.
+
+## Two paper books, one difference
+
+`ml/portfolio.py` runs **two** books over the same predictions, stored in
+`portfolio_snapshots` keyed by `variant`:
+
+| variant | rebalances | asks |
+|---|---|---|
+| `daily` | every day | what if I trade this signal aggressively? |
+| `horizon` | every 21 trading days | what does the thing the model predicts actually earn? |
+
+They share quantile widths, capital convention, cost model and borrow rate, and differ
+in **exactly one** dimension — rebalance frequency. That is what makes the spread
+between them a measurement rather than a coincidence, and a unit test
+(`test_books_differ_only_in_rebalance_frequency`) fails if any other field diverges.
+Keeping both is deliberate: the gap quantifies how much the churn costs and how fast
+the signal decays, which one book alone cannot show. Compared at `GET /portfolio/books`;
+the finding is written up in [roadmap.md](roadmap.md).
+
+The dashboard and every dbt mart describe the `daily` book — `stg_portfolio_snapshots`
+pins the variant so additional books cannot double-count downstream.
 
 ## Measuring skill vs market exposure
 
@@ -89,6 +110,11 @@ local-first platform actually hits:
   coverage (`orchestration/catchup.py`) and re-requests any day below 80% universe
   coverage, bounded per tick. Schedules only fire while the stack is up, and this runs on
   a laptop that sleeps.
+- `option_snapshot_repair_sensor` — re-runs **today's** option snapshot when it landed
+  below 80% ticker coverage, capped at 3 attempts a day. Scoped to today on purpose:
+  chains are live-only, so an incomplete past day is a permanent hole and re-running
+  would just snapshot the present. Prices, by contrast, are always backfillable — which
+  is why they get a 30-day lookback and options get one day.
 
 ## Evidence layer
 

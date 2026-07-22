@@ -53,7 +53,19 @@ def test_schedules_and_sensors_registered() -> None:
         schedule_names
     )
     sensor_names = {s.name for s in defs.sensors or []}
-    assert "drift_retrain_sensor" in sensor_names
+    assert {
+        "drift_retrain_sensor",
+        "pipeline_failure_alert",
+        "missed_partition_catchup_sensor",
+        "option_snapshot_repair_sensor",
+    } <= sensor_names
+
+
+def test_sensors_ship_running() -> None:
+    """Same reasoning as the schedules: a sensor that ships stopped is a sensor that
+    silently never fires."""
+    for sensor in defs.sensors or []:
+        assert sensor.default_status == dg.DefaultSensorStatus.RUNNING, sensor.name
 
 
 def test_raw_prices_is_daily_partitioned() -> None:

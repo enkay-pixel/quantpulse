@@ -31,9 +31,9 @@ give investment advice, and the disclaimer stays.
 | M9 | Options layer | Black-Scholes Greeks, daily chain snapshots, IV-surface/put-call marts, Options tab, hypothetical spread translation |
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 
-**Quality gates:** 141 Python tests (108 unit + 33 integration against a disposable
-database that runs a real `dbt build`), 39 Vitest, 53 dbt data tests, plus mypy / ruff /
-eslint / tsc / compose validation — all enforced in CI.
+**Quality gates:** 151 Python tests (unit + integration against a disposable database
+that runs a real `dbt build`), 39 Vitest, 54 dbt data tests, plus mypy / ruff / eslint /
+tsc / compose validation — all enforced in CI.
 
 ## Current state
 
@@ -46,7 +46,43 @@ eslint / tsc / compose validation — all enforced in CI.
 - **Signal quality:** quintile forward returns are monotonic (Q1 ≈ 24.9bp → Q5 ≈ 0.4bp)
   across the replay window: real ranking skill, modest in magnitude.
 
-## Open finding: horizon mismatch between the model and the paper book
+## Resolved: the horizon mismatch was a cost problem, not a signal problem
+
+**Settled 2026-07-22.** The model forecasts 21-day returns while the paper book
+rebalanced daily, and the two disagreed wildly (Sharpe 0.26 vs 1.33). Rather than pick
+one, both now run as **books over the same predictions**, differing in exactly one
+dimension — rebalance frequency — so the difference is attributable. Measured over the
+full replay:
+
+| book | rebalance | ann. return | Sharpe | max DD | mean turnover | cost drag |
+|---|---|---|---|---|---|---|
+| `daily` | every day | 7.76% | 0.73 | −26.9% | 0.230 | **5.79%/yr** |
+| `horizon` | every 21 days | **14.40%** | **1.31** | −16.2% | 0.026 | 0.65%/yr |
+
+Decomposing the 6.64pp gap by stripping costs back out:
+
+- **85% of it (5.68pp) is trading cost.** The daily book churns 9× harder to chase a
+  signal that only refreshes meaningfully every few weeks.
+- **15% (0.97pp) is signal.** Gross of costs the two are close — 14.76% vs 15.72% —
+  so the 21-day forecast is *not* badly degraded when applied daily. It is simply not
+  worth 7%/yr in commissions and slippage to act on it every day.
+
+This also closes the confound: the horizon book (Sharpe 1.31) now agrees with the
+horizon-matched backtest (1.33). They disagreed before because they described different
+portfolios *and* the paper book double-charged costs through a mismatched capital
+convention — both fixed.
+
+**The caveat still applies:** this is replay, scored in-sample over the champion's own
+training window, and carries the survivorship bias below. The champion's true holdout
+Sharpe was 0.21. Read the table as "daily rebalancing destroys value through costs" —
+a robust, mechanical conclusion — not as "this earns 14% a year."
+
+Both books are rebuilt on every `portfolio_equity` materialization, stored in
+`portfolio_snapshots` keyed by `variant`, and compared at `GET /portfolio/books`. The
+dashboard and every dbt mart still describe the `daily` book, so the evidence layer is
+unchanged.
+
+### Original sweep that surfaced it
 
 `quantpulse sensitivity` sweeps the backtest across trading-cost and short-borrow
 assumptions. Two things came out of the first run, and the second matters more:
@@ -57,21 +93,16 @@ assumptions. Two things came out of the first run, and the second matters more:
   **above 1%**: the sweep never found it, because the strategy stays profitable at the
   harshest cost tested. (Re-measured 2026-07-22 after the turnover fix below; the
   earlier "~1%" figure was the grid ceiling being misreported as a measurement.)
-- **But that backtest and the live paper book are not the same strategy.** The model
-  forecasts **21-day** forward returns, and the backtest holds positions for roughly
-  that long. The paper portfolio (`ml/portfolio.py`) rebalances **daily** and realizes
-  the **next day's** return — using a 21-day signal to bet on tomorrow. That mismatch is
-  the leading suspect for why the paper book shows ~0.26 Sharpe and negative alpha while
-  the horizon-matched backtest looks far healthier.
+- **But that backtest and the live paper book were not the same strategy.** The model
+  forecasts **21-day** forward returns and the backtest held positions for roughly that
+  long, while the paper portfolio rebalanced **daily** — using a 21-day signal to bet on
+  tomorrow. That mismatch is what the dual-book work above set out to measure, and it
+  turned out to be worth ~6.6pp a year, almost all of it in trading costs.
 
 **Caveat that keeps this honest:** the sensitivity run scores the champion over its own
 training window, so those figures are largely *in-sample*. The champion's true holdout
-Sharpe was 0.21. Do not read 1.33 as a real edge — read it as evidence that the two
-constructions disagree, which is a question about design, not about alpha.
-
-Next step when picking this up: decide deliberately whether the paper book should hold
-positions for the model's horizon (or the model should forecast a 1-day target), then
-re-measure. Do not tune anything until the horizons agree.
+Sharpe was 0.21. Do not read 1.33 as a real edge — read it as evidence about how the
+constructions differ, which is a question about design, not about alpha.
 
 ## Known biases in the replay
 
@@ -100,14 +131,12 @@ quantile width (0.4) rather than measuring position churn, so costs were blind t
 whether the book actually traded. Measured turnover averages 0.533 (range 0.28–0.85) —
 the old proxy understated trading costs by ~33%.
 
-**Still open — the two books disagree on capital convention.** `ml/backtest.py` now
-weights each side at 0.5 (gross exposure 1.0), matching the `(long − short) / 2` return
-it computes. `ml/portfolio.py` weights each side at 1.0 (gross exposure 2.0) while
-computing the *same* halved return, so its turnover — and therefore its cost charge —
-is ~2× the backtest's for identical churn. It errs conservative, so the live curve is if
-anything understated, but the two constructions are not cost-comparable. Fold this into
-the horizon-mismatch work above: both need to describe the same portfolio before
-comparing them means anything.
+Also fixed the same day: `ml/portfolio.py` weighted each side at 1.0 (gross exposure
+2.0) while computing the *same* halved `(long − short) / 2` return, so it charged ~2×
+the cost of the backtest for identical churn, and charged no borrow at all. Both books
+now share `ml/backtest.py`'s convention — 0.5 per side, gross exposure 1.0, borrow
+accrued daily. This is why the daily book's Sharpe moved from 0.26 to 0.73 without any
+change to the signal: it had been paying double for its trades.
 
 ## Operating notes
 

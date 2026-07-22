@@ -25,6 +25,9 @@ training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion
 # per sensor tick (so a long sleep doesn't stampede the queue).
 LOOKBACK_DAYS = 30
 MAX_CATCHUP_PER_TICK = 3
+# A snapshot is ~10 minutes of network calls; a feed that is genuinely down should not
+# be retried all day, so cap same-day repairs.
+MAX_OPTION_REPAIRS_PER_DAY = 3
 
 # All schedules default to RUNNING: `make up` must mean fully automated —
 # without this, Dagster ships schedules stopped until toggled in the UI.
@@ -139,6 +142,41 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     )
 
 
+@dg.sensor(
+    job=dg.define_asset_job("option_resnapshot_job", selection=[qp_assets.option_chains]),
+    minimum_interval_seconds=1800,
+    default_status=dg.DefaultSensorStatus.RUNNING,
+)
+def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+    """Re-run today's option snapshot when it came out thin.
+
+    A full snapshot is ~500 network calls over ~10 minutes and commits per ticker, so
+    an interruption leaves a partial day. Only *today* can be repaired — chains are
+    live-only, so yesterday's gaps are permanent. Bounded by a cursor because a
+    genuinely unavailable feed must not spin the run queue all day.
+    """
+    import datetime as dt
+
+    from quantpulse.orchestration.catchup import option_snapshot_incomplete
+
+    today = dt.date.today()
+    # Cursor is "<day>:<attempts>"; a new day resets the budget.
+    seen_day, _, attempts_raw = (context.cursor or ":").partition(":")
+    attempts = int(attempts_raw) if seen_day == str(today) and attempts_raw.isdigit() else 0
+
+    coverage = option_snapshot_incomplete(today)
+    if coverage is None:
+        return dg.SensorResult(skip_reason="today's option snapshot is complete or not yet started")
+    if attempts >= MAX_OPTION_REPAIRS_PER_DAY:
+        return dg.SensorResult(
+            skip_reason=f"already retried today's snapshot {attempts}x at {coverage:.0%} coverage"
+        )
+    context.update_cursor(f"{today}:{attempts + 1}")
+    return dg.SensorResult(
+        run_requests=[dg.RunRequest(run_key=f"option-repair-{today}-{attempts + 1}")]
+    )
+
+
 defs = dg.Definitions(
     assets=[
         qp_assets.raw_prices,
@@ -153,6 +191,11 @@ defs = dg.Definitions(
     asset_checks=[qp_assets.recent_prices_quality, qp_assets.option_snapshot_quality],
     jobs=[ingest_job, process_job, training_job],
     schedules=[ingest_schedule, process_schedule, training_schedule],
-    sensors=[drift_retrain_sensor, pipeline_failure_alert, missed_partition_catchup_sensor],
+    sensors=[
+        drift_retrain_sensor,
+        pipeline_failure_alert,
+        missed_partition_catchup_sensor,
+        option_snapshot_repair_sensor,
+    ],
     resources={"dbt": dbt_resource},
 )

@@ -1,11 +1,25 @@
-"""Simulated long/short paper book built from stored predictions.
+"""Simulated long/short paper books built from stored predictions.
 
-For every date with predictions, form an equal-weight long/short portfolio from
-score quantiles and realize the next trading day's return. This is the "live"
-performance trail shown on the dashboard (distinct from the training backtest).
+Positions form from score quantiles and earn each day's realized return. Two books
+run over the same predictions and differ in **exactly one** dimension — how often
+they rebalance:
+
+- ``daily``   — re-forms the book every day, betting the signal on tomorrow.
+- ``horizon`` — re-forms every 21 trading days, the horizon the model is trained to
+  forecast, and holds in between.
+
+Keeping both is the point. The daily book asks "what if I trade this aggressively?";
+the horizon book asks "what does the thing the model actually predicts earn?" The gap
+between them measures how fast the signal decays and what the churn costs. That
+comparison is only valid because everything else — capital convention, cost model,
+borrow, quantile widths — is shared, so nothing else can explain the difference.
+
+Capital convention matches `ml.backtest`: each side carries `SIDE_WEIGHT` of capital
+(gross exposure 1.0), which is what the halved long-minus-short spread assumes.
 """
 
 import logging
+from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
@@ -15,12 +29,33 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from quantpulse.db import PortfolioSnapshot
+from quantpulse.ml.metrics import TRADING_DAYS_PER_YEAR
 
 logger = logging.getLogger(__name__)
 
 LONG_Q = 0.2
 SHORT_Q = 0.2
 COST_PER_TURNOVER = 0.001  # combined commission + slippage, applied on position changes
+SIDE_WEIGHT = 0.5  # capital per side; 0.5/0.5 is dollar-neutral, gross exposure 1.0
+BORROW_RATE = 0.01  # annualized fee on the short leg, accrued daily
+
+
+@dataclass(frozen=True)
+class BookConfig:
+    """One paper-book construction. Only `rebalance_days` should differ between books."""
+
+    variant: str
+    rebalance_days: int
+    long_q: float = LONG_Q
+    short_q: float = SHORT_Q
+    cost_per_turnover: float = COST_PER_TURNOVER
+    borrow_rate: float = BORROW_RATE
+    side_weight: float = SIDE_WEIGHT
+
+
+DAILY_BOOK = BookConfig(variant="daily", rebalance_days=1)
+HORIZON_BOOK = BookConfig(variant="horizon", rebalance_days=21)
+BOOKS = (DAILY_BOOK, HORIZON_BOOK)
 
 
 def _load_frames(engine: Engine) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -34,49 +69,69 @@ def _load_frames(engine: Engine) -> tuple[pd.DataFrame, pd.DataFrame]:
     return preds, prices
 
 
-def rebuild_portfolio(engine: Engine, session: Session) -> int:
-    """Recompute the whole snapshot trail from predictions; idempotent upsert."""
-    preds, prices = _load_frames(engine)
-    if preds.empty or prices.empty:
-        logger.info("No predictions or prices — nothing to rebuild")
-        return 0
+def _form_positions(group: pd.DataFrame, cfg: BookConfig) -> dict[str, float] | None:
+    """Equal-weight long/short book from score quantiles, or None if a side is empty."""
+    long_thr = group["score"].quantile(1 - cfg.long_q)
+    short_thr = group["score"].quantile(cfg.short_q)
+    longs = group[group["score"] >= long_thr]["ticker"].tolist()
+    shorts = group[group["score"] <= short_thr]["ticker"].tolist()
+    if not longs or not shorts:
+        return None
+    return {t: cfg.side_weight / len(longs) for t in longs} | {
+        t: -cfg.side_weight / len(shorts) for t in shorts
+    }
 
+
+def build_book(
+    preds: pd.DataFrame, prices: pd.DataFrame, cfg: BookConfig
+) -> list[dict[str, object]]:
+    """Walk the prediction dates, rebalancing every `cfg.rebalance_days`, and return
+    one snapshot per day. Held days trade nothing and so pay no turnover cost."""
     # pivot (not pivot_table) so duplicate (date, ticker) keys raise instead of aggregating
     returns = prices.pivot(index="date", columns="ticker", values="close").sort_index()
     daily_ret = returns.pct_change(fill_method=None).shift(-1)  # next-day realized return
 
     snapshots: list[dict[str, object]] = []
     equity = 1.0
-    prev_positions: dict[str, float] = {}
+    positions: dict[str, float] = {}
+    since_rebalance = 0
+    # Borrow is a financing cost: it accrues per calendar day held, not per trade.
+    daily_borrow = cfg.borrow_rate * cfg.side_weight / TRADING_DAYS_PER_YEAR
+
     for date, group in preds.groupby("date"):
         if date not in daily_ret.index:
             continue
-        long_thr = group["score"].quantile(1 - LONG_Q)
-        short_thr = group["score"].quantile(SHORT_Q)
-        longs = group[group["score"] >= long_thr]["ticker"].tolist()
-        shorts = group[group["score"] <= short_thr]["ticker"].tolist()
-        if not longs or not shorts:
-            continue
-        positions = {t: 1.0 / len(longs) for t in longs} | {t: -1.0 / len(shorts) for t in shorts}
+        rebalancing = not positions or since_rebalance >= cfg.rebalance_days
+        if rebalancing:
+            fresh = _form_positions(group, cfg)
+            if fresh is None:
+                continue
+            prev, positions, since_rebalance = positions, fresh, 0
+        else:
+            prev = positions
+        since_rebalance += 1
 
         next_rets = daily_ret.loc[date]
-        long_ret = float(np.nanmean([next_rets.get(t, np.nan) for t in longs]))
-        short_ret = float(np.nanmean([next_rets.get(t, np.nan) for t in shorts]))
-        if np.isnan(long_ret) or np.isnan(short_ret):
+        rets = np.array([next_rets.get(t, np.nan) for t in positions], dtype=float)
+        weights = np.array(list(positions.values()), dtype=float)
+        # The final date has no next-day return, and a name can be missing a bar.
+        # nansum would report those as a flat 0.0 day, so check before trusting it;
+        # names that are individually missing simply contribute nothing.
+        if np.isnan(rets).all():
             continue
-        gross = (long_ret - short_ret) / 2
+        gross = float(np.nansum(weights * rets))
 
-        all_names = set(positions) | set(prev_positions)
         turnover = (
-            sum(abs(positions.get(t, 0.0) - prev_positions.get(t, 0.0)) for t in all_names) / 2
+            sum(abs(positions.get(t, 0.0) - prev.get(t, 0.0)) for t in set(positions) | set(prev))
+            / 2
         )
-        net = gross - COST_PER_TURNOVER * turnover
+        net = gross - cfg.cost_per_turnover * turnover - daily_borrow
         equity *= 1 + net
-        prev_positions = positions
 
         snapshots.append(
             {
                 "date": date,
+                "variant": cfg.variant,
                 "equity": equity,
                 "daily_return": net,
                 "gross_exposure": float(sum(abs(w) for w in positions.values())),
@@ -86,6 +141,26 @@ def rebuild_portfolio(engine: Engine, session: Session) -> int:
                 "model_version": str(group["model_version"].iloc[0]),
             }
         )
+    return snapshots
+
+
+def rebuild_portfolio(
+    engine: Engine, session: Session, books: tuple[BookConfig, ...] = BOOKS
+) -> int:
+    """Recompute every book's snapshot trail from predictions; idempotent upsert."""
+    preds, prices = _load_frames(engine)
+    if preds.empty or prices.empty:
+        logger.info("No predictions or prices — nothing to rebuild")
+        return 0
+
+    snapshots: list[dict[str, object]] = []
+    for cfg in books:
+        rows = build_book(preds, prices, cfg)
+        if rows:
+            logger.info(
+                "Book %r: %d days, final equity %.4f", cfg.variant, len(rows), rows[-1]["equity"]
+            )
+        snapshots.extend(rows)
 
     if not snapshots:
         logger.info("No realizable portfolio days yet (predictions too recent)")
@@ -93,7 +168,7 @@ def rebuild_portfolio(engine: Engine, session: Session) -> int:
 
     stmt = pg_insert(PortfolioSnapshot).values(snapshots)
     stmt = stmt.on_conflict_do_update(
-        index_elements=[PortfolioSnapshot.date],
+        index_elements=[PortfolioSnapshot.date, PortfolioSnapshot.variant],
         set_={
             col: getattr(stmt.excluded, col)
             for col in (
@@ -108,7 +183,7 @@ def rebuild_portfolio(engine: Engine, session: Session) -> int:
         },
     )
     session.execute(stmt)
-    logger.info("Rebuilt %d portfolio snapshots (final equity %.4f)", len(snapshots), equity)
+    logger.info("Rebuilt %d portfolio snapshots across %d books", len(snapshots), len(books))
     return len(snapshots)
 
 
