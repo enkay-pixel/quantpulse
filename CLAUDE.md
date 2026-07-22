@@ -37,6 +37,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Model: LightGBM on 13 technical+cross-sectional features, 21d horizon, purged
   walk-forward CV, Optuna(15), promotion gate = holdout Sharpe ≥ champion+0.05,
   IC ≥ 0, DD > −35%. Champion v1: holdout IC 0.026 / Sharpe 0.21.
+  **Caveat**: those champion metrics predate the measured-turnover backtest, so the gate
+  compares a challenger against a more leniently-scored incumbent (bar ~0.015 too high,
+  conservative direction). See "Known issue" in docs/roadmap.md — a narrow rejection is
+  not trustworthy without re-scoring both.
 
 ## Environment & commands
 

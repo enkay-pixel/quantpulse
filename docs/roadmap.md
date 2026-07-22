@@ -184,6 +184,26 @@ change to the signal: it had been paying double for its trades.
    the data is far too small to justify it, and being able to say so is the stronger
    engineering signal.
 
+## Known issue: the promotion gate compares across cost regimes
+
+The champion's stored metrics (`model_runs`, MLflow) were computed on 2026-07-18 under the
+**old** backtest, which charged a flat turnover of 0.4. Challengers are now scored with
+*measured* turnover, averaging 0.533 — roughly 33% more cost. So a challenger is judged
+under a stricter regime than the incumbent it must beat.
+
+Sizing it: the champion's stored holdout Sharpe is 0.205 on a 2.27% annual return. The
+extra cost is ≈0.16%/yr, which re-scored today puts it near **0.19**. The promotion margin
+is 0.05, so the effective bar sits about 0.015 too high — around 30% of the margin.
+
+Left as-is deliberately. The bias favours the incumbent, which is the safe direction to
+fail, and changing the decision gate immediately before a long unattended stretch is worse
+than the bias itself. **If a challenger is ever rejected within ~0.02 of the bar, that
+rejection is not trustworthy** — re-score both under current code before believing it.
+
+The durable fix is structural rather than a one-off re-score: stored metrics go stale
+whenever evaluation code changes, so `ml/pipeline.py` should re-evaluate the incumbent with
+today's backtest instead of reading numbers computed by a previous version of itself.
+
 ## Deliberately not doing
 
 - **A local LLM question-answering layer.** Scoped 2026-07-22 and declined — see
