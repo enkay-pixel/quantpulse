@@ -15,6 +15,7 @@ process_job = dg.define_asset_job(
         qp_assets.portfolio_equity,
         qp_assets.drift_report,
         qp_assets.option_chains,
+        qp_assets.resource_report,
     )
     | dg.AssetSelection.groups("transform"),
 )
@@ -185,10 +186,15 @@ defs = dg.Definitions(
         qp_assets.portfolio_equity,
         qp_assets.drift_report,
         qp_assets.option_chains,
+        qp_assets.resource_report,
         qp_assets.champion_model,
         transform_dbt_assets,
     ],
-    asset_checks=[qp_assets.recent_prices_quality, qp_assets.option_snapshot_quality],
+    asset_checks=[
+        qp_assets.recent_prices_quality,
+        qp_assets.option_snapshot_quality,
+        qp_assets.resource_headroom,
+    ],
     jobs=[ingest_job, process_job, training_job],
     schedules=[ingest_schedule, process_schedule, training_schedule],
     sensors=[

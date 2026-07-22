@@ -9,6 +9,9 @@ class Health(BaseModel):
     status: str
     database: bool
     latest_price_date: dt.date | None
+    # Self-reported footprint; null off Linux, where there is no cgroup to read.
+    memory_rss_bytes: int | None = None
+    memory_limit_bytes: int | None = None
 
 
 class UniverseMemberOut(BaseModel):

@@ -19,5 +19,17 @@ run_retries:
   enabled: true
   max_retries: 1
 
+# Rolling window for operational exhaust. Sensors tick every 30s-30min and each tick is a
+# stored row; after a few weeks they answer no question anyone asks. This is the ONLY data
+# in the platform on a retention policy — see "Data retention" in docs/runbook.md for what
+# must never be deleted and why.
+retention:
+  schedule:
+    purge_after_days: 90
+  sensor:
+    purge_after_days: 14
+  auto_materialize:
+    purge_after_days: 14
+
 telemetry:
   enabled: false

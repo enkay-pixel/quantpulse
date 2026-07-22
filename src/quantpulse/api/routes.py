@@ -47,12 +47,20 @@ def _mart_rows(
 
 @router.get("/health", response_model=schemas.Health)
 def health(engine: EngineDep) -> schemas.Health:
+    from quantpulse.monitoring.resources import cgroup_memory_limit_bytes, process_rss_bytes
+
+    # Self-reported so the container's own footprint is observable without granting anything
+    # access to the Docker socket. None off Linux (running the API on a macOS host).
+    memory = {
+        "memory_rss_bytes": process_rss_bytes(),
+        "memory_limit_bytes": cgroup_memory_limit_bytes(),
+    }
     try:
         with engine.connect() as conn:
             latest = conn.execute(text("SELECT max(date) FROM prices")).scalar()
-        return schemas.Health(status="ok", database=True, latest_price_date=latest)
+        return schemas.Health(status="ok", database=True, latest_price_date=latest, **memory)
     except Exception:
-        return schemas.Health(status="degraded", database=False, latest_price_date=None)
+        return schemas.Health(status="degraded", database=False, latest_price_date=None, **memory)
 
 
 @router.get("/universe", response_model=list[schemas.UniverseMemberOut])

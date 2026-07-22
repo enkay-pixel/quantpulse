@@ -119,6 +119,38 @@ under-covered is a permanent hole in the dataset — re-running tomorrow would j
 snapshot tomorrow. (This is not hypothetical: 2026-07-20 captured 5 of 50 tickers before
 being interrupted, and those 45 are gone.) If you see a thin day, fix it *that day*.
 
+## Resource headroom
+
+The `resource_report` asset runs with the daily processing job and reports **runway in
+days**, not bytes — bytes mean nothing without a rate. Dagster charts its metadata over
+time, so the trend is visible in the asset's page with no metrics stack involved. The
+`resource_headroom` check (non-blocking) fails when runway drops below 90 days or any
+container exceeds 85% of its cap, which it reads from its own cgroup rather than a
+hardcoded number, so raising a limit in `docker-compose.yml` is picked up automatically.
+
+Measured 2026-07-22: the market database is **180 MB** growing **~8 MB/day**, essentially
+all of it `option_quotes`. Everything else adds ~50 rows/day per table. That is roughly
+**2 GB/year against 277 GB free** — decades of runway. If the check ever fires, the fix is
+almost always to raise a cap, not to delete data.
+
+## Data retention
+
+Only one thing here is on a rolling window, and it is deliberate.
+
+| Data | Policy | Why |
+|---|---|---|
+| Dagster sensor / schedule ticks | **14 / 90 days** (`docker/dagster.yaml`) | Pure operational exhaust. Sensors tick every 30s–30min; after a fortnight they answer no question anyone asks. |
+| `option_quotes` | **Never delete** | Irreplaceable. yfinance serves live chains only, and historical chains cost thousands a year. A day deleted is a day that cannot be bought back at any price. |
+| `prices` | Never delete | Backfillable in principle, but it is the base every other table is derived from, and it grows ~50 rows/day. |
+| `features`, `predictions`, `portfolio_snapshots` | Never delete | Recomputable from prices, but they are what the replay curve is built from, and together they grow under 30 KB/day. Deleting them costs the dashboard its history to reclaim nothing. |
+| `model_runs`, MLflow registry | Never delete | The champion/challenger audit trail is the point of the self-adapting loop. Tiny. |
+
+The instinct to age out old data is right for logs and wrong for this platform: **the
+tables large enough to be worth deleting are exactly the ones that cannot be recreated,
+and the tables that are safe to delete are too small to be worth it.** Revisit only if
+`resource_headroom` actually fires — and even then, archive `option_quotes` to Parquet
+before considering removal.
+
 ## Troubleshooting
 
 - **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait for the whale icon, retry `make up`.
