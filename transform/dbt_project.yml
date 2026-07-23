@@ -5,6 +5,12 @@ profile: quantpulse
 vars:
   # Annualized risk-free rate used for CAPM excess returns (fct_alpha_beta).
   risk_free_rate: 0.04
+  # Buy-and-hold comparison ticker per market. Must mirror Exchange.benchmark in
+  # quantpulse.data.calendar — a unit test asserts they agree, because two sources of
+  # truth for the same fact drift silently.
+  benchmarks:
+    XNYS: SPY
+    XJSE: STX40.JO
 
 model-paths: ["models"]
 test-paths: ["tests"]

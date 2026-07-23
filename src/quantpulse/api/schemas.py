@@ -249,6 +249,19 @@ class ModelRunOut(BaseModel):
     created_at: dt.datetime
 
 
+class ExchangeOut(BaseModel):
+    """One market the dashboard can switch to."""
+
+    code: str
+    timezone: str
+    currency: str
+    benchmark: str
+    has_options: bool
+    display_symbol: str
+    display_divisor: float
+    configured: bool  # has active tickers, not merely defined in the registry
+
+
 class BookStats(BaseModel):
     """One paper-book construction, summarized for side-by-side comparison."""
 
