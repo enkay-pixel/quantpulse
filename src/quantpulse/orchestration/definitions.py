@@ -172,16 +172,23 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
-    """Re-run today's option snapshot when it came out thin.
+    """Ensure today's option snapshot exists, whenever the stack is up post-close.
 
-    A full snapshot is ~500 network calls over ~10 minutes and commits per ticker, so
-    an interruption leaves a partial day. Only *today* can be repaired — chains are
-    live-only, so yesterday's gaps are permanent. Bounded by a cursor because a
-    genuinely unavailable feed must not spin the run queue all day.
+    This is what makes the options history survive stack up/down. The 19:00 schedule fires
+    once; if the machine is off at that minute, that snapshot would be lost forever, because
+    chains are live-only. So this sensor captures **today's** snapshot whenever it is
+    missing *or* thin and the market has closed — including immediately after `make up`.
+    Only *today* is salvageable: re-running tomorrow snapshots tomorrow's chains, not
+    yesterday's. The one unrecoverable case left is being powered off for the entire
+    post-close evening of a trading day.
 
-    Gated to post-close: repairing pre-market fills the missing tickers with stale IV
-    (≈2.1% against ≈33% post-close), which would leave one snapshot_date holding two
-    incompatible qualities of data — worse than the clean partial it started as.
+    A snapshot is ~500 network calls over ~10 minutes and commits per ticker (idempotent
+    upsert), so a partial run is safe to re-run. Bounded by a per-day cursor so a genuinely
+    unavailable feed cannot spin the run queue all evening.
+
+    Gated to post-close: capturing pre-market fills tickers with stale IV (≈2.1% against
+    ≈33% post-close), which would leave one snapshot_date holding two incompatible
+    qualities of data — worse than the clean partial it started as.
     """
     from quantpulse.data.calendar import market_today
     from quantpulse.orchestration.catchup import is_post_close, option_snapshot_incomplete
@@ -191,8 +198,8 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
             skip_reason="before the close — option IV is not yet meaningful to snapshot"
         )
 
-    # Must be the same clock the ingest stamps rows with, or the repair looks at a day
-    # that does not exist yet and re-snapshots forever.
+    # Must be the same clock the ingest stamps rows with, or it looks at a day that does
+    # not exist yet and re-snapshots forever.
     today = market_today()
     # Cursor is "<day>:<attempts>"; a new day resets the budget.
     seen_day, _, attempts_raw = (context.cursor or ":").partition(":")
@@ -200,14 +207,14 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
 
     coverage = option_snapshot_incomplete(today)
     if coverage is None:
-        return dg.SensorResult(skip_reason="today's option snapshot is complete or not yet started")
+        return dg.SensorResult(skip_reason="today's option snapshot is already complete")
     if attempts >= MAX_OPTION_REPAIRS_PER_DAY:
         return dg.SensorResult(
-            skip_reason=f"already retried today's snapshot {attempts}x at {coverage:.0%} coverage"
+            skip_reason=f"already attempted today's snapshot {attempts}x at {coverage:.0%} coverage"
         )
     context.update_cursor(f"{today}:{attempts + 1}")
     return dg.SensorResult(
-        run_requests=[dg.RunRequest(run_key=f"option-repair-{today}-{attempts + 1}")]
+        run_requests=[dg.RunRequest(run_key=f"option-snapshot-{today}-{attempts + 1}")]
     )
 
 
