@@ -10,10 +10,10 @@ export const useExchanges = () =>
 export const useHealth = () =>
   useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: REFRESH_MS });
 
-export const usePredictions = () =>
+export const usePredictions = (exchange: string) =>
   useQuery({
-    queryKey: ["predictions"],
-    queryFn: api.latestPredictions,
+    queryKey: ["predictions", exchange],
+    queryFn: () => api.latestPredictions(exchange),
     refetchInterval: REFRESH_MS,
   });
 
@@ -24,8 +24,12 @@ export const useEquityCurve = (exchange: string) =>
     refetchInterval: REFRESH_MS,
   });
 
-export const useCurrentModel = () =>
-  useQuery({ queryKey: ["model"], queryFn: api.currentModel, refetchInterval: REFRESH_MS });
+export const useCurrentModel = (exchange: string) =>
+  useQuery({
+    queryKey: ["model", exchange],
+    queryFn: () => api.currentModel(exchange),
+    refetchInterval: REFRESH_MS,
+  });
 
 export const useDrift = () =>
   useQuery({ queryKey: ["drift"], queryFn: api.latestDrift, refetchInterval: REFRESH_MS });

@@ -31,6 +31,10 @@ market_partitions = dg.MultiPartitionsDefinition(
 
 RETRY_POLICY = dg.RetryPolicy(max_retries=2, delay=60)
 
+# Features are recomputed daily; predictions should follow within a session or two. A
+# larger gap means scoring is silently writing nothing.
+MAX_PREDICTION_LAG_DAYS = 4
+
 
 def partition_date_and_exchange(context: dg.AssetExecutionContext) -> tuple[dt.date, str]:
     """Unpack a (date, exchange) partition key."""
@@ -128,7 +132,7 @@ def features() -> dg.MaterializeResult:
 
 @dg.asset(deps=[features], group_name="serving", kinds={"python", "mlflow"})
 def predictions() -> dg.MaterializeResult:
-    """Champion-model scores for the latest feature date."""
+    """Champion-model scores for the latest feature date, per market."""
     from quantpulse.ml.pipeline import score_latest
 
     settings = get_settings()
@@ -147,6 +151,49 @@ def predictions() -> dg.MaterializeResult:
             **{f"rows_{k}": v for k, v in per_exchange.items()},
             "note": "0 rows means that market has no champion model yet",
         }
+    )
+
+
+@dg.asset_check(asset=predictions, blocking=False)
+def predictions_are_current() -> dg.AssetCheckResult:
+    """Catch a market whose predictions have quietly stopped updating.
+
+    A market can have data, features and a universe yet no champion — the registry name
+    changed, or a candidate failed the promotion gate. Scoring then writes nothing while
+    the dashboard keeps serving yesterday's predictions as if they were today's. That is
+    the worst kind of failure here: nothing errors, the numbers just stop moving.
+    """
+    import pandas as pd
+
+    from quantpulse.data.universe import active_tickers
+
+    rows = pd.read_sql(
+        "SELECT u.exchange, max(p.date) AS latest_prediction, "
+        "(SELECT max(f.date) FROM features f JOIN universe fu ON fu.ticker = f.ticker "
+        " AND fu.exchange = u.exchange) AS latest_feature "
+        "FROM predictions p JOIN universe u ON u.ticker = p.ticker GROUP BY u.exchange",
+        get_engine(),
+    )
+    metadata: dict[str, dg.MetadataValue] = {}
+    stale = []
+    with get_session() as session:
+        configured = {e for e in sorted(EXCHANGES) if active_tickers(session, e)}
+    seen = set(rows["exchange"]) if not rows.empty else set()
+    for exchange in sorted(configured):
+        if exchange not in seen:
+            stale.append(f"{exchange}: no predictions at all")
+            continue
+        row = rows[rows["exchange"] == exchange].iloc[0]
+        lag = (row["latest_feature"] - row["latest_prediction"]).days
+        metadata[f"{exchange}/lag_days"] = dg.MetadataValue.int(int(lag))
+        if lag > MAX_PREDICTION_LAG_DAYS:
+            stale.append(
+                f"{exchange}: predictions {lag}d behind features "
+                f"({row['latest_prediction']} vs {row['latest_feature']}) — likely no champion"
+            )
+    return dg.AssetCheckResult(
+        passed=not stale,
+        metadata={**metadata, **({"stale": dg.MetadataValue.json(stale)} if stale else {})},
     )
 
 

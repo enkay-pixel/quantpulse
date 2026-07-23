@@ -42,3 +42,26 @@ def test_challenger_must_beat_champion_by_margin() -> None:
 def test_champion_without_metrics_is_replaced() -> None:
     decision = decide_promotion(GOOD, champion={})
     assert decision.promote
+
+
+def test_first_champion_must_clear_a_sharpe_floor() -> None:
+    """A first candidate has nothing to beat, so the margin rule cannot gate it. Without a
+    floor a model that lost money out-of-sample becomes the champion whose signals the
+    dashboard presents — which is how the first JSE model was promoted at Sharpe -0.069."""
+    losing = {"holdout_sharpe": -0.069, "holdout_ic": 0.024, "holdout_max_drawdown": -0.12}
+    decision = decide_promotion(losing, None)
+    assert not decision.promote
+    assert "below the floor" in decision.reason
+
+
+def test_first_champion_with_positive_sharpe_is_promoted() -> None:
+    winner = {"holdout_sharpe": 0.205, "holdout_ic": 0.026, "holdout_max_drawdown": -0.05}
+    assert decide_promotion(winner, None).promote
+
+
+def test_the_floor_applies_only_to_the_first_champion() -> None:
+    """Once an incumbent exists the margin rule governs; a challenger is judged against it,
+    not against zero."""
+    champion = {"holdout_sharpe": -0.50}
+    challenger = {"holdout_sharpe": -0.10, "holdout_ic": 0.01, "holdout_max_drawdown": -0.10}
+    assert decide_promotion(challenger, champion).promote

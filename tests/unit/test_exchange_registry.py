@@ -26,6 +26,15 @@ def test_dbt_benchmarks_match_the_registry() -> None:
     assert dbt_benchmarks == {code: ex.benchmark for code, ex in EXCHANGES.items()}
 
 
+def test_dbt_ratio_threshold_matches_the_python_constant() -> None:
+    """The marts null small-sample ratios; the API and UI trust them to. If dbt and Python
+    disagree, one consumer publishes a statistic another suppresses."""
+    from quantpulse.reporting import MIN_DAYS_FOR_RATIOS
+
+    project = yaml.safe_load(DBT_PROJECT.read_text())
+    assert project["vars"]["min_days_for_ratios"] == MIN_DAYS_FOR_RATIOS
+
+
 def test_default_exchange_is_registered() -> None:
     assert DEFAULT_EXCHANGE in EXCHANGES
 

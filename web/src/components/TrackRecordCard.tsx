@@ -26,7 +26,7 @@ export function TrackRecordCard({ record }: { record: TrackRecord }) {
     <div className="card p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <h2 className="text-sm font-semibold">Live track record (out-of-sample)</h2>
-        {record.live_since ? (
+        {record.live_since && record.phases.length > 0 ? (
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             since {formatDate(record.live_since)}
           </span>
@@ -63,8 +63,18 @@ export function TrackRecordCard({ record }: { record: TrackRecord }) {
         </>
       ) : (
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Accumulating — the first live out-of-sample day lands with the next scheduled
-          pipeline run. Judge the strategy here, not on the replay.
+          {replay ? (
+            <>
+              Accumulating — the first live out-of-sample day lands with the next scheduled
+              pipeline run. Judge the strategy here, not on the replay.
+            </>
+          ) : (
+            <>
+              No track record yet for this market. Either it has no champion model, or the
+              first candidate did not clear the promotion gate — the Model &amp; Book tab
+              shows every training decision and why it went that way.
+            </>
+          )}
         </p>
       )}
 

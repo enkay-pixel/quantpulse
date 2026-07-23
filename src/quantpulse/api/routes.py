@@ -327,16 +327,25 @@ def signal_history(ticker: str, session: SessionDep) -> schemas.SignalSeries:
 
 
 @router.get("/predictions/latest", response_model=schemas.PredictionsOut)
-def latest_predictions(session: SessionDep) -> schemas.PredictionsOut:
-    latest_date = session.scalar(select(func.max(Prediction.date)))
+def latest_predictions(session: SessionDep, exchange: ExchangeDep) -> schemas.PredictionsOut:
+    members = select(UniverseMember.ticker).where(UniverseMember.exchange == exchange)
+    latest_date = session.scalar(
+        select(func.max(Prediction.date)).where(Prediction.ticker.in_(members))
+    )
     if latest_date is None:
         return schemas.PredictionsOut(date=None, model_version=None, rows=[])
     latest_version = session.scalar(
-        select(func.max(Prediction.model_version)).where(Prediction.date == latest_date)
+        select(func.max(Prediction.model_version)).where(
+            Prediction.date == latest_date, Prediction.ticker.in_(members)
+        )
     )
     rows = session.scalars(
         select(Prediction)
-        .where(Prediction.date == latest_date, Prediction.model_version == latest_version)
+        .where(
+            Prediction.date == latest_date,
+            Prediction.model_version == latest_version,
+            Prediction.ticker.in_(members),
+        )
         .order_by(Prediction.score.desc())
     ).all()
     return schemas.PredictionsOut(
@@ -620,10 +629,33 @@ def model_history(session: SessionDep, exchange: ExchangeDep) -> list[schemas.Mo
 
 
 @router.get("/models/current", response_model=schemas.ModelInfo)
-def current_model(session: SessionDep) -> schemas.ModelInfo:
+def current_model(session: SessionDep, exchange: ExchangeDep) -> schemas.ModelInfo:
+    """The market's most recent promotion.
+
+    Scoped: showing one market's champion while another market's data is on screen is the
+    kind of mix-up nobody notices until a decision rests on it. A market whose candidate
+    was rejected correctly reports no champion.
+    """
+    # The audit trail is append-only, so a promotion that was later reversed is still in
+    # it. Anything newer for this market supersedes it: a demotion means there is no
+    # current champion, and the dashboard must not present a withdrawn model as one.
     run = session.scalars(
-        select(ModelRun).where(ModelRun.decision == "promoted").order_by(ModelRun.id.desc())
+        select(ModelRun)
+        .where(ModelRun.decision == "promoted", ModelRun.exchange == exchange)
+        .order_by(ModelRun.id.desc())
     ).first()
+    if run is not None:
+        superseded = session.scalars(
+            select(ModelRun)
+            .where(
+                ModelRun.exchange == exchange,
+                ModelRun.id > run.id,
+                ModelRun.run_type == "demotion",
+            )
+            .limit(1)
+        ).first()
+        if superseded is not None:
+            run = None
     if run is None:
         return schemas.ModelInfo(
             model_version=None, decision=None, trained_at=None, metrics={}, mlflow_run_id=None
@@ -663,10 +695,19 @@ def latest_drift(session: SessionDep) -> schemas.DriftStatus:
 def freshness(session: SessionDep, exchange: ExchangeDep) -> schemas.FreshnessOut:
     from quantpulse.db import Feature
 
+    # Each stage is scoped: an unscoped max() would show NYSE's dates while a JSE view is
+    # on screen, which reads as "this market is up to date" when it may not be.
+    members = select(UniverseMember.ticker).where(UniverseMember.exchange == exchange)
     return schemas.FreshnessOut(
-        latest_price_date=session.scalar(select(func.max(Price.date))),
-        latest_feature_date=session.scalar(select(func.max(Feature.date))),
-        latest_prediction_date=session.scalar(select(func.max(Prediction.date))),
+        latest_price_date=session.scalar(
+            select(func.max(Price.date)).where(Price.ticker.in_(members))
+        ),
+        latest_feature_date=session.scalar(
+            select(func.max(Feature.date)).where(Feature.ticker.in_(members))
+        ),
+        latest_prediction_date=session.scalar(
+            select(func.max(Prediction.date)).where(Prediction.ticker.in_(members))
+        ),
         latest_snapshot_date=session.scalar(
             select(func.max(PortfolioSnapshot.date)).where(
                 PortfolioSnapshot.variant == LIVE_BOOK,
