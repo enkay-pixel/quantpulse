@@ -24,6 +24,7 @@ import {
   useDrift,
   useEquityCurve,
   useFreshness,
+  useExchanges,
   useHealth,
   useModelHistory,
   useOptionChain,
@@ -35,6 +36,8 @@ import {
   useRisk,
   useTrackRecord,
 } from "./hooks/useApi";
+import { ExchangePicker } from "./components/ExchangePicker";
+import { useExchange } from "./hooks/useExchange";
 import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "./lib/format";
@@ -56,12 +59,12 @@ function Placeholder({ height = "h-64" }: { height?: string }) {
   return <div className={`${height} animate-pulse rounded-lg`} style={{ background: "var(--grid)" }} />;
 }
 
-function OverviewTab() {
+function OverviewTab({ exchange }: { exchange: string }) {
   const model = useCurrentModel();
-  const equity = useEquityCurve();
+  const equity = useEquityCurve(exchange);
   const predictions = usePredictions();
   const drift = useDrift();
-  const trackRecord = useTrackRecord();
+  const trackRecord = useTrackRecord(exchange);
 
   const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];
   const rotation = useRotatingTicker(tickers);
@@ -99,7 +102,7 @@ function OverviewTab() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <Section title="Paper equity vs SPY buy & hold">
+          <Section title="Paper equity vs benchmark buy & hold">
             {equity.data ? <BenchmarkEquityChart curve={equity.data} /> : <Placeholder />}
           </Section>
           <Section title={activeTicker ? `Price — ${activeTicker}` : "Price"}>
@@ -145,17 +148,21 @@ function OverviewTab() {
   );
 }
 
-function EvidenceTab() {
-  const quintiles = useQuintiles();
-  const risk = useRisk();
-  const alphaBeta = useAlphaBeta();
-  const books = useBooks();
+function EvidenceTab({ exchange, benchmark }: { exchange: string; benchmark?: string }) {
+  const quintiles = useQuintiles(exchange);
+  const risk = useRisk(exchange);
+  const alphaBeta = useAlphaBeta(exchange);
+  const books = useBooks(exchange);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="lg:col-span-2">
         <Section title="How much of this is the market, and how much is the signal?">
-          {alphaBeta.data ? <AlphaBetaCard data={alphaBeta.data} /> : <Placeholder height="h-32" />}
+          {alphaBeta.data ? (
+            <AlphaBetaCard data={alphaBeta.data} benchmark={benchmark} />
+          ) : (
+            <Placeholder height="h-32" />
+          )}
         </Section>
       </div>
       <div className="lg:col-span-2">
@@ -258,9 +265,9 @@ function OptionsTab() {
   );
 }
 
-function ModelTab() {
-  const history = useModelHistory();
-  const positions = usePositions();
+function ModelTab({ exchange }: { exchange: string }) {
+  const history = useModelHistory(exchange);
+  const positions = usePositions(exchange);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -275,11 +282,17 @@ function ModelTab() {
 }
 
 export default function App() {
+  const [exchange, setExchange] = useExchange();
+  const exchanges = useExchanges();
   const health = useHealth();
-  const freshness = useFreshness();
+  const freshness = useFreshness(exchange);
   const [tab, setTab] = useHashTab(TABS);
 
   const apiDown = health.isError;
+  const market = exchanges.data?.find((e) => e.code === exchange);
+  // No free JSE chain data exists, so the Options tab is hidden rather than shown empty —
+  // an empty tab reads as a bug, a missing one reads as a deliberate limit.
+  const tabs = market && !market.has_options ? TABS.filter((t) => t !== "Options") : TABS;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -290,7 +303,12 @@ export default function App() {
             Self-adapting ML investing platform · educational project, not investment advice
           </p>
         </div>
-        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+        <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
+          <ExchangePicker
+            exchanges={exchanges.data ?? []}
+            selected={exchange}
+            onSelect={setExchange}
+          />
           {apiDown ? (
             <span style={{ color: "var(--status-critical)" }}>⚠ API unreachable</span>
           ) : (
@@ -306,13 +324,15 @@ export default function App() {
       ) : null}
 
       <div className="mb-4">
-        <Tabs tabs={TABS} active={tab} onSelect={setTab} />
+        <Tabs tabs={tabs} active={tab} onSelect={setTab} />
       </div>
 
-      {tab === "Overview" ? <OverviewTab /> : null}
-      {tab === "Evidence" ? <EvidenceTab /> : null}
-      {tab === "Options" ? <OptionsTab /> : null}
-      {tab === "Model & Book" ? <ModelTab /> : null}
+      {tab === "Overview" ? <OverviewTab exchange={exchange} /> : null}
+      {tab === "Evidence" ? (
+        <EvidenceTab exchange={exchange} benchmark={market?.benchmark} />
+      ) : null}
+      {tab === "Options" && tabs.includes("Options") ? <OptionsTab /> : null}
+      {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
     </div>
   );
 }

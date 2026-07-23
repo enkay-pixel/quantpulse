@@ -2,12 +2,13 @@ import type { BookComparison, BookStats } from "../api/types";
 import { formatNumber, formatPercent } from "../lib/format";
 
 const LABELS: Record<string, { name: string; asks: string }> = {
-  daily: { name: "Daily", asks: "trade the signal every day" },
+  daily: { name: "Daily", asks: "the baseline — trade the signal every day" },
   horizon: { name: "21-day", asks: "hold for the model's forecast horizon" },
+  long_only: { name: "Long only", asks: "drop the short leg entirely" },
 };
 
 function label(variant: string) {
-  return LABELS[variant] ?? { name: variant, asks: "" };
+  return LABELS[variant] ?? { name: variant.replace(/_/g, " "), asks: "" };
 }
 
 /** Plain-English read, so the table can't be mistaken for a recommendation. */
@@ -22,7 +23,7 @@ function verdict(books: BookStats[]): string | null {
   // Split the gap: what survives before costs is picks, the remainder is friction.
   const grossGap = horizon.annualized_gross_return - daily.annualized_gross_return;
   const share = Math.round(((gap - grossGap) / gap) * 100);
-  return `Holding for the full 21 days earns ${formatPercent(gap, 1)} a year more. About ${share}% of that difference is trading cost rather than better stock picking — it is the same signal either way, just acted on less often.`;
+  return `Holding for the full 21 days earns ${formatPercent(gap, 1)} a year more than trading it daily. About ${share}% of that difference is trading cost rather than better stock picking — it is the same signal either way, just acted on less often.`;
 }
 
 export function BookComparisonCard({ data }: { data: BookComparison }) {
@@ -38,9 +39,10 @@ export function BookComparisonCard({ data }: { data: BookComparison }) {
   return (
     <div>
       <p className="mb-3 text-xs" style={{ color: "var(--text-secondary)" }}>
-        A <strong>book</strong> is one way of turning the signal into a portfolio. These two run
-        over the <strong>same predictions</strong> and differ only in how often they rebalance — so
-        whatever separates them is the cost of trading more often, and nothing else.
+        A <strong>book</strong> is one way of turning the signal into a portfolio. All of these run
+        over the <strong>same predictions</strong>, and each changes exactly one thing from the
+        daily baseline — so whatever separates a book from the baseline is that one change, and
+        nothing else. Compare each against the baseline rather than against each other.
       </p>
 
       <div className="overflow-x-auto">
@@ -62,7 +64,7 @@ export function BookComparisonCard({ data }: { data: BookComparison }) {
                   <div style={{ color: "var(--text-primary)" }}>
                     {label(b.variant).name}
                     <span className="ml-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                      every {b.rebalance_days}d
+                      {b.rebalance_days === 1 ? "daily" : `every ${b.rebalance_days}d`}
                     </span>
                   </div>
                   <div className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -91,8 +93,8 @@ export function BookComparisonCard({ data }: { data: BookComparison }) {
           className="mt-3 rounded-lg px-3 py-2 text-xs"
           style={{ background: "var(--grid)", color: "var(--text-secondary)" }}
         >
-          {summary} These are in-sample replay figures, so compare the two books against each
-          other rather than reading either return as achievable.
+          {summary} These are in-sample replay figures, so read the differences between books
+          rather than treating any of these returns as achievable.
         </p>
       ) : null}
     </div>

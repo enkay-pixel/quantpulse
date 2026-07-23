@@ -39,13 +39,13 @@ function Metric({
  *    verdict the numbers haven't reached.
  * 2. An in-sample window describes a fit, never skill. Label it that way every time.
  */
-function verdict(s: AlphaBetaStats): string {
+function verdict(s: AlphaBetaStats, benchmark: string): string {
   const neutral = s.beta !== null && Math.abs(s.beta) < 0.2;
   const alpha = s.alpha_annualized ?? 0;
   const ir = s.information_ratio ?? 0;
 
   const exposure = neutral
-    ? `Beta ${formatNumber(s.beta)} means this book barely moves with the market — which is the design, so comparing its raw return to SPY would tell you nothing.`
+    ? `Beta ${formatNumber(s.beta)} means this book barely moves with the market — which is the design, so comparing its raw return to ${benchmark} would tell you nothing.`
     : `Beta ${formatNumber(s.beta)} means a real share of this return is the market moving, not the signal working.`;
 
   const te = formatPercent(s.tracking_error, 1);
@@ -65,7 +65,13 @@ function verdict(s: AlphaBetaStats): string {
   return `${exposure} ${skill}${caveat}`;
 }
 
-export function AlphaBetaCard({ data }: { data: AlphaBeta }) {
+export function AlphaBetaCard({
+  data,
+  benchmark = "the index",
+}: {
+  data: AlphaBeta;
+  benchmark?: string;
+}) {
   if (data.phases.length === 0) {
     return (
       <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
@@ -87,7 +93,7 @@ export function AlphaBetaCard({ data }: { data: AlphaBeta }) {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Metric
-          label="Beta vs SPY"
+          label={`Beta vs ${benchmark}`}
           value={formatNumber(shown.beta)}
           hint="how much it moves with the market (0 = not at all)"
         />
@@ -114,7 +120,7 @@ export function AlphaBetaCard({ data }: { data: AlphaBeta }) {
         className="mt-3 rounded-lg px-3 py-2 text-xs"
         style={{ background: "var(--grid)", color: "var(--text-secondary)" }}
       >
-        {verdict(shown)}
+        {verdict(shown, benchmark)}
       </p>
     </div>
   );

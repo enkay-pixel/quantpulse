@@ -21,10 +21,18 @@ models:
             combination_of_columns: [ticker, date]
 
   - name: stg_portfolio_snapshots
-    description: 1:1 view over portfolio snapshots.
+    description: >
+      The live daily book per market. Variant is pinned; exchange is not, so the grain is
+      (date, exchange) — one row per market per trading day.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, exchange]
     columns:
       - name: date
-        tests: [unique, not_null]
+        tests: [not_null]
+      - name: exchange
+        tests: [not_null]
 
   - name: stg_model_runs
     description: 1:1 view over the training/promotion audit log.

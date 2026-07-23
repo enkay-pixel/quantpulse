@@ -32,24 +32,28 @@ sources:
             asset_key: predictions
       - name: portfolio_snapshots
         description: >
-          Simulated long/short paper books, one row per trading day per book. Several
-          constructions (see quantpulse.ml.portfolio.BOOKS) run over the same
-          predictions and differ only in rebalance frequency, so the grain is
-          (date, variant) — the staging model pins the live daily book.
+          Simulated paper books, one row per trading day per market per book. Several
+          constructions (see quantpulse.ml.portfolio.BOOKS) run over the same predictions
+          for each exchange, so the grain is (date, exchange, variant) — the staging model
+          pins the live daily book but keeps every market.
         meta:
           dagster:
             asset_key: portfolio_equity
         tests:
           - dbt_utils.unique_combination_of_columns:
               arguments:
-                combination_of_columns: [date, variant]
+                combination_of_columns: [date, exchange, variant]
         columns:
           - name: date
+            tests: [not_null]
+          - name: exchange
             tests: [not_null]
           - name: variant
             tests: [not_null]
       - name: model_runs
-        description: Training/promotion audit log written by the self-adapting loop.
+        description: >
+          Training/promotion audit log written by the self-adapting loop, one champion
+          lineage per market.
         meta:
           dagster:
             asset_key: champion_model
