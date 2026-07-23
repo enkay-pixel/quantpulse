@@ -8,7 +8,7 @@ already-captured ones hold good marks — one snapshot_date, two qualities of da
 import datetime as dt
 from zoneinfo import ZoneInfo
 
-from quantpulse.orchestration.catchup import NEW_YORK, is_post_close
+from quantpulse.data.calendar import NEW_YORK, is_post_close
 
 # 2026-07-23 is a Thursday; 2026-07-25 a Saturday.
 TRADING_DAY = dt.date(2026, 7, 23)

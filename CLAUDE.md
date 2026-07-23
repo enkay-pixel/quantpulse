@@ -101,6 +101,16 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Docker CLI symlinks live in `/opt/homebrew/bin` (the `/usr/local/bin` ones point at a
   dead DMG mount).
 
+## Standing preference: build both, then measure
+
+When a **feature or strategy** decision has several defensible answers, implement each in
+its own context and compare on evidence — do not pick one upfront. (Does NOT apply to
+infrastructure or design choices, where one option is simply right; carrying both there is
+just debt.) Vary **exactly one dimension** from a shared baseline so the difference is
+attributable, give each a first-class identity in the schema, and guard the invariant with
+a test. This is why the two-book comparison exists, and it is what showed 85% of the
+daily-vs-horizon gap to be trading cost rather than signal decay.
+
 ## Paper books (don't collapse them)
 
 `ml/portfolio.py` runs TWO books over the same predictions, stored in

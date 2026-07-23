@@ -13,6 +13,7 @@ from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from quantpulse.data.calendar import DEFAULT_EXCHANGE
 from quantpulse.db import ModelRun, Prediction
 from quantpulse.features.engineering import (
     FEATURE_COLUMNS,
@@ -31,11 +32,13 @@ from quantpulse.ml.training import TrainConfig, train_final_model, tune_hyperpar
 logger = logging.getLogger(__name__)
 
 
-def build_dataset(engine: Engine, cfg: TrainConfig) -> pd.DataFrame:
-    """Assemble the training frame from stored bars: features + forward returns."""
-    bars = load_price_bars(engine)
+def build_dataset(
+    engine: Engine, cfg: TrainConfig, exchange: str = DEFAULT_EXCHANGE
+) -> pd.DataFrame:
+    """Assemble one market's training frame from stored bars: features + forward returns."""
+    bars = load_price_bars(engine, exchange=exchange)
     if bars.empty:
-        raise ValueError("No price bars in database — run ingestion first")
+        raise ValueError(f"No price bars for {exchange} — run ingestion first")
     features = compute_features(bars)
     targets = make_forward_returns(bars, cfg.horizon_days)
     frame = build_training_frame(features, targets)
@@ -49,13 +52,14 @@ def train_evaluate_promote(
     session: Session,
     cfg: TrainConfig | None = None,
     tracking_uri: str | None = None,
+    exchange: str = DEFAULT_EXCHANGE,
 ) -> dict[str, object]:
-    """The self-adapting loop's training half. Returns a summary for logging/UI."""
+    """The self-adapting loop's training half, for one market. Summary for logging/UI."""
     cfg = cfg or TrainConfig()
     if tracking_uri:
         registry.configure(tracking_uri)
 
-    frame = build_dataset(engine, cfg)
+    frame = build_dataset(engine, cfg, exchange)
     feature_cols = list(FEATURE_COLUMNS)
 
     params = tune_hyperparameters(frame, feature_cols, cfg)
@@ -70,16 +74,17 @@ def train_evaluate_promote(
     }
 
     version = registry.log_candidate(
-        booster, params, candidate_metrics, feature_cols, FEATURE_VERSION
+        booster, params, candidate_metrics, feature_cols, FEATURE_VERSION, exchange=exchange
     )
-    incumbent_metrics = registry.champion_metrics()
+    incumbent_metrics = registry.champion_metrics(exchange=exchange)
     decision = decide_promotion(candidate_metrics, incumbent_metrics)
     if decision.promote:
-        registry.promote(version.version)
+        registry.promote(version.version, exchange=exchange)
 
     session.add(
         ModelRun(
             run_type="train",
+            exchange=exchange,
             mlflow_run_id=version.run_id,
             model_version=str(version.version),
             metrics={k: v for k, v in candidate_metrics.items() if v == v},
@@ -87,12 +92,14 @@ def train_evaluate_promote(
         )
     )
     logger.info(
-        "Training complete: version=%s promoted=%s (%s)",
+        "%s training complete: version=%s promoted=%s (%s)",
+        exchange,
         version.version,
         decision.promote,
         decision.reason,
     )
     return {
+        "exchange": exchange,
         "model_version": str(version.version),
         "promoted": decision.promote,
         "reason": decision.reason,
@@ -105,19 +112,20 @@ def score_latest(
     session: Session,
     asof: dt.date | None = None,
     tracking_uri: str | None = None,
+    exchange: str = DEFAULT_EXCHANGE,
 ) -> int:
-    """Score the most recent feature date with the champion; upsert predictions."""
+    """Score one market's most recent feature date with its champion; upsert predictions."""
     if tracking_uri:
         registry.configure(tracking_uri)
-    loaded = registry.load_champion()
+    loaded = registry.load_champion(exchange)
     if loaded is None:
-        logger.warning("No champion model — skipping scoring")
+        logger.warning("No champion model for %s — skipping scoring", exchange)
         return 0
     booster, champion = loaded
 
-    features = load_features(engine, FEATURE_VERSION, start=None, end=asof)
+    features = load_features(engine, FEATURE_VERSION, start=None, end=asof, exchange=exchange)
     if features.empty:
-        logger.warning("No stored features to score")
+        logger.warning("No stored features to score for %s", exchange)
         return 0
     latest_date = features["date"].max()
     latest = features[features["date"] == latest_date].copy()

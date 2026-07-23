@@ -76,3 +76,38 @@ def test_build_training_frame_inner_join(bars: pd.DataFrame) -> None:
     frame = build_training_frame(features, targets)
     assert {"ticker", "date", "fwd_ret"}.issubset(frame.columns)
     assert frame["date"].max() < bars["date"].max()  # last horizon days have no target
+
+
+def test_cross_sectional_ranks_never_mix_exchanges() -> None:
+    """The core M11 fix. Ranking every ticker against every other on a date would compare
+    Naspers to Apple — different currency, session and macro. Ranks must be per-exchange,
+    and this degrades silently rather than failing, so it needs its own test."""
+    dates = [d.date() for d in pd.bdate_range("2024-01-01", periods=90)]
+    rows = []
+    for ticker, exchange, level in [
+        ("AAPL", "XNYS", 100.0),
+        ("MSFT", "XNYS", 200.0),
+        ("NPN.JO", "XJSE", 79000.0),  # quoted in cents: three orders of magnitude larger
+        ("SOL.JO", "XJSE", 19000.0),
+    ]:
+        px = level
+        for d in dates:
+            px *= 1.001 if ticker in {"AAPL", "NPN.JO"} else 0.999
+            rows.append(
+                {"ticker": ticker, "date": d, "exchange": exchange, "close": px, "volume": 1e6}
+            )
+    feats = compute_features(pd.DataFrame(rows))
+
+    exchange_of = {"AAPL": "XNYS", "MSFT": "XNYS", "NPN.JO": "XJSE", "SOL.JO": "XJSE"}
+    feats["exchange"] = feats["ticker"].map(exchange_of)
+    # With two names per exchange, per-exchange percentile ranks are exactly {0.5, 1.0}.
+    for _, group in feats.groupby(["date", "exchange"]):
+        assert sorted(group["ret_5_cs_rank"].round(6)) == [0.5, 1.0]
+
+
+def test_features_without_an_exchange_column_still_work(bars: pd.DataFrame) -> None:
+    """Single-market callers pass no exchange; behaviour must be unchanged."""
+    assert "exchange" not in bars.columns
+    feats = compute_features(bars)
+    assert not feats.empty
+    assert feats["ret_5_cs_rank"].between(0, 1).all()

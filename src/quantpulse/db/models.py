@@ -27,6 +27,8 @@ class UniverseMember(Base):
     ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(128))
     asset_type: Mapped[str] = mapped_column(String(8))  # 'stock' | 'etf'
+    # Source of truth for which market a ticker belongs to; see data.calendar.EXCHANGES.
+    exchange: Mapped[str] = mapped_column(String(8), default="XNYS", index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     added_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -92,6 +94,7 @@ class ModelRun(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     run_type: Mapped[str] = mapped_column(String(16))  # 'train' | 'promotion'
+    exchange: Mapped[str] = mapped_column(String(8), default="XNYS")  # whose champion
     mlflow_run_id: Mapped[str | None] = mapped_column(String(64))
     model_version: Mapped[str | None] = mapped_column(String(64))
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
@@ -119,6 +122,8 @@ class PortfolioSnapshot(Base):
     __tablename__ = "portfolio_snapshots"
 
     date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    # A book is per-market and has no ticker to join through, so exchange is carried here.
+    exchange: Mapped[str] = mapped_column(String(8), primary_key=True, default="XNYS")
     # Which book this row belongs to — see quantpulse.ml.portfolio.BOOKS. Several
     # constructions run over the same predictions so they can be compared.
     variant: Mapped[str] = mapped_column(String(16), primary_key=True, default="daily")

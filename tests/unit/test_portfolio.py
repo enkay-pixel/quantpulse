@@ -1,14 +1,18 @@
-"""The two paper books must differ in rebalance frequency and nothing else — that is
-what makes comparing them a measurement rather than a coincidence."""
+"""Each paper book must vary exactly one field from the baseline — that is what makes
+comparing it to the baseline a measurement rather than a coincidence."""
+
+from dataclasses import fields
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from quantpulse.ml.portfolio import (
+    BASELINE,
     BOOKS,
     DAILY_BOOK,
     HORIZON_BOOK,
+    LONG_ONLY_BOOK,
     BookConfig,
     build_book,
 )
@@ -38,17 +42,32 @@ def make_frames(seed: int = 3) -> tuple[pd.DataFrame, pd.DataFrame]:
     )
 
 
-def test_books_differ_only_in_rebalance_frequency() -> None:
-    """Guards the comparison itself: if any other field diverges, the gap between the
-    books stops being attributable to horizon."""
-    shared = {
-        f: getattr(DAILY_BOOK, f)
-        for f in ("long_q", "short_q", "cost_per_turnover", "borrow_rate", "side_weight")
-    }
+def test_each_book_varies_exactly_one_field_from_the_baseline() -> None:
+    """Guards the comparison itself. Each book is a variation from one baseline, differing
+    in exactly the field it declares — otherwise the gap stops being attributable."""
+    assert BASELINE.varies is None, "the baseline varies nothing by definition"
+    compared = [f.name for f in fields(BookConfig) if f.name not in {"variant", "varies"}]
+
     for book in BOOKS:
-        for field, value in shared.items():
-            assert getattr(book, field) == value, f"{book.variant} diverges on {field}"
-    assert DAILY_BOOK.rebalance_days != HORIZON_BOOK.rebalance_days
+        differing = {f for f in compared if getattr(book, f) != getattr(BASELINE, f)}
+        if book is BASELINE:
+            assert not differing, f"baseline must equal itself, differs on {differing}"
+            continue
+        assert differing == {book.varies}, (
+            f"{book.variant} declares varies={book.varies!r} but actually differs on {differing}"
+        )
+
+
+def test_variations_are_not_compared_to_each_other() -> None:
+    """horizon vs long_only differs in two dimensions, so that pairing is meaningless.
+    Documented here so nobody adds it to the dashboard as a comparison."""
+    diffs = {
+        f.name
+        for f in fields(BookConfig)
+        if f.name not in {"variant", "varies"}
+        and getattr(HORIZON_BOOK, f.name) != getattr(LONG_ONLY_BOOK, f.name)
+    }
+    assert len(diffs) > 1
 
 
 def test_horizon_book_trades_far_less_than_the_daily_book() -> None:
@@ -85,6 +104,29 @@ def test_borrow_accrues_on_every_day_held() -> None:
     free = build_book(preds, prices, BookConfig("x", 1, borrow_rate=0.0, cost_per_turnover=0.0))
     charged = build_book(preds, prices, BookConfig("x", 1, borrow_rate=0.10, cost_per_turnover=0.0))
     assert all(c["daily_return"] < f["daily_return"] for c, f in zip(charged, free, strict=True))
+
+
+def test_long_only_book_holds_no_shorts_and_is_fully_exposed() -> None:
+    preds, prices = make_frames()
+    book = pd.DataFrame(build_book(preds, prices, LONG_ONLY_BOOK))
+    assert all(w > 0 for row in book["positions"] for w in row.values())
+    # Same capital deployed as long/short (gross 1.0), but fully exposed rather than netted.
+    assert book["gross_exposure"].to_numpy() == pytest.approx(1.0)
+    assert book["net_exposure"].to_numpy() == pytest.approx(1.0)
+
+
+def test_long_only_book_pays_no_borrow() -> None:
+    """Borrow is a fee on the short leg; a book with no shorts must not be charged it."""
+    preds, prices = make_frames()
+    free = build_book(preds, prices, BookConfig("x", 1, short_enabled=False, borrow_rate=0.0))
+    charged = build_book(preds, prices, BookConfig("x", 1, short_enabled=False, borrow_rate=0.5))
+    assert [r["daily_return"] for r in charged] == [r["daily_return"] for r in free]
+
+
+def test_books_are_tagged_with_their_exchange() -> None:
+    preds, prices = make_frames()
+    book = build_book(preds, prices, DAILY_BOOK, exchange="XJSE")
+    assert {r["exchange"] for r in book} == {"XJSE"}
 
 
 def test_gross_exposure_is_dollar_neutral() -> None:

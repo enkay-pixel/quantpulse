@@ -1,21 +1,24 @@
-"""Simulated long/short paper books built from stored predictions.
+"""Simulated paper books built from stored predictions.
 
-Positions form from score quantiles and earn each day's realized return. Two books
-run over the same predictions and differ in **exactly one** dimension — how often
-they rebalance:
+Positions form from score quantiles and earn each day's realized return. Several books run
+over the same predictions, per exchange, as **variations from one baseline** — each
+differing from it in exactly one dimension, so the gap between a variation and the baseline
+is attributable to that dimension and nothing else:
 
-- ``daily``   — re-forms the book every day, betting the signal on tomorrow.
-- ``horizon`` — re-forms every 21 trading days, the horizon the model is trained to
-  forecast, and holds in between.
+- ``daily`` (baseline) — re-forms every day, betting the signal on tomorrow.
+- ``horizon``   — varies ``rebalance_days`` (1 → 21), the horizon the model is trained to
+  forecast. Isolates what trading more often costs.
+- ``long_only`` — varies ``short_enabled``. Isolates what the short leg contributes, and is
+  the only construction executable where scrip lending is thin or dear (e.g. the JSE).
 
-Keeping both is the point. The daily book asks "what if I trade this aggressively?";
-the horizon book asks "what does the thing the model actually predicts earn?" The gap
-between them measures how fast the signal decays and what the churn costs. That
-comparison is only valid because everything else — capital convention, cost model,
-borrow, quantile widths — is shared, so nothing else can explain the difference.
+Keeping all of them is the point: one book cannot tell you why it performed as it did.
+Note that two *variations* are not comparable to each other — they differ in two things.
+Compare each to the baseline.
 
-Capital convention matches `ml.backtest`: each side carries `SIDE_WEIGHT` of capital
-(gross exposure 1.0), which is what the halved long-minus-short spread assumes.
+Capital convention matches `ml.backtest`: gross exposure 1.0 in every book. Long/short
+splits it `SIDE_WEIGHT` per side and nets to zero market exposure; long-only puts all of it
+in the top quantile and is fully exposed by construction. Books never mix exchanges, so
+they never mix currencies or sessions.
 """
 
 import logging
@@ -28,6 +31,7 @@ from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from quantpulse.data.calendar import DEFAULT_EXCHANGE
 from quantpulse.db import PortfolioSnapshot
 from quantpulse.ml.metrics import TRADING_DAYS_PER_YEAR
 
@@ -42,7 +46,13 @@ BORROW_RATE = 0.01  # annualized fee on the short leg, accrued daily
 
 @dataclass(frozen=True)
 class BookConfig:
-    """One paper-book construction. Only `rebalance_days` should differ between books."""
+    """One paper-book construction.
+
+    Books are **variations from a shared baseline**, each differing from it in exactly one
+    dimension — that is what makes the gap between a variation and the baseline
+    attributable to that dimension and nothing else. Two *variations* are not comparable to
+    each other (they differ in two things); compare each to the baseline.
+    """
 
     variant: str
     rebalance_days: int
@@ -51,31 +61,65 @@ class BookConfig:
     cost_per_turnover: float = COST_PER_TURNOVER
     borrow_rate: float = BORROW_RATE
     side_weight: float = SIDE_WEIGHT
+    short_enabled: bool = True
+    # Which field this book varies from the baseline; None marks the baseline itself.
+    varies: str | None = None
 
 
+#: The reference construction every variation is measured against.
 DAILY_BOOK = BookConfig(variant="daily", rebalance_days=1)
-HORIZON_BOOK = BookConfig(variant="horizon", rebalance_days=21)
-BOOKS = (DAILY_BOOK, HORIZON_BOOK)
+
+#: Isolates what trading more often costs — the only change is how often it rebalances.
+HORIZON_BOOK = BookConfig(variant="horizon", rebalance_days=21, varies="rebalance_days")
+
+#: Isolates what the short leg contributes. Also the only construction an investor could
+#: actually execute where scrip lending is thin or dear (e.g. the JSE).
+LONG_ONLY_BOOK = BookConfig(
+    variant="long_only", rebalance_days=1, short_enabled=False, varies="short_enabled"
+)
+
+BOOKS = (DAILY_BOOK, HORIZON_BOOK, LONG_ONLY_BOOK)
+BASELINE = DAILY_BOOK
 
 
-def _load_frames(engine: Engine) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _load_frames(engine: Engine, exchange: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Predictions and prices for one market. Books never mix currencies or sessions."""
     preds = pd.read_sql(
         # If several model versions scored the same date, keep the newest.
-        "SELECT DISTINCT ON (ticker, date) ticker, date, model_version, score "
-        "FROM predictions ORDER BY ticker, date, model_version DESC",
+        "SELECT DISTINCT ON (p.ticker, p.date) p.ticker, p.date, p.model_version, p.score "
+        "FROM predictions p JOIN universe u ON u.ticker = p.ticker AND u.exchange = %(ex)s "
+        "ORDER BY p.ticker, p.date, p.model_version DESC",
         engine,
+        params={"ex": exchange},
     )
-    prices = pd.read_sql("SELECT ticker, date, close FROM prices ORDER BY ticker, date", engine)
+    prices = pd.read_sql(
+        "SELECT p.ticker, p.date, p.close FROM prices p "
+        "JOIN universe u ON u.ticker = p.ticker AND u.exchange = %(ex)s "
+        "ORDER BY p.ticker, p.date",
+        engine,
+        params={"ex": exchange},
+    )
     return preds, prices
 
 
 def _form_positions(group: pd.DataFrame, cfg: BookConfig) -> dict[str, float] | None:
-    """Equal-weight long/short book from score quantiles, or None if a side is empty."""
+    """Equal-weight book from score quantiles, or None if a required side is empty.
+
+    Both constructions deploy the same gross capital (1.0), so their returns are
+    comparable: long/short splits it 0.5 per side and nets to zero market exposure;
+    long-only puts all of it in the top quantile and is fully exposed by construction.
+    That exposure difference is the thing being measured, not a confound.
+    """
     long_thr = group["score"].quantile(1 - cfg.long_q)
-    short_thr = group["score"].quantile(cfg.short_q)
     longs = group[group["score"] >= long_thr]["ticker"].tolist()
+    if not longs:
+        return None
+    if not cfg.short_enabled:
+        return {t: 1.0 / len(longs) for t in longs}
+
+    short_thr = group["score"].quantile(cfg.short_q)
     shorts = group[group["score"] <= short_thr]["ticker"].tolist()
-    if not longs or not shorts:
+    if not shorts:
         return None
     return {t: cfg.side_weight / len(longs) for t in longs} | {
         t: -cfg.side_weight / len(shorts) for t in shorts
@@ -83,7 +127,10 @@ def _form_positions(group: pd.DataFrame, cfg: BookConfig) -> dict[str, float] | 
 
 
 def build_book(
-    preds: pd.DataFrame, prices: pd.DataFrame, cfg: BookConfig
+    preds: pd.DataFrame,
+    prices: pd.DataFrame,
+    cfg: BookConfig,
+    exchange: str = DEFAULT_EXCHANGE,
 ) -> list[dict[str, object]]:
     """Walk the prediction dates, rebalancing every `cfg.rebalance_days`, and return
     one snapshot per day. Held days trade nothing and so pay no turnover cost."""
@@ -95,8 +142,11 @@ def build_book(
     equity = 1.0
     positions: dict[str, float] = {}
     since_rebalance = 0
-    # Borrow is a financing cost: it accrues per calendar day held, not per trade.
-    daily_borrow = cfg.borrow_rate * cfg.side_weight / TRADING_DAYS_PER_YEAR
+    # Borrow is a financing cost on the short leg: it accrues per day held, not per trade.
+    # A book with no short leg borrows nothing.
+    daily_borrow = (
+        cfg.borrow_rate * cfg.side_weight / TRADING_DAYS_PER_YEAR if cfg.short_enabled else 0.0
+    )
 
     for date, group in preds.groupby("date"):
         if date not in daily_ret.index:
@@ -131,6 +181,7 @@ def build_book(
         snapshots.append(
             {
                 "date": date,
+                "exchange": exchange,
                 "variant": cfg.variant,
                 "equity": equity,
                 "daily_return": net,
@@ -145,20 +196,27 @@ def build_book(
 
 
 def rebuild_portfolio(
-    engine: Engine, session: Session, books: tuple[BookConfig, ...] = BOOKS
+    engine: Engine,
+    session: Session,
+    books: tuple[BookConfig, ...] = BOOKS,
+    exchange: str = DEFAULT_EXCHANGE,
 ) -> int:
-    """Recompute every book's snapshot trail from predictions; idempotent upsert."""
-    preds, prices = _load_frames(engine)
+    """Recompute every book's snapshot trail for one market; idempotent upsert."""
+    preds, prices = _load_frames(engine, exchange)
     if preds.empty or prices.empty:
-        logger.info("No predictions or prices — nothing to rebuild")
+        logger.info("No predictions or prices for %s — nothing to rebuild", exchange)
         return 0
 
     snapshots: list[dict[str, object]] = []
     for cfg in books:
-        rows = build_book(preds, prices, cfg)
+        rows = build_book(preds, prices, cfg, exchange)
         if rows:
             logger.info(
-                "Book %r: %d days, final equity %.4f", cfg.variant, len(rows), rows[-1]["equity"]
+                "%s book %r: %d days, final equity %.4f",
+                exchange,
+                cfg.variant,
+                len(rows),
+                rows[-1]["equity"],
             )
         snapshots.extend(rows)
 
@@ -168,7 +226,11 @@ def rebuild_portfolio(
 
     stmt = pg_insert(PortfolioSnapshot).values(snapshots)
     stmt = stmt.on_conflict_do_update(
-        index_elements=[PortfolioSnapshot.date, PortfolioSnapshot.variant],
+        index_elements=[
+            PortfolioSnapshot.date,
+            PortfolioSnapshot.exchange,
+            PortfolioSnapshot.variant,
+        ],
         set_={
             col: getattr(stmt.excluded, col)
             for col in (

@@ -5,39 +5,72 @@ import datetime as dt
 
 import dagster as dg
 from quantpulse.config import get_settings
-from quantpulse.data.calendar import is_trading_day, last_trading_day, trading_days
+from quantpulse.data.calendar import (
+    EXCHANGES,
+    is_trading_day,
+    last_trading_day,
+    trading_days,
+)
 from quantpulse.db import get_engine, get_session
 
 daily_partitions = dg.DailyPartitionsDefinition(
-    start_date="2023-01-01", timezone="America/New_York", end_offset=1
+    # The date dimension stays on NY time for continuity with existing keys. It only
+    # decides when a calendar date becomes current, and every supported market closes
+    # before NY midnight, so each exchange's session is available within its own date.
+    start_date="2023-01-01",
+    timezone="America/New_York",
+    end_offset=1,
+)
+exchange_partitions = dg.StaticPartitionsDefinition(sorted(EXCHANGES))
+
+#: (date, exchange) — a JSE holiday is not an NYSE holiday, and each market needs its own
+#: post-close schedule, so exchange has to be a partition dimension rather than a loop.
+market_partitions = dg.MultiPartitionsDefinition(
+    {"date": daily_partitions, "exchange": exchange_partitions}
 )
 
 RETRY_POLICY = dg.RetryPolicy(max_retries=2, delay=60)
 
 
+def partition_date_and_exchange(context: dg.AssetExecutionContext) -> tuple[dt.date, str]:
+    """Unpack a (date, exchange) partition key."""
+    keys = context.partition_key.keys_by_dimension
+    return dt.date.fromisoformat(keys["date"]), keys["exchange"]
+
+
 @dg.asset(
-    partitions_def=daily_partitions,
+    partitions_def=market_partitions,
     retry_policy=RETRY_POLICY,
     group_name="market_data",
     kinds={"python", "postgres"},
 )
 def raw_prices(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
-    """Daily OHLCV bars for the active universe (yfinance, Stooq fallback)."""
+    """Daily OHLCV bars for one market's active universe (yfinance, Stooq fallback)."""
     from quantpulse.data.ingest import fetch_daily_bars, upsert_prices
     from quantpulse.data.universe import active_tickers
 
-    day = dt.date.fromisoformat(context.partition_key)
-    if not is_trading_day(day):
-        return dg.MaterializeResult(metadata={"rows": 0, "note": "non-trading day"})
+    day, exchange = partition_date_and_exchange(context)
+    if not is_trading_day(day, exchange):
+        return dg.MaterializeResult(
+            metadata={"rows": 0, "note": f"not a {exchange} trading day", "exchange": exchange}
+        )
     with get_session() as session:
-        tickers = active_tickers(session)
+        tickers = active_tickers(session, exchange)
     if not tickers:
-        raise ValueError("Universe is empty — run `quantpulse sync-universe`")
+        # Another market being configured is not an error for this one.
+        return dg.MaterializeResult(
+            metadata={"rows": 0, "note": f"no active {exchange} tickers", "exchange": exchange}
+        )
     bars = fetch_daily_bars(tickers, day, day)
     with get_session() as session:
         rows = upsert_prices(session, bars)
     return dg.MaterializeResult(
-        metadata={"rows": rows, "tickers": len(bars["ticker"].unique()), "date": str(day)}
+        metadata={
+            "rows": rows,
+            "tickers": len(bars["ticker"].unique()) if not bars.empty else 0,
+            "date": str(day),
+            "exchange": exchange,
+        }
     )
 
 
@@ -49,23 +82,29 @@ def recent_prices_quality() -> dg.AssetCheckResult:
     from quantpulse.data.quality import failed_checks, run_quality_checks
     from quantpulse.data.universe import active_tickers
 
-    end = last_trading_day()
-    days = trading_days(end - dt.timedelta(days=45), end)[-30:]
-    with get_session() as session:
-        tickers = active_tickers(session)
-    bars = pd.read_sql(
-        "SELECT ticker, date, open, high, low, close, volume FROM prices WHERE date >= %(start)s",
-        get_engine(),
-        params={"start": days[0]},
-    )
-    results = run_quality_checks(bars, days, tickers)
-    failed = failed_checks(results)
-    return dg.AssetCheckResult(
-        passed=not failed,
-        metadata={
-            r.name: dg.MetadataValue.json({"passed": bool(r.passed), **r.details}) for r in results
-        },
-    )
+    metadata: dict[str, dg.MetadataValue] = {}
+    any_failed = False
+    for exchange in sorted(EXCHANGES):
+        with get_session() as session:
+            tickers = active_tickers(session, exchange)
+        if not tickers:
+            continue  # market not configured yet; nothing to judge
+        end = last_trading_day(exchange=exchange)
+        days = trading_days(end - dt.timedelta(days=45), end, exchange)[-30:]
+        bars = pd.read_sql(
+            "SELECT p.ticker, p.date, p.open, p.high, p.low, p.close, p.volume FROM prices p "
+            "JOIN universe u ON u.ticker = p.ticker AND u.exchange = %(ex)s "
+            "WHERE p.date >= %(start)s",
+            get_engine(),
+            params={"start": days[0].isoformat(), "ex": exchange},
+        )
+        results = run_quality_checks(bars, days, tickers)
+        any_failed = any_failed or bool(failed_checks(results))
+        for r in results:
+            metadata[f"{exchange}/{r.name}"] = dg.MetadataValue.json(
+                {"passed": bool(r.passed), **r.details}
+            )
+    return dg.AssetCheckResult(passed=not any_failed, metadata=metadata)
 
 
 @dg.asset(deps=[raw_prices], group_name="features", kinds={"python", "postgres"})
@@ -74,6 +113,8 @@ def features() -> dg.MaterializeResult:
     from quantpulse.features.engineering import FEATURE_VERSION, compute_features
     from quantpulse.features.store import load_price_bars, store_features
 
+    # load_price_bars carries `exchange`, and compute_features ranks cross-sectionally
+    # within it — one call covers every market without mixing their cross-sections.
     bars = load_price_bars(get_engine())
     if bars.empty:
         raise ValueError("No price bars stored")
@@ -91,21 +132,39 @@ def predictions() -> dg.MaterializeResult:
     from quantpulse.ml.pipeline import score_latest
 
     settings = get_settings()
-    with get_session() as session:
-        rows = score_latest(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
+    per_exchange = {}
+    for exchange in sorted(EXCHANGES):
+        with get_session() as session:
+            per_exchange[exchange] = score_latest(
+                get_engine(),
+                session,
+                tracking_uri=settings.mlflow_tracking_uri,
+                exchange=exchange,
+            )
     return dg.MaterializeResult(
-        metadata={"rows": rows, "note": "0 rows means no champion model yet"}
+        metadata={
+            "rows": sum(per_exchange.values()),
+            **{f"rows_{k}": v for k, v in per_exchange.items()},
+            "note": "0 rows means that market has no champion model yet",
+        }
     )
 
 
 @dg.asset(deps=[predictions], group_name="serving", kinds={"python", "postgres"})
 def portfolio_equity() -> dg.MaterializeResult:
-    """Simulated long/short paper book rebuilt from the prediction trail."""
+    """Simulated paper books rebuilt from the prediction trail, per market."""
     from quantpulse.ml.portfolio import rebuild_portfolio
 
-    with get_session() as session:
-        rows = rebuild_portfolio(get_engine(), session)
-    return dg.MaterializeResult(metadata={"snapshots": rows})
+    per_exchange = {}
+    for exchange in sorted(EXCHANGES):
+        with get_session() as session:
+            per_exchange[exchange] = rebuild_portfolio(get_engine(), session, exchange=exchange)
+    return dg.MaterializeResult(
+        metadata={
+            "snapshots": sum(per_exchange.values()),
+            **{f"snapshots_{k}": v for k, v in per_exchange.items()},
+        }
+    )
 
 
 @dg.asset(deps=[features], group_name="monitoring", kinds={"python"})
@@ -127,12 +186,21 @@ def drift_report() -> dg.MaterializeResult:
 @dg.asset(deps=[raw_prices], group_name="options", kinds={"python", "postgres"})
 def option_chains() -> dg.MaterializeResult:
     """Snapshot live option chains + Greeks. No free history exists, so each run
-    grows our own options dataset going forward."""
+    grows our own options dataset going forward.
+
+    Only markets with `has_options` are snapshotted: no free JSE chain data exists from
+    any vendor we can use, so this stays a US-only layer by necessity.
+    """
     from quantpulse.data.universe import active_tickers
     from quantpulse.options.ingest import snapshot_option_chains
 
+    tickers: list[str] = []
     with get_session() as session:
-        tickers = active_tickers(session)
+        for code, ex in sorted(EXCHANGES.items()):
+            if ex.has_options:
+                tickers.extend(active_tickers(session, code))
+    if not tickers:
+        return dg.MaterializeResult(metadata={"quotes": 0, "note": "no options-bearing market"})
     rows = snapshot_option_chains(get_session, tickers)  # commits per ticker
     return dg.MaterializeResult(metadata={"quotes": rows, "tickers": len(tickers)})
 
@@ -148,7 +216,11 @@ def option_snapshot_quality() -> dg.AssetCheckResult:
     from quantpulse.options.quality import run_option_quality_checks
 
     with get_session() as session:
-        n_tickers = len(active_tickers(session))
+        n_tickers = sum(
+            len(active_tickers(session, code)) for code, ex in EXCHANGES.items() if ex.has_options
+        )
+    if not n_tickers:
+        return dg.AssetCheckResult(passed=True, metadata={"note": "no options-bearing market"})
     quotes = pd.read_sql(
         "SELECT ticker, implied_volatility, open_interest, delta, gamma, theta, vega, "
         "theo_value FROM option_quotes WHERE snapshot_date = "
@@ -216,14 +288,28 @@ def resource_headroom() -> dg.AssetCheckResult:
 
 @dg.asset(group_name="training", kinds={"python", "mlflow"}, op_tags={"compute": "heavy"})
 def champion_model() -> dg.MaterializeResult:
-    """Train a challenger, evaluate on holdout backtest, promote if it beats the champion."""
+    """Train a challenger per market, evaluate on holdout backtest, promote if it wins.
+
+    One champion per exchange: different sessions, currencies and dynamics, and pooling
+    them would muddle attribution for no gain in data we are short of.
+    """
+    from quantpulse.data.universe import active_tickers
     from quantpulse.ml.pipeline import train_evaluate_promote
 
     settings = get_settings()
-    with get_session() as session:
-        summary = train_evaluate_promote(
-            get_engine(), session, tracking_uri=settings.mlflow_tracking_uri
-        )
-    return dg.MaterializeResult(
-        metadata={k: dg.MetadataValue.text(str(v)) for k, v in summary.items()}
-    )
+    metadata: dict[str, dg.MetadataValue] = {}
+    for exchange in sorted(EXCHANGES):
+        with get_session() as session:
+            if not active_tickers(session, exchange):
+                continue  # market not configured yet
+            summary = train_evaluate_promote(
+                get_engine(),
+                session,
+                tracking_uri=settings.mlflow_tracking_uri,
+                exchange=exchange,
+            )
+        for key, value in summary.items():
+            metadata[f"{exchange}/{key}"] = dg.MetadataValue.text(str(value))
+    if not metadata:
+        raise ValueError("No configured market has tickers — run `quantpulse sync-universe`")
+    return dg.MaterializeResult(metadata=metadata)
