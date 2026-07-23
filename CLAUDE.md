@@ -36,7 +36,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `tests/`: unit / integration (disposable market_test DB, real dbt build) / dagster
 - Model: LightGBM on 13 technical+cross-sectional features, 21d horizon, purged
   walk-forward CV, Optuna(15), promotion gate = holdout Sharpe ≥ champion+0.05,
-  IC ≥ 0, DD > −35%. Champion v1: holdout IC 0.026 / Sharpe 0.21.
+  IC ≥ 0, DD > −35%, and a **first** champion must clear `min_first_sharpe` (0.0) —
+  without it a model that lost money out-of-sample becomes the dashboard's champion.
+  Champions: XNYS v1 (IC 0.026 / Sharpe 0.21), XJSE v2 (IC 0.055 / Sharpe 1.32).
+- Quantile width is per-market, set from breadth so books hold a comparable NUMBER of
+  positions: 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. The
+  promotion gate backtests at the market's own width, or it judges a book nobody runs.
   **Caveat**: those champion metrics predate the measured-turnover backtest, so the gate
   compares a challenger against a more leniently-scored incumbent (bar ~0.015 too high,
   conservative direction). See "Known issue" in docs/roadmap.md — a narrow rejection is

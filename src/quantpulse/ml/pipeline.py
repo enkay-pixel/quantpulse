@@ -13,7 +13,7 @@ from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from quantpulse.data.calendar import DEFAULT_EXCHANGE
+from quantpulse.data.calendar import DEFAULT_EXCHANGE, get_exchange
 from quantpulse.db import ModelRun, Prediction
 from quantpulse.features.engineering import (
     FEATURE_COLUMNS,
@@ -24,7 +24,7 @@ from quantpulse.features.engineering import (
 )
 from quantpulse.features.store import load_features, load_price_bars
 from quantpulse.ml import registry
-from quantpulse.ml.backtest import run_backtest
+from quantpulse.ml.backtest import BacktestConfig, run_backtest
 from quantpulse.ml.metrics import information_coefficient
 from quantpulse.ml.promotion import decide_promotion
 from quantpulse.ml.training import TrainConfig, train_final_model, tune_hyperparameters
@@ -65,7 +65,11 @@ def train_evaluate_promote(
     params = tune_hyperparameters(frame, feature_cols, cfg)
     booster, holdout = train_final_model(frame, feature_cols, params, cfg)
 
-    backtest = run_backtest(holdout)
+    # The gate must measure the construction the market actually runs: judging a 20%
+    # book while the JSE trades a 35% one would promote on evidence about a portfolio
+    # that does not exist.
+    width = get_exchange(exchange).quantile_width
+    backtest = run_backtest(holdout, BacktestConfig(long_quantile=width, short_quantile=width))
     candidate_metrics = {
         "holdout_ic": information_coefficient(holdout),
         "holdout_sharpe": backtest.stats.get("sharpe", float("nan")),

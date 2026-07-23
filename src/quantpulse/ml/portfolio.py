@@ -22,7 +22,7 @@ they never mix currencies or sessions.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import cast
 
 import numpy as np
@@ -31,7 +31,7 @@ from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from quantpulse.data.calendar import DEFAULT_EXCHANGE
+from quantpulse.data.calendar import DEFAULT_EXCHANGE, get_exchange
 from quantpulse.db import PortfolioSnapshot
 from quantpulse.ml.metrics import TRADING_DAYS_PER_YEAR
 
@@ -80,6 +80,21 @@ LONG_ONLY_BOOK = BookConfig(
 
 BOOKS = (DAILY_BOOK, HORIZON_BOOK, LONG_ONLY_BOOK)
 BASELINE = DAILY_BOOK
+
+
+def books_for(exchange: str = DEFAULT_EXCHANGE) -> tuple[BookConfig, ...]:
+    """The book set for one market, at that market's quantile width.
+
+    Width is a property of the market's breadth, not of the book: every book in a market
+    shares it, so each still varies exactly one field from that market's baseline and the
+    comparison between them stays attributable.
+    """
+    width = get_exchange(exchange).quantile_width
+    return tuple(replace(b, long_q=width, short_q=width) for b in BOOKS)
+
+
+def baseline_for(exchange: str = DEFAULT_EXCHANGE) -> BookConfig:
+    return books_for(exchange)[BOOKS.index(BASELINE)]
 
 
 def _load_frames(engine: Engine, exchange: str) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -198,10 +213,11 @@ def build_book(
 def rebuild_portfolio(
     engine: Engine,
     session: Session,
-    books: tuple[BookConfig, ...] = BOOKS,
+    books: tuple[BookConfig, ...] | None = None,
     exchange: str = DEFAULT_EXCHANGE,
 ) -> int:
     """Recompute every book's snapshot trail for one market; idempotent upsert."""
+    books = books if books is not None else books_for(exchange)
     preds, prices = _load_frames(engine, exchange)
     if preds.empty or prices.empty:
         logger.info("No predictions or prices for %s — nothing to rebuild", exchange)

@@ -27,6 +27,11 @@ class Exchange:
     has_options: bool  # free option chains available from the vendor
     display_divisor: float = 1.0  # quote units per display unit (JSE quotes in cents)
     display_symbol: str = "$"
+    # Share of the universe taken on each side of a long/short book. Set from breadth so
+    # every market holds a comparable NUMBER of positions, not a comparable percentile:
+    # 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. A thin market
+    # sliced at 20% would hold 6, roughly doubling per-position idiosyncratic risk.
+    quantile_width: float = 0.2
 
     @property
     def tz(self) -> ZoneInfo:
@@ -51,6 +56,7 @@ XJSE = Exchange(
     has_options=False,  # no free JSE chain data exists from any vendor we can use
     display_divisor=100.0,
     display_symbol="R",
+    quantile_width=0.35,  # 29 names -> ~10 per side, matching XNYS
 )
 
 EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE)}

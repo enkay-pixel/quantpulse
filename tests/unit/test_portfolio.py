@@ -7,13 +7,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from quantpulse.data.calendar import get_exchange
 from quantpulse.ml.portfolio import (
-    BASELINE,
-    BOOKS,
     DAILY_BOOK,
     HORIZON_BOOK,
     LONG_ONLY_BOOK,
     BookConfig,
+    baseline_for,
+    books_for,
     build_book,
 )
 
@@ -42,20 +43,36 @@ def make_frames(seed: int = 3) -> tuple[pd.DataFrame, pd.DataFrame]:
     )
 
 
-def test_each_book_varies_exactly_one_field_from_the_baseline() -> None:
+@pytest.mark.parametrize("exchange", ["XNYS", "XJSE"])
+def test_each_book_varies_exactly_one_field_from_the_baseline(exchange: str) -> None:
     """Guards the comparison itself. Each book is a variation from one baseline, differing
-    in exactly the field it declares — otherwise the gap stops being attributable."""
-    assert BASELINE.varies is None, "the baseline varies nothing by definition"
+    in exactly the field it declares — otherwise the gap stops being attributable.
+
+    Checked per market: quantile width differs BETWEEN markets (it is set from breadth)
+    but must be identical across the books WITHIN one, or a market's books stop being
+    comparable to each other."""
+    books = books_for(exchange)
+    baseline = baseline_for(exchange)
+    assert baseline.varies is None, "the baseline varies nothing by definition"
     compared = [f.name for f in fields(BookConfig) if f.name not in {"variant", "varies"}]
 
-    for book in BOOKS:
-        differing = {f for f in compared if getattr(book, f) != getattr(BASELINE, f)}
-        if book is BASELINE:
+    for book in books:
+        differing = {f for f in compared if getattr(book, f) != getattr(baseline, f)}
+        if book.variant == baseline.variant:
             assert not differing, f"baseline must equal itself, differs on {differing}"
             continue
         assert differing == {book.varies}, (
             f"{book.variant} declares varies={book.varies!r} but actually differs on {differing}"
         )
+
+
+def test_quantile_width_is_set_from_breadth_not_copied() -> None:
+    """A thin market sliced at the wide market's percentile holds too few names. The JSE's
+    35% of 29 and the NYSE's 20% of 50 are both ~10 positions per side."""
+    assert round(29 * get_exchange("XJSE").quantile_width) == 10
+    assert round(50 * get_exchange("XNYS").quantile_width) == 10
+    for book in books_for("XJSE"):
+        assert book.long_q == book.short_q == get_exchange("XJSE").quantile_width
 
 
 def test_variations_are_not_compared_to_each_other() -> None:
