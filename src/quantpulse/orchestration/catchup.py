@@ -61,16 +61,20 @@ def missing_trading_days(
 
 
 def option_snapshot_incomplete(today: dt.date, exchange: str = DEFAULT_EXCHANGE) -> float | None:
-    """Coverage of *today's* option snapshot when it is below par, else None.
+    """Today's snapshot coverage when it is below par (0.0 when nothing was captured),
+    else None. The sensor treats any non-None as "capture now".
 
-    Deliberately today-only. Option chains are live-only — re-running tomorrow
-    snapshots tomorrow's chains, so a thin past day is a permanent hole and there is
-    nothing to repair. An interrupted run *today* is the one case that can still be
-    salvaged, because `snapshot_option_chains` commits per ticker and upserts on
-    (snapshot_date, ticker, ...), so a re-run fills the gaps it left.
+    Deliberately today-only. Option chains are live-only — re-running tomorrow snapshots
+    tomorrow's chains, so a missed past day is a permanent hole. But *today* is always
+    salvageable while the market has closed, whether the snapshot is **missing** (the
+    19:00 schedule never fired because the stack was down) or **thin** (a run was
+    interrupted). `snapshot_option_chains` commits per ticker and upserts on
+    (snapshot_date, ticker, ...), so a re-run fills whatever is absent.
 
-    Callers must also gate on `is_post_close()` — coverage says a repair is *possible*,
-    not that now is a sane moment to attempt one.
+    A missing snapshot counts as a gap (coverage 0.0) rather than "not our job" — that is
+    the whole point of surviving stack up/down: if you are up any time post-close on a
+    trading day, today's snapshot gets taken. Callers gate on `is_post_close()`, so this
+    is only ever consulted after the close.
     """
     with get_engine().connect() as conn:
         universe_size = conn.execute(
@@ -85,7 +89,7 @@ def option_snapshot_incomplete(today: dt.date, exchange: str = DEFAULT_EXCHANGE)
             ),
             {"day": today, "ex": exchange},
         ).scalar_one()
-    if not universe_size or not covered:
-        return None  # nothing snapshotted yet today — that is the schedule's job, not repair
+    if not universe_size:
+        return None  # market not configured for this exchange — nothing to capture
     coverage = covered / universe_size
     return coverage if coverage < MIN_COVERAGE else None
