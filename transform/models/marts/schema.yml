@@ -8,6 +8,8 @@ models:
           arguments:
             combination_of_columns: [ticker, date]
     columns:
+      - name: exchange
+        tests: [not_null]
       - name: ticker
         tests: [not_null]
       - name: date
@@ -25,7 +27,7 @@ models:
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [date, signal_quintile]
+            combination_of_columns: [date, exchange, signal_quintile]
     columns:
       - name: signal_quintile
         tests:
@@ -38,13 +40,19 @@ models:
         tests: [not_null]
 
   - name: fct_portfolio_daily
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, exchange]
     description: >
       Paper portfolio with cumulative return, running drawdown, rolling Sharpe, and
       the evidence phase: 'replay' before the first champion promotion (in-sample),
       'live' after (true out-of-sample).
     columns:
       - name: date
-        tests: [unique, not_null]
+        tests: [not_null]
+      - name: exchange
+        tests: [not_null]
       - name: drawdown
         description: Running peak-to-current drawdown (always <= 0).
         tests:
@@ -59,10 +67,16 @@ models:
                 values: ["replay", "live"]
 
   - name: fct_portfolio_vs_benchmark
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, exchange]
     description: Strategy equity vs SPY buy-and-hold indexed to the portfolio's first date.
     columns:
       - name: date
-        tests: [unique, not_null]
+        tests: [not_null]
+      - name: exchange
+        tests: [not_null]
       - name: portfolio_equity
         tests: [not_null]
       - name: benchmark_equity
@@ -73,13 +87,16 @@ models:
                 expression: "> 0"
 
   - name: fct_track_record
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [exchange, phase]
     description: >
       Per-phase performance summary. The 'live' row is the strategy's honest
       out-of-sample record; the 'replay' row is labeled in-sample history.
     columns:
       - name: phase
         tests:
-          - unique
           - not_null
           - accepted_values:
               arguments:
@@ -93,6 +110,10 @@ models:
                 expression: "between 0 and 1"
 
   - name: fct_alpha_beta
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [exchange, phase]
     description: >
       CAPM decomposition vs SPY per evidence phase: beta (market exposure — a
       market-neutral book should sit near 0), annualized alpha (return earned
@@ -101,7 +122,6 @@ models:
     columns:
       - name: phase
         tests:
-          - unique
           - not_null
           - accepted_values:
               arguments:

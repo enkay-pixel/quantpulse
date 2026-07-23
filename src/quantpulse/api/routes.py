@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from quantpulse.api import schemas
 from quantpulse.api.deps import engine_dep, session_dep
+from quantpulse.data.calendar import DEFAULT_EXCHANGE, EXCHANGES, get_exchange
 from quantpulse.db import (
     DriftMetric,
     ModelRun,
@@ -25,11 +26,26 @@ router = APIRouter()
 # The book the dashboard treats as "the" track record. Other variants exist for
 # comparison (quantpulse.ml.portfolio.BOOKS) and are served at /portfolio/books.
 LIVE_BOOK = "daily"
+# The market shown when the caller does not ask for one — keeps existing URLs working.
+LIVE_MARKET = DEFAULT_EXCHANGE
 # Overlaid on the equity curve so the cost of daily churn is visible, not just tabulated.
 COMPARISON_BOOK = "horizon"
 
 SessionDep = Annotated[Session, Depends(session_dep)]
 EngineDep = Annotated[Engine, Depends(engine_dep)]
+
+
+def exchange_param(
+    exchange: Annotated[str, Query(description="Market code, e.g. XNYS or XJSE")] = LIVE_MARKET,
+) -> str:
+    """Validate + normalise the market code once, rather than in every endpoint."""
+    try:
+        return get_exchange(exchange).code
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+ExchangeDep = Annotated[str, Depends(exchange_param)]
 
 
 def _mart_rows(
@@ -334,10 +350,13 @@ def latest_predictions(session: SessionDep) -> schemas.PredictionsOut:
 
 
 @router.get("/portfolio/equity-curve", response_model=schemas.EquityCurve)
-def equity_curve(session: SessionDep) -> schemas.EquityCurve:
+def equity_curve(session: SessionDep, exchange: ExchangeDep) -> schemas.EquityCurve:
     rows = session.scalars(
         select(PortfolioSnapshot)
-        .where(PortfolioSnapshot.variant == LIVE_BOOK)
+        .where(
+            PortfolioSnapshot.variant == LIVE_BOOK,
+            PortfolioSnapshot.exchange == exchange,
+        )
         .order_by(PortfolioSnapshot.date)
     ).all()
     if not rows:
@@ -348,7 +367,8 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
     mart = _mart_rows(
         session,
         "SELECT date, phase, benchmark_equity "
-        "FROM analytics.fct_portfolio_vs_benchmark ORDER BY date",
+        "FROM analytics.fct_portfolio_vs_benchmark WHERE exchange = :ex ORDER BY date",
+        {"ex": exchange},
     )
     enrich = {m["date"]: m for m in mart or []}
 
@@ -358,7 +378,8 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
         row.date: row.equity
         for row in session.execute(
             select(PortfolioSnapshot.date, PortfolioSnapshot.equity).where(
-                PortfolioSnapshot.variant == COMPARISON_BOOK
+                PortfolioSnapshot.variant == COMPARISON_BOOK,
+                PortfolioSnapshot.exchange == exchange,
             )
         )
     }
@@ -383,8 +404,33 @@ def equity_curve(session: SessionDep) -> schemas.EquityCurve:
     )
 
 
+@router.get("/exchanges", response_model=list[schemas.ExchangeOut])
+def exchanges(session: SessionDep) -> list[schemas.ExchangeOut]:
+    """Markets the dashboard can switch between.
+
+    `configured` distinguishes a market that is defined in the registry from one that has
+    tickers loaded — the UI should not offer a switch to an empty market.
+    """
+    from quantpulse.data.universe import active_exchanges
+
+    live = set(active_exchanges(session))
+    return [
+        schemas.ExchangeOut(
+            code=ex.code,
+            timezone=ex.timezone,
+            currency=ex.currency,
+            benchmark=ex.benchmark,
+            has_options=ex.has_options,
+            display_symbol=ex.display_symbol,
+            display_divisor=ex.display_divisor,
+            configured=ex.code in live,
+        )
+        for ex in sorted(EXCHANGES.values(), key=lambda e: e.code)
+    ]
+
+
 @router.get("/portfolio/books", response_model=schemas.BookComparison)
-def portfolio_books(session: SessionDep) -> schemas.BookComparison:
+def portfolio_books(session: SessionDep, exchange: ExchangeDep) -> schemas.BookComparison:
     """Compare the paper books that run over the same predictions.
 
     They differ only in rebalance frequency, so the spread between them is a clean
@@ -397,7 +443,9 @@ def portfolio_books(session: SessionDep) -> schemas.BookComparison:
 
     rebalance = {b.variant: b for b in BOOKS}
     rows = session.scalars(
-        select(PortfolioSnapshot).order_by(PortfolioSnapshot.variant, PortfolioSnapshot.date)
+        select(PortfolioSnapshot)
+        .where(PortfolioSnapshot.exchange == exchange)
+        .order_by(PortfolioSnapshot.variant, PortfolioSnapshot.date)
     ).all()
 
     books = []
@@ -434,14 +482,18 @@ def portfolio_books(session: SessionDep) -> schemas.BookComparison:
 
 
 @router.get("/track-record", response_model=schemas.TrackRecord)
-def track_record(session: SessionDep) -> schemas.TrackRecord:
+def track_record(session: SessionDep, exchange: ExchangeDep) -> schemas.TrackRecord:
     live_since = session.scalar(
-        select(func.min(ModelRun.created_at)).where(ModelRun.decision == "promoted")
+        select(func.min(ModelRun.created_at)).where(
+            ModelRun.decision == "promoted", ModelRun.exchange == exchange
+        )
     )
     rows = _mart_rows(
         session,
         "SELECT phase, n_days, start_date, end_date, total_return, annualized_volatility, "
-        "sharpe, max_drawdown, win_rate FROM analytics.fct_track_record ORDER BY phase",
+        "sharpe, max_drawdown, win_rate FROM analytics.fct_track_record "
+        "WHERE exchange = :ex ORDER BY phase",
+        {"ex": exchange},
     )
     return schemas.TrackRecord(
         live_since=live_since.date() if live_since else None,
@@ -460,32 +512,36 @@ def alerts(limit: Annotated[int, Query(ge=1, le=50)] = 10) -> schemas.AlertsOut:
 
 
 @router.get("/portfolio/alpha-beta", response_model=schemas.AlphaBetaOut)
-def alpha_beta(session: SessionDep) -> schemas.AlphaBetaOut:
+def alpha_beta(session: SessionDep, exchange: ExchangeDep) -> schemas.AlphaBetaOut:
     """Market exposure vs market-independent return — the fair read on a long/short book."""
     rows = _mart_rows(
         session,
         "SELECT phase, n_days, beta, alpha_daily, alpha_annualized, r_squared, "
         "correlation, tracking_error, information_ratio "
-        "FROM analytics.fct_alpha_beta ORDER BY phase",
+        "FROM analytics.fct_alpha_beta WHERE exchange = :ex ORDER BY phase",
+        {"ex": exchange},
     )
     return schemas.AlphaBetaOut(phases=[schemas.AlphaBetaStats(**dict(r)) for r in rows or []])
 
 
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
-def signal_quintiles(session: SessionDep) -> schemas.QuintilesOut:
+def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.QuintilesOut:
     overall = _mart_rows(
         session,
         "SELECT signal_quintile, count(*) AS n_days, avg(avg_next_day_return) AS "
         "avg_next_day_return FROM analytics.fct_signal_performance "
-        "GROUP BY signal_quintile ORDER BY signal_quintile",
+        "WHERE exchange = :ex GROUP BY signal_quintile ORDER BY signal_quintile",
+        {"ex": exchange},
     )
     # Trailing 45 calendar days ~= 30 trading days.
     recent = _mart_rows(
         session,
         "SELECT signal_quintile, count(*) AS n_days, avg(avg_next_day_return) AS "
         "avg_next_day_return FROM analytics.fct_signal_performance "
-        "WHERE date >= (SELECT max(date) FROM analytics.fct_signal_performance) - 45 "
+        "WHERE exchange = :ex AND date >= (SELECT max(date) FROM "
+        "analytics.fct_signal_performance WHERE exchange = :ex) - 45 "
         "GROUP BY signal_quintile ORDER BY signal_quintile",
+        {"ex": exchange},
     )
     return schemas.QuintilesOut(
         overall=[schemas.QuintileStat(**dict(r)) for r in overall or []],
@@ -494,20 +550,21 @@ def signal_quintiles(session: SessionDep) -> schemas.QuintilesOut:
 
 
 @router.get("/portfolio/risk", response_model=schemas.RiskOut)
-def portfolio_risk(session: SessionDep) -> schemas.RiskOut:
+def portfolio_risk(session: SessionDep, exchange: ExchangeDep) -> schemas.RiskOut:
     rows = _mart_rows(
         session,
         "SELECT date, drawdown, rolling_sharpe_63d "
-        "FROM analytics.fct_portfolio_daily ORDER BY date",
+        "FROM analytics.fct_portfolio_daily WHERE exchange = :ex ORDER BY date",
+        {"ex": exchange},
     )
     return schemas.RiskOut(points=[schemas.RiskPoint(**dict(r)) for r in rows or []])
 
 
 @router.get("/portfolio/positions", response_model=schemas.PositionsOut)
-def portfolio_positions(session: SessionDep) -> schemas.PositionsOut:
+def portfolio_positions(session: SessionDep, exchange: ExchangeDep) -> schemas.PositionsOut:
     snapshot = session.scalars(
         select(PortfolioSnapshot)
-        .where(PortfolioSnapshot.variant == LIVE_BOOK)
+        .where(PortfolioSnapshot.variant == LIVE_BOOK, PortfolioSnapshot.exchange == exchange)
         .order_by(PortfolioSnapshot.date.desc())
     ).first()
     if snapshot is None or not snapshot.positions:
@@ -544,8 +601,10 @@ def portfolio_positions(session: SessionDep) -> schemas.PositionsOut:
 
 
 @router.get("/models/history", response_model=list[schemas.ModelRunOut])
-def model_history(session: SessionDep) -> list[schemas.ModelRunOut]:
-    runs = session.scalars(select(ModelRun).order_by(ModelRun.id.desc())).all()
+def model_history(session: SessionDep, exchange: ExchangeDep) -> list[schemas.ModelRunOut]:
+    runs = session.scalars(
+        select(ModelRun).where(ModelRun.exchange == exchange).order_by(ModelRun.id.desc())
+    ).all()
     return [
         schemas.ModelRunOut(
             id=r.id,
@@ -601,7 +660,7 @@ def latest_drift(session: SessionDep) -> schemas.DriftStatus:
 
 
 @router.get("/freshness", response_model=schemas.FreshnessOut)
-def freshness(session: SessionDep) -> schemas.FreshnessOut:
+def freshness(session: SessionDep, exchange: ExchangeDep) -> schemas.FreshnessOut:
     from quantpulse.db import Feature
 
     return schemas.FreshnessOut(
@@ -609,6 +668,9 @@ def freshness(session: SessionDep) -> schemas.FreshnessOut:
         latest_feature_date=session.scalar(select(func.max(Feature.date))),
         latest_prediction_date=session.scalar(select(func.max(Prediction.date))),
         latest_snapshot_date=session.scalar(
-            select(func.max(PortfolioSnapshot.date)).where(PortfolioSnapshot.variant == LIVE_BOOK)
+            select(func.max(PortfolioSnapshot.date)).where(
+                PortfolioSnapshot.variant == LIVE_BOOK,
+                PortfolioSnapshot.exchange == exchange,
+            )
         ),
     )

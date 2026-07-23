@@ -1,19 +1,22 @@
--- One row per evidence phase: the in-sample 'replay' and the accruing 'live'
--- out-of-sample record. Drawdown peaks reset at the phase boundary so the live
--- record stands on its own.
+-- One row per (market, evidence phase): the in-sample 'replay' and the accruing 'live'
+-- out-of-sample record. Drawdown peaks reset at the phase boundary so the live record
+-- stands on its own, and everything is scoped per exchange so one market's history
+-- cannot leak into another's statistics.
 with daily as (
     select
+        exchange,
         phase,
         date,
         daily_return,
         equity / max(equity) over (
-            partition by phase order by date rows unbounded preceding
+            partition by exchange, phase order by date rows unbounded preceding
         ) - 1 as phase_drawdown
     from {{ ref('fct_portfolio_daily') }}
     where daily_return > -1
 )
 
 select
+    exchange,
     phase,
     count(*) as n_days,
     min(date) as start_date,
@@ -27,4 +30,4 @@ select
     min(phase_drawdown) as max_drawdown,
     avg(case when daily_return > 0 then 1.0 else 0.0 end) as win_rate
 from daily
-group by phase
+group by exchange, phase

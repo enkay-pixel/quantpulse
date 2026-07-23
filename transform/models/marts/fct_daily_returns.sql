@@ -2,6 +2,7 @@
 with returns as (
     select
         ticker,
+        exchange,
         date,
         close,
         volume,
@@ -12,6 +13,7 @@ with returns as (
 
 select
     ticker,
+    exchange,
     date,
     close,
     volume,

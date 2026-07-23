@@ -208,6 +208,38 @@ def test_evidence_endpoints_ignore_non_live_books(evidence_client: TestClient) -
     assert evidence_client.get("/freshness").json()["latest_snapshot_date"] == str(DATES[-1])
 
 
+def test_exchanges_endpoint_lists_markets_and_flags_configured(
+    evidence_client: TestClient,
+) -> None:
+    body = evidence_client.get("/exchanges").json()
+    by_code = {e["code"]: e for e in body}
+    assert {"XNYS", "XJSE"} <= set(by_code)
+    assert by_code["XNYS"]["configured"] is True  # seeded universe
+    assert by_code["XJSE"]["configured"] is False  # defined, but no tickers yet
+    assert by_code["XNYS"]["has_options"] is True
+    assert by_code["XJSE"]["has_options"] is False
+    assert by_code["XJSE"]["display_divisor"] == 100.0  # ZAc -> ZAR
+
+
+def test_unknown_exchange_is_rejected_rather_than_silently_empty(
+    evidence_client: TestClient,
+) -> None:
+    """A typo must 404, not return an empty curve that reads as 'no data yet'."""
+    assert evidence_client.get("/portfolio/equity-curve?exchange=NASDAQ").status_code == 404
+
+
+def test_endpoints_are_scoped_to_the_requested_market(evidence_client: TestClient) -> None:
+    """XJSE has no data seeded, so every evidence endpoint must come back empty for it
+    rather than leaking the US book."""
+    assert evidence_client.get("/portfolio/equity-curve?exchange=XJSE").json()["points"] == []
+    assert evidence_client.get("/track-record?exchange=XJSE").json()["phases"] == []
+    assert evidence_client.get("/portfolio/alpha-beta?exchange=XJSE").json()["phases"] == []
+    assert evidence_client.get("/portfolio/positions?exchange=XJSE").json()["rows"] == []
+    assert evidence_client.get("/models/history?exchange=XJSE").json() == []
+    # ...while the default market still returns its data.
+    assert evidence_client.get("/portfolio/equity-curve").json()["points"]
+
+
 def test_model_history(evidence_client: TestClient) -> None:
     body = evidence_client.get("/models/history").json()
     assert len(body) == 1
