@@ -1,5 +1,14 @@
 # Data dictionary — `market` database
 
+> **Three databases share this Postgres server.** Only `market` (schemas `public` +
+> `analytics`) is ours — defined by Alembic migrations and `src/quantpulse/db/models.py`.
+> The `mlflow` and `dagster` databases are owned by those tools and **must not be modified
+> by us**. Their conventions differ on purpose and are not a defect: MLflow stores every
+> timestamp as `bigint` epoch-milliseconds and IDs as `varchar` (backend-portable, UTC by
+> construction); Dagster uses naive `timestamp without time zone`. If you inspect the server
+> in DBeaver and see int/varchar where you expected a datetime, you're almost certainly
+> looking at one of those two, not at `market`.
+
 Populated from M1 onward; columns finalized alongside the Alembic migrations. Since M11
 the platform is multi-market, so **`exchange` is a dimension** on the tables that need it.
 Tickers are globally unique (JSE names carry a `.JO` suffix), so `prices`, `features` and
@@ -20,6 +29,10 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 | `prices` | (ticker, date) | Daily OHLCV bars, adjusted; source column (yfinance/stooq). Vendor unit glitches repaired on write (see `data/cleaning.py`) |
 | `features` | (ticker, date) | Engineered features; cross-sectional ranks are computed **within** each exchange |
 | `predictions` | (ticker, date, model_version) | Champion-model forward-return scores, per market's own champion |
+
+Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign
+key to `universe.ticker` (`ON DELETE RESTRICT`), so no derived row can point at a ticker the
+platform doesn't know.
 | `model_runs` | run id | Training/evaluation/promotion audit log (metrics, decision, MLflow run id, **exchange**). Append-only: a `demotion` row supersedes an earlier `promoted` one |
 | `drift_metrics` | (date, metric) | Evidently drift results per feature set |
 | `portfolio_snapshots` | **(date, exchange, variant)** | Simulated paper-book equity, exposure, turnover. Several *books* (`daily` / `horizon` / `long_only`) run per market — see [architecture.md](architecture.md) |

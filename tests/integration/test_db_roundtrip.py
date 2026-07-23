@@ -143,3 +143,36 @@ def test_categorical_check_constraints_reject_bad_values(db_engine) -> None:  # 
         s.add(ModelRun(run_type="demotion", exchange="XJSE", decision="rejected", metrics={}))
         s.commit()
         assert s.scalar(text("select count(*) from model_runs where run_type='demotion'")) == 1
+
+
+def test_ticker_columns_foreign_key_to_universe(db_engine) -> None:  # type: ignore[no-untyped-def]
+    """Every ticker-bearing table references universe, matching prices. A row for a ticker
+    that is not in the universe is rejected, so features/predictions/quotes can never point
+    at a ticker the platform does not know."""
+    import datetime as dt
+
+    from sqlalchemy.exc import IntegrityError
+
+    from quantpulse.db import OptionQuote, Prediction
+
+    for orphan in (
+        Prediction(ticker="GHOST", date=dt.date(2024, 1, 2), model_version="1", score=0.0),
+        OptionQuote(
+            snapshot_date=dt.date(2024, 1, 2),
+            ticker="GHOST",
+            expiry=dt.date(2024, 2, 1),
+            strike=100.0,
+            option_type="call",
+            underlying_close=101.0,
+            implied_volatility=0.3,
+            in_the_money=False,
+            theo_value=1.0,
+            delta=0.5,
+            gamma=0.1,
+            theta=-0.1,
+            vega=0.2,
+        ),
+    ):
+        with Session(db_engine) as s, pytest.raises(IntegrityError):
+            s.add(orphan)
+            s.commit()

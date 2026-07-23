@@ -65,7 +65,9 @@ class Price(Base):
 class Feature(Base):
     __tablename__ = "features"
 
-    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ticker: Mapped[str] = mapped_column(
+        String(16), ForeignKey("universe.ticker", ondelete="RESTRICT"), primary_key=True
+    )
     date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
     feature_version: Mapped[str] = mapped_column(String(32), primary_key=True)
     values: Mapped[dict[str, Any]] = mapped_column(JSONB)
@@ -79,7 +81,9 @@ class Feature(Base):
 class Prediction(Base):
     __tablename__ = "predictions"
 
-    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ticker: Mapped[str] = mapped_column(
+        String(16), ForeignKey("universe.ticker", ondelete="RESTRICT"), primary_key=True
+    )
     date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
     model_version: Mapped[str] = mapped_column(String(64), primary_key=True)
     score: Mapped[float] = mapped_column(Float)  # predicted forward return
@@ -152,7 +156,9 @@ class OptionQuote(Base):
     __tablename__ = "option_quotes"
 
     snapshot_date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
-    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ticker: Mapped[str] = mapped_column(
+        String(16), ForeignKey("universe.ticker", ondelete="RESTRICT"), primary_key=True
+    )
     expiry: Mapped[dt.date] = mapped_column(Date, primary_key=True)
     strike: Mapped[float] = mapped_column(Float, primary_key=True)
     option_type: Mapped[str] = mapped_column(String(4), primary_key=True)  # 'call' | 'put'
