@@ -128,10 +128,10 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     """
     import datetime as dt
 
-    from quantpulse.data.calendar import trading_days
+    from quantpulse.data.calendar import market_today, trading_days
     from quantpulse.orchestration.catchup import missing_trading_days
 
-    today = dt.date.today()
+    today = market_today()
     recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), today)
     missing = missing_trading_days(recent)[:MAX_CATCHUP_PER_TICK]
     if not missing:
@@ -160,8 +160,7 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     (≈2.1% against ≈33% post-close), which would leave one snapshot_date holding two
     incompatible qualities of data — worse than the clean partial it started as.
     """
-    import datetime as dt
-
+    from quantpulse.data.calendar import market_today
     from quantpulse.orchestration.catchup import is_post_close, option_snapshot_incomplete
 
     if not is_post_close():
@@ -169,7 +168,9 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
             skip_reason="before the close — option IV is not yet meaningful to snapshot"
         )
 
-    today = dt.date.today()
+    # Must be the same clock the ingest stamps rows with, or the repair looks at a day
+    # that does not exist yet and re-snapshots forever.
+    today = market_today()
     # Cursor is "<day>:<attempts>"; a new day resets the budget.
     seen_day, _, attempts_raw = (context.cursor or ":").partition(":")
     attempts = int(attempts_raw) if seen_day == str(today) and attempts_raw.isdigit() else 0

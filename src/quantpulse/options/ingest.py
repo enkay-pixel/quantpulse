@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from quantpulse.config import get_settings
+from quantpulse.data.calendar import market_today
 from quantpulse.db import OptionQuote
 from quantpulse.options.pricing import OptionType, black_scholes, years_to_expiry
 from quantpulse.utils import chunked
@@ -172,7 +173,8 @@ def snapshot_option_chains(
     run is simply resumable. Per-ticker failures are logged and skipped.
     """
     settings = get_settings()
-    snapshot_date = snapshot_date or dt.date.today()
+    # Exchange time, not the container's UTC clock — see calendar.market_today().
+    snapshot_date = snapshot_date or market_today()
     total = 0
     for ticker in tickers:
         try:

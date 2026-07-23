@@ -105,6 +105,25 @@ If you add a book, change **only** `rebalance_days` in
 `quantpulse.ml.portfolio.BOOKS` — a unit test fails if any other field diverges,
 because a book that differs in two ways cannot attribute its own results.
 
+## Dates are exchange dates, not container dates
+
+Containers run UTC; the market runs on New York time. Anything stamping a row with "today"
+must use `quantpulse.data.calendar.market_today()`, never `dt.date.today()`.
+
+Why it matters, and why it hides: under **EDT** the 19:00 ET jobs land at 23:00 UTC and
+both clocks give the same date, so a naive `date.today()` looks correct all summer. Under
+**EST** the same job lands at **00:00 UTC** — and every row it writes would be stamped with
+*tomorrow's* date. At the November DST change the entire options history would quietly
+shift by a day, in the one dataset that cannot be rebuilt.
+
+A related artefact already exists: on 2026-07-22 a run interrupted by a Docker restart
+crossed UTC midnight mid-snapshot, so 25 tickers holding **07-22 post-close** marks are
+stamped `2026-07-23`. Their IV is healthy (median 0.366 against 0.370 for 07-22) — real
+data, wrong label. The upsert key includes `snapshot_date`, so the next full 07-23 snapshot
+overwrites them contract-for-contract; only contracts that expired in between linger. Left
+alone deliberately rather than deleted: it is real market data, and the retention rule for
+`option_quotes` is that it is irreplaceable.
+
 ## Options snapshot quality
 
 The `option_snapshot_quality` asset check runs with `option_chains` and fails the
