@@ -30,7 +30,7 @@ dependencies = [
     # Monitoring
     "evidently>=0.4.30",
     # Orchestration & transforms
-    "dagster>=1.8",
+    "dagster>=1.13.15",
     "dagster-postgres>=0.24",
     "dagster-webserver>=1.8",
     "dagster-dbt>=0.24",
@@ -50,7 +50,7 @@ dev = [
     # Pinned exactly: CI lints from uv.lock, so a floating local version drifts
     "ruff==0.15.22",
     "mypy>=1.11",
-    "pre-commit>=3.8",
+    "pre-commit>=4.6.1",
     "pandas-stubs>=2.2",
     "scipy-stubs>=1.14",
     "types-pyyaml>=6.0",
