@@ -204,6 +204,34 @@ The durable fix is structural rather than a one-off re-score: stored metrics go 
 whenever evaluation code changes, so `ml/pipeline.py` should re-evaluate the incumbent with
 today's backtest instead of reading numbers computed by a previous version of itself.
 
+## JSE: what the first champion cost to establish
+
+The first JSE candidate was promoted at holdout Sharpe **-0.069** — a model that lost
+money on data it had never seen — because the promotion gate had no floor for a *first*
+champion ("beat the incumbent" cannot gate a model with no incumbent). It has since been
+withdrawn, a `min_first_sharpe` floor added, and the second candidate promoted at
+**+1.32**.
+
+**Attribute that carefully.** Two things changed between the two trainings, and only one
+of them was the intended experiment:
+
+| change | effect |
+|---|---|
+| Repaired 4 vendor unit glitches (`data/cleaning.py`) | **most of it** — holdout IC 0.024 → 0.055, and IC is width-independent |
+| Widened JSE quantiles 20% → 35% | **+0.08 Sharpe** in a same-data, same-model sweep |
+
+Measured on one panel with one model, varying only the width: 20% gives 49.3%/2.71,
+35% gives 37.9%/**2.79**, 40% gives 32.6%/2.66. So widening is a small risk-adjusted
+improvement that trades return for stability — not the cause of the turnaround.
+
+The width itself is set from breadth, not tuned: 35% of 29 JSE names and 20% of 50 US
+names are both ~10 positions per side. Slicing a thin market at the wide market's
+percentile would hold 6, roughly doubling per-position idiosyncratic risk.
+
+**Still to be earned:** every JSE figure above is in-sample replay. Its live phase begins
+at the 2026-07-23 promotion and is the only number that will settle whether a holdout
+Sharpe of 1.32 on 29 names with ~8 years of history was signal or a favourable draw.
+
 ## Deliberately not doing
 
 - **A local LLM question-answering layer.** Scoped 2026-07-22 and declined — see
