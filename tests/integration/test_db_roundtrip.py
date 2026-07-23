@@ -101,3 +101,45 @@ def test_universe_table_has_metadata_columns(db_engine: Engine) -> None:
             member = session.get(UniverseMember, "AAPL")
         assert member is not None
         assert member.added_at is not None
+
+
+def test_categorical_check_constraints_reject_bad_values(db_engine) -> None:  # type: ignore[no-untyped-def]
+    """The domain columns constrain their vocabulary at the DB level, like asset_type and
+    option_type. Guards against a regression that drops the CHECK or a code path that
+    writes a value outside the set."""
+    import datetime as dt
+
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    from quantpulse.data.universe import UniverseEntry, sync_universe
+    from quantpulse.db import ModelRun, Price
+
+    with Session(db_engine) as s:
+        sync_universe(s, [UniverseEntry("AAA", "stock")])
+        s.commit()
+
+    cases = [
+        ModelRun(run_type="bogus", exchange="XNYS", metrics={}),  # bad run_type
+        ModelRun(run_type="train", exchange="XNYS", decision="maybe", metrics={}),  # bad decision
+        Price(  # bad source
+            ticker="AAA",
+            date=dt.date(2020, 1, 2),
+            open=1,
+            high=1,
+            low=1,
+            close=1,
+            volume=1,
+            source="bloomberg",
+        ),
+    ]
+    for bad in cases:
+        with Session(db_engine) as s, pytest.raises(IntegrityError):
+            s.add(bad)
+            s.commit()
+
+    # ...and the allowed values pass, including the demotion audit value.
+    with Session(db_engine) as s:
+        s.add(ModelRun(run_type="demotion", exchange="XJSE", decision="rejected", metrics={}))
+        s.commit()
+        assert s.scalar(text("select count(*) from model_runs where run_type='demotion'")) == 1
