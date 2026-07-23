@@ -151,6 +151,29 @@ and the tables that are safe to delete are too small to be worth it.** Revisit o
 `resource_headroom` actually fires — and even then, archive `option_quotes` to Parquet
 before considering removal.
 
+## After stopping Docker mid-run
+
+Runs execute in-process under the daemon, so killing Docker while one is in flight leaves
+its row `STARTED` forever — the process died before it could write a terminal status. With
+`max_concurrent_runs: 1` that zombie holds the only slot and **the entire queue stalls
+indefinitely**, and because `STARTED` is not `FAILURE` the failure sensor never fires: the
+pipeline is dead and nothing says so.
+
+`run_monitoring` (in `docker/dagster.yaml`) now reaps these automatically. To confirm after
+an unclean shutdown:
+
+```bash
+docker compose exec -T postgres psql -U quantpulse -d dagster -c "select status, count(*) from runs group by 1;"
+```
+
+Anything `STARTED` with no matching process, or a `QUEUED` pile-up, means the queue is
+blocked. Terminate the stuck run from the Dagster UI (Runs → Terminate) or via GraphQL with
+`terminateRun(runId: "...", terminatePolicy: MARK_AS_CANCELED_IMMEDIATELY)`; the queue
+drains on its own afterwards.
+
+**Prefer `make down` to quitting Docker Desktop** — it stops runs cleanly and avoids the
+whole situation.
+
 ## Troubleshooting
 
 - **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait for the whale icon, retry `make up`.

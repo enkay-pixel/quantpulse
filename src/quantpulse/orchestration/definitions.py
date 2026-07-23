@@ -155,10 +155,19 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     an interruption leaves a partial day. Only *today* can be repaired — chains are
     live-only, so yesterday's gaps are permanent. Bounded by a cursor because a
     genuinely unavailable feed must not spin the run queue all day.
+
+    Gated to post-close: repairing pre-market fills the missing tickers with stale IV
+    (≈2.1% against ≈33% post-close), which would leave one snapshot_date holding two
+    incompatible qualities of data — worse than the clean partial it started as.
     """
     import datetime as dt
 
-    from quantpulse.orchestration.catchup import option_snapshot_incomplete
+    from quantpulse.orchestration.catchup import is_post_close, option_snapshot_incomplete
+
+    if not is_post_close():
+        return dg.SensorResult(
+            skip_reason="before the close — option IV is not yet meaningful to snapshot"
+        )
 
     today = dt.date.today()
     # Cursor is "<day>:<attempts>"; a new day resets the budget.

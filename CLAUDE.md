@@ -89,6 +89,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Postgres caps 65,535 bind params/statement — bulk upserts go through
   `quantpulse.utils.chunked`.
 - Shell working directory resets between tool calls — always `cd` explicitly.
+- Killing Docker mid-run leaves a zombie `STARTED` run; with `max_concurrent_runs: 1` it
+  blocks the queue forever AND is invisible to the failure sensor (STARTED ≠ FAILURE).
+  `run_monitoring` in docker/dagster.yaml reaps it; prefer `make down` over quitting Docker.
+- Anything touching option chains must gate on `catchup.is_post_close()` — pre-market IV
+  is ~2.1% vs ~33% post-close, so an off-hours snapshot writes junk.
 - Docker CLI symlinks live in `/opt/homebrew/bin` (the `/usr/local/bin` ones point at a
   dead DMG mount).
 

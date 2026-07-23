@@ -19,6 +19,16 @@ run_retries:
   enabled: true
   max_retries: 1
 
+# Runs execute in-process under the daemon, so stopping Docker mid-run leaves the run row
+# STARTED forever — its process died before it could write a terminal status. With
+# max_concurrent_runs=1 that zombie holds the only slot and the whole queue stalls
+# indefinitely, and because a zombie is STARTED rather than FAILURE the failure sensor
+# never fires: the pipeline is dead and nothing says so. Run monitoring reaps them.
+run_monitoring:
+  enabled: true
+  poll_interval_seconds: 120
+  start_timeout_seconds: 300
+
 # Rolling window for operational exhaust. Sensors tick every 30s-30min and each tick is a
 # stored row; after a few weeks they answer no question anyone asks. This is the ONLY data
 # in the platform on a retention policy — see "Data retention" in docs/runbook.md for what
