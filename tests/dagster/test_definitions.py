@@ -49,9 +49,9 @@ def test_schedules_default_to_running() -> None:
 
 def test_schedules_and_sensors_registered() -> None:
     schedule_names = {s.name for s in defs.schedules or []}
-    assert {"daily_ingest_schedule", "daily_process_schedule", "weekly_training_schedule"} <= (
-        schedule_names
-    )
+    # One ingest schedule per market, each in its own timezone.
+    assert {"daily_ingest_xnys", "daily_ingest_xjse"} <= schedule_names
+    assert {"daily_process_schedule", "weekly_training_schedule"} <= schedule_names
     sensor_names = {s.name for s in defs.sensors or []}
     assert {
         "drift_retrain_sensor",
@@ -68,7 +68,22 @@ def test_sensors_ship_running() -> None:
         assert sensor.default_status == dg.DefaultSensorStatus.RUNNING, sensor.name
 
 
-def test_raw_prices_is_daily_partitioned() -> None:
+def test_raw_prices_is_partitioned_by_date_and_exchange() -> None:
+    """Exchange is a partition dimension, not a loop inside the asset: a JSE holiday is
+    not an NYSE holiday, and each market needs its own post-close schedule."""
     job = defs.resolve_job_def("ingest_job")
-    assert isinstance(job.partitions_def, dg.DailyPartitionsDefinition)
-    assert job.partitions_def.timezone == "America/New_York"
+    partitions = job.partitions_def
+    assert isinstance(partitions, dg.MultiPartitionsDefinition)
+    dims = {d.name: d.partitions_def for d in partitions.partitions_defs}
+    assert set(dims) == {"date", "exchange"}
+    assert isinstance(dims["date"], dg.DailyPartitionsDefinition)
+    assert dims["date"].timezone == "America/New_York"
+    assert set(dims["exchange"].get_partition_keys()) == {"XNYS", "XJSE"}
+
+
+def test_each_market_ingests_in_its_own_timezone() -> None:
+    """A single cron cannot serve two closes; the JSE closes five hours before NYSE."""
+    by_name = {s.name: s for s in defs.schedules or []}
+    assert by_name["daily_ingest_xnys"].execution_timezone == "America/New_York"
+    assert by_name["daily_ingest_xjse"].execution_timezone == "Africa/Johannesburg"
+    assert by_name["daily_ingest_xnys"].cron_schedule != by_name["daily_ingest_xjse"].cron_schedule

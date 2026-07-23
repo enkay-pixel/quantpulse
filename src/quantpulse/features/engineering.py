@@ -29,8 +29,18 @@ FEATURE_COLUMNS = _TECHNICAL + [f"{c}_cs_rank" for c in _CROSS_SECTIONAL_BASE]
 
 
 def compute_features(bars: pd.DataFrame) -> pd.DataFrame:
-    """Return a (ticker, date) frame with FEATURE_COLUMNS, NaN warm-up rows dropped."""
-    df = bars[["ticker", "date", "close", "volume"]].sort_values(["ticker", "date"]).copy()
+    """Return a (ticker, date) frame with FEATURE_COLUMNS, NaN warm-up rows dropped.
+
+    If `bars` carries an `exchange` column, cross-sectional ranks are computed **within**
+    each exchange. This is not cosmetic: ranking every ticker against every other on a date
+    would compare Naspers to Apple — different currency, different session, different macro
+    — and the ranks would degrade into noise without anything failing.
+    """
+    columns = ["ticker", "date", "close", "volume"]
+    has_exchange = "exchange" in bars.columns
+    if has_exchange:
+        columns.append("exchange")
+    df = bars[columns].sort_values(["ticker", "date"]).copy()
     grouped = df.groupby("ticker", group_keys=False)
 
     df["ret_1"] = grouped["close"].pct_change(1, fill_method=None)
@@ -51,8 +61,9 @@ def compute_features(bars: pd.DataFrame) -> pd.DataFrame:
     )
     df = df.drop(columns=["_log_vol"])
 
+    cross_section = ["date", "exchange"] if has_exchange else ["date"]
     for col in _CROSS_SECTIONAL_BASE:
-        df[f"{col}_cs_rank"] = df.groupby("date")[col].rank(pct=True)
+        df[f"{col}_cs_rank"] = df.groupby(cross_section)[col].rank(pct=True)
 
     df = df.dropna(subset=FEATURE_COLUMNS)
     return df[["ticker", "date", *FEATURE_COLUMNS]].reset_index(drop=True)

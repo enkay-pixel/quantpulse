@@ -1,17 +1,21 @@
 """Detect trading days the pipeline slept through.
 
 Schedules only fire while the stack is up, and this runs on a laptop. Rather than
-silently losing those sessions, compare expected NYSE sessions against what actually
-landed in `prices` and let the catch-up sensor request the gaps.
+silently losing those sessions, compare the exchange's expected sessions against what
+actually landed in `prices` and let the catch-up sensor request the gaps.
 """
 
 import datetime as dt
 import logging
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 
-from quantpulse.data.calendar import is_trading_day
+# Re-exported: is_post_close became exchange-aware and now lives with the registry, but
+# the sensors import it from here.
+from quantpulse.data.calendar import (
+    DEFAULT_EXCHANGE,
+    is_post_close,  # noqa: F401
+)
 from quantpulse.db import get_engine
 
 logger = logging.getLogger(__name__)
@@ -20,24 +24,30 @@ logger = logging.getLogger(__name__)
 # partially-written day should be retried, not treated as done.
 MIN_COVERAGE = 0.8
 
-NEW_YORK = ZoneInfo("America/New_York")
-MARKET_CLOSE_HOUR_ET = 16  # NYSE closes 16:00 ET; IV is only meaningful after it
 
+def missing_trading_days(
+    expected: list[dt.date], exchange: str = DEFAULT_EXCHANGE
+) -> list[dt.date]:
+    """Which of `expected` sessions lack adequate price coverage, oldest first.
 
-def missing_trading_days(expected: list[dt.date]) -> list[dt.date]:
-    """Which of `expected` sessions lack adequate price coverage, oldest first."""
+    Scoped to one exchange: coverage is a fraction of *that* market's universe, and its
+    holidays are its own. Counting a JSE holiday against NYSE coverage would request
+    catch-up runs forever.
+    """
     if not expected:
         return []
     with get_engine().connect() as conn:
         universe_size = conn.execute(
-            text("SELECT count(*) FROM universe WHERE active")
+            text("SELECT count(*) FROM universe WHERE active AND exchange = :ex"),
+            {"ex": exchange},
         ).scalar_one()
         rows = conn.execute(
             text(
-                "SELECT date, count(*) AS n FROM prices "
-                "WHERE date >= :start AND date <= :end GROUP BY date"
+                "SELECT p.date, count(*) AS n FROM prices p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex "
+                "WHERE p.date >= :start AND p.date <= :end GROUP BY p.date"
             ),
-            {"start": min(expected), "end": max(expected)},
+            {"start": min(expected), "end": max(expected), "ex": exchange},
         ).all()
     if not universe_size:
         return []
@@ -50,23 +60,7 @@ def missing_trading_days(expected: list[dt.date]) -> list[dt.date]:
     return missing
 
 
-def is_post_close(now: dt.datetime | None = None) -> bool:
-    """Is it after the NYSE close on a trading day, in New York time?
-
-    Yahoo's implied volatility is only trustworthy once the session has traded: measured
-    on this universe, post-close averages ≈33% ATM IV against ≈2.1% pre-market. A repair
-    that runs at 06:00 would therefore *degrade* a partial snapshot — filling the missing
-    tickers with junk while the ones already captured hold good post-close marks, leaving
-    a single snapshot_date with two incompatible qualities of data in it.
-    """
-    now = now or dt.datetime.now(NEW_YORK)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=NEW_YORK)
-    local = now.astimezone(NEW_YORK)
-    return is_trading_day(local.date()) and local.hour >= MARKET_CLOSE_HOUR_ET
-
-
-def option_snapshot_incomplete(today: dt.date) -> float | None:
+def option_snapshot_incomplete(today: dt.date, exchange: str = DEFAULT_EXCHANGE) -> float | None:
     """Coverage of *today's* option snapshot when it is below par, else None.
 
     Deliberately today-only. Option chains are live-only — re-running tomorrow
@@ -80,11 +74,16 @@ def option_snapshot_incomplete(today: dt.date) -> float | None:
     """
     with get_engine().connect() as conn:
         universe_size = conn.execute(
-            text("SELECT count(*) FROM universe WHERE active")
+            text("SELECT count(*) FROM universe WHERE active AND exchange = :ex"),
+            {"ex": exchange},
         ).scalar_one()
         covered = conn.execute(
-            text("SELECT count(DISTINCT ticker) FROM option_quotes WHERE snapshot_date = :day"),
-            {"day": today},
+            text(
+                "SELECT count(DISTINCT o.ticker) FROM option_quotes o "
+                "JOIN universe u ON u.ticker = o.ticker AND u.exchange = :ex "
+                "WHERE o.snapshot_date = :day"
+            ),
+            {"day": today, "ex": exchange},
         ).scalar_one()
     if not universe_size or not covered:
         return None  # nothing snapshotted yet today — that is the schedule's job, not repair

@@ -1,6 +1,7 @@
 """Dagster Definitions: the single code location loaded by webserver and daemon."""
 
 import dagster as dg
+from quantpulse.data.calendar import EXCHANGES, get_exchange, is_trading_day, market_today
 from quantpulse.orchestration import assets as qp_assets
 from quantpulse.orchestration.transform_assets import dbt_resource, transform_dbt_assets
 
@@ -33,16 +34,37 @@ MAX_OPTION_REPAIRS_PER_DAY = 3
 # All schedules default to RUNNING: `make up` must mean fully automated —
 # without this, Dagster ships schedules stopped until toggled in the UI.
 
-# Evenings after the NYSE close: ingest today's bars (non-trading days no-op)...
-ingest_schedule = dg.build_schedule_from_partitioned_job(
-    ingest_job,
-    hour_of_day=18,
-    minute_of_hour=30,
-    name="daily_ingest_schedule",
-    default_status=dg.DefaultScheduleStatus.RUNNING,
-)
+# Ingest runs per market, in that market's own timezone, a couple of hours after its
+# close. build_schedule_from_partitioned_job cannot express this: one cron cannot serve
+# two closes, and the partition key now carries the exchange.
+INGEST_HOUR_AFTER_CLOSE = 2
 
-# ...then run features -> predictions -> portfolio -> drift half an hour later.
+
+def _ingest_schedule(exchange: str) -> dg.ScheduleDefinition:
+    ex = get_exchange(exchange)
+    hour = (ex.close_hour + INGEST_HOUR_AFTER_CLOSE) % 24
+
+    @dg.schedule(
+        job=ingest_job,
+        cron_schedule=f"30 {hour} * * 1-5",
+        execution_timezone=ex.timezone,
+        name=f"daily_ingest_{exchange.lower()}",
+        default_status=dg.DefaultScheduleStatus.RUNNING,
+    )
+    def _schedule(context: dg.ScheduleEvaluationContext) -> dg.RunRequest | dg.SkipReason:
+        day = market_today(exchange)
+        if not is_trading_day(day, exchange):
+            return dg.SkipReason(f"{day} is not a {exchange} session")
+        key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
+        return dg.RunRequest(partition_key=key, run_key=f"ingest-{exchange}-{day}")
+
+    return _schedule
+
+
+ingest_schedules = [_ingest_schedule(code) for code in sorted(EXCHANGES)]
+
+# Processing is cross-market (features rank within each exchange, books build per market),
+# so it runs once, after the latest close of the day — NYSE.
 process_schedule = dg.ScheduleDefinition(
     job=process_job,
     cron_schedule="0 19 * * 1-5",
@@ -128,19 +150,20 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     """
     import datetime as dt
 
-    from quantpulse.data.calendar import market_today, trading_days
+    from quantpulse.data.calendar import trading_days
     from quantpulse.orchestration.catchup import missing_trading_days
 
-    today = market_today()
-    recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), today)
-    missing = missing_trading_days(recent)[:MAX_CATCHUP_PER_TICK]
-    if not missing:
+    requests: list[dg.RunRequest] = []
+    for exchange in sorted(EXCHANGES):
+        # Each market keeps its own budget: a long JSE gap must not crowd out NYSE.
+        today = market_today(exchange)
+        recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), today, exchange)
+        for day in missing_trading_days(recent, exchange)[:MAX_CATCHUP_PER_TICK]:
+            key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
+            requests.append(dg.RunRequest(partition_key=key, run_key=f"catchup-{exchange}-{day}"))
+    if not requests:
         return dg.SensorResult(skip_reason="no missed trading days in the lookback window")
-    return dg.SensorResult(
-        run_requests=[
-            dg.RunRequest(partition_key=str(day), run_key=f"catchup-{day}") for day in missing
-        ]
-    )
+    return dg.SensorResult(run_requests=requests)
 
 
 @dg.sensor(
@@ -206,7 +229,7 @@ defs = dg.Definitions(
         qp_assets.resource_headroom,
     ],
     jobs=[ingest_job, process_job, training_job],
-    schedules=[ingest_schedule, process_schedule, training_schedule],
+    schedules=[*ingest_schedules, process_schedule, training_schedule],
     sensors=[
         drift_retrain_sensor,
         pipeline_failure_alert,

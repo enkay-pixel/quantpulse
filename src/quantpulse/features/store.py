@@ -44,15 +44,33 @@ def load_features(
     version: str,
     start: dt.date | None = None,
     end: dt.date | None = None,
+    exchange: str | None = None,
 ) -> pd.DataFrame:
-    """Load stored features back into a wide frame (ticker, date, *FEATURE_COLUMNS)."""
-    query = "SELECT ticker, date, values FROM features WHERE feature_version = %(version)s"
+    """Load stored features back into a wide frame (ticker, date, *FEATURE_COLUMNS).
+
+    `exchange` filters via `universe`; None returns everything stored. The join is added
+    only when filtering — joining unconditionally would silently drop features whose
+    ticker has since left the universe, which is a different question from "which market
+    is this".
+    """
     params: dict[str, str | dt.date] = {"version": version}
+    if exchange is None:
+        query = (
+            "SELECT f.ticker, f.date, f.values FROM features f "
+            "WHERE f.feature_version = %(version)s"
+        )
+    else:
+        query = (
+            "SELECT f.ticker, f.date, f.values FROM features f "
+            "JOIN universe u ON u.ticker = f.ticker AND u.exchange = %(exchange)s "
+            "WHERE f.feature_version = %(version)s"
+        )
+        params["exchange"] = exchange
     if start is not None:
-        query += " AND date >= %(start)s"
+        query += " AND f.date >= %(start)s"
         params["start"] = start
     if end is not None:
-        query += " AND date <= %(end)s"
+        query += " AND f.date <= %(end)s"
         params["end"] = end
     raw = pd.read_sql(query, engine, params=params)
     if raw.empty:
@@ -66,10 +84,18 @@ def load_price_bars(
     engine: Engine,
     start: dt.date | None = None,
     end: dt.date | None = None,
+    exchange: str | None = None,
 ) -> pd.DataFrame:
-    """Load stored bars for feature computation (active universe only)."""
+    """Load stored bars for feature computation (active universe only).
+
+    Carries `exchange` so cross-sectional features can be ranked within a market rather
+    than across all of them.
+    """
     clauses = ["u.active"]
-    params: dict[str, dt.date] = {}
+    params: dict[str, dt.date | str] = {}
+    if exchange is not None:
+        clauses.append("u.exchange = :exchange")
+        params["exchange"] = exchange
     if start is not None:
         clauses.append("p.date >= :start")
         params["start"] = start
@@ -77,7 +103,7 @@ def load_price_bars(
         clauses.append("p.date <= :end")
         params["end"] = end
     query = text(
-        "SELECT p.ticker, p.date, p.close, p.volume FROM prices p "
+        "SELECT p.ticker, p.date, p.close, p.volume, u.exchange FROM prices p "
         "JOIN universe u ON u.ticker = p.ticker "
         f"WHERE {' AND '.join(clauses)} ORDER BY p.ticker, p.date"
     )
