@@ -253,11 +253,16 @@ def score_history(
     engine: Engine,
     session: Session,
     tracking_uri: str | None = None,
+    exchange: str = DEFAULT_EXCHANGE,
 ) -> int:
-    """Replay the champion over all stored feature dates (marked by its model version).
+    """Replay one market's champion over its own stored feature dates.
 
     Useful to seed the dashboard with a signal trail; dates inside the champion's
     training window are in-sample and labeled as a replay, not a live track record.
+
+    Scoped to one exchange in both directions: this market's champion, this market's
+    features. Scoring every market with one champion would write predictions a model
+    was never trained for.
     """
     from quantpulse.db import Prediction
     from quantpulse.features.engineering import FEATURE_COLUMNS, FEATURE_VERSION
@@ -266,12 +271,12 @@ def score_history(
 
     if tracking_uri:
         registry.configure(tracking_uri)
-    loaded = registry.load_champion()
+    loaded = registry.load_champion(exchange)
     if loaded is None:
-        logger.warning("No champion model — cannot replay history")
+        logger.warning("No champion model for %s — cannot replay history", exchange)
         return 0
     booster, champion = loaded
-    features = load_features(engine, FEATURE_VERSION)
+    features = load_features(engine, FEATURE_VERSION, exchange=exchange)
     if features.empty:
         return 0
     features = features.copy()
@@ -294,5 +299,5 @@ def score_history(
             set_={"score": stmt.excluded.score},
         )
         session.execute(stmt)
-    logger.info("Replayed champion v%s over %d rows", champion.version, len(records))
+    logger.info("Replayed %s champion v%s over %d rows", exchange, champion.version, len(records))
     return len(records)

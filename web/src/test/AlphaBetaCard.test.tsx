@@ -57,6 +57,13 @@ describe("AlphaBetaCard", () => {
     expect(screen.getByText(/In-sample replay, 2082 days/)).toBeInTheDocument();
   });
 
+  it("names the market's own benchmark, not a hardcoded SPY", () => {
+    // A JSE book compared to SPY would measure the rand and the S&P, not the strategy.
+    render(<AlphaBetaCard data={{ phases: [REPLAY] }} benchmark="STX40.JO" />);
+    expect(screen.getByText("Beta vs STX40.JO")).toBeInTheDocument();
+    expect(screen.queryByText(/vs SPY/)).not.toBeInTheDocument();
+  });
+
   it("shows an empty state before the marts exist", () => {
     render(<AlphaBetaCard data={{ phases: [] }} />);
     expect(screen.getByText(/Appears after the first dbt transform run/)).toBeInTheDocument();

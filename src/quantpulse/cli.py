@@ -38,21 +38,31 @@ def _sync_universe() -> None:
     logger.info("Universe synced: %s (%d configured)", counts, len(entries))
 
 
-def _backfill(start: dt.date | None, end: dt.date | None, batch_size: int = 25) -> None:
-    from quantpulse.data.calendar import last_trading_day
+def _backfill(
+    start: dt.date | None,
+    end: dt.date | None,
+    exchange: str | None = None,
+    batch_size: int = 25,
+) -> None:
+    from quantpulse.data.calendar import get_exchange, last_trading_day
     from quantpulse.data.ingest import fetch_daily_bars, upsert_prices
     from quantpulse.data.universe import active_tickers
     from quantpulse.db import get_session
 
     settings = get_settings()
+    code = get_exchange(exchange).code if exchange else None
     start = start or dt.date.fromisoformat(settings.quantpulse_history_start)
-    end = end or last_trading_day()
+    # The end date follows the requested market's own calendar.
+    end = end or last_trading_day(exchange=code)
     with get_session() as session:
-        tickers = active_tickers(session)
+        tickers = active_tickers(session, code)
     if not tickers:
-        logger.error("Universe is empty — run `quantpulse sync-universe` first")
+        target = code or "any market"
+        logger.error("No active tickers for %s — run `quantpulse sync-universe` first", target)
         sys.exit(1)
-    logger.info("Backfilling %d tickers from %s to %s", len(tickers), start, end)
+    logger.info(
+        "Backfilling %d %s tickers from %s to %s", len(tickers), code or "all-market", start, end
+    )
     total = 0
     for i in range(0, len(tickers), batch_size):
         batch = tickers[i : i + batch_size]
@@ -92,22 +102,30 @@ def _train() -> None:
         logger.info("%-24s %s", key, value)
 
 
-def _score(replay: bool) -> None:
+def _score(replay: bool, exchange: str | None = None) -> None:
+    from quantpulse.data.calendar import EXCHANGES, get_exchange
     from quantpulse.db import get_engine, get_session
     from quantpulse.ml.pipeline import score_latest
     from quantpulse.ml.portfolio import rebuild_portfolio, score_history
 
     settings = get_settings()
-    if replay:
-        with get_session() as session:
-            n = score_history(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
-        # Separate transaction: the rebuild reads predictions through its own connection.
-        with get_session() as session:
-            rebuild_portfolio(get_engine(), session)
-    else:
-        with get_session() as session:
-            n = score_latest(get_engine(), session, tracking_uri=settings.mlflow_tracking_uri)
-    logger.info("Wrote %d predictions", n)
+    codes = [get_exchange(exchange).code] if exchange else sorted(EXCHANGES)
+    total = 0
+    for code in codes:
+        if replay:
+            with get_session() as session:
+                total += score_history(
+                    get_engine(), session, tracking_uri=settings.mlflow_tracking_uri, exchange=code
+                )
+            # Separate transaction: the rebuild reads predictions through its own connection.
+            with get_session() as session:
+                rebuild_portfolio(get_engine(), session, exchange=code)
+        else:
+            with get_session() as session:
+                total += score_latest(
+                    get_engine(), session, tracking_uri=settings.mlflow_tracking_uri, exchange=code
+                )
+    logger.info("Wrote %d predictions", total)
 
 
 def _options_snapshot() -> None:
@@ -201,6 +219,7 @@ def main(argv: list[str] | None = None) -> None:
     backfill = sub.add_parser("backfill", help="Fetch and upsert daily bars for the universe")
     backfill.add_argument("--start", type=dt.date.fromisoformat, default=None)
     backfill.add_argument("--end", type=dt.date.fromisoformat, default=None)
+    backfill.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
 
     quality = sub.add_parser("quality", help="Run data-quality checks on stored prices")
     quality.add_argument("--start", type=dt.date.fromisoformat, required=True)
@@ -216,6 +235,7 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Score the full feature history (pre-champion dates are an in-sample replay)",
     )
+    score.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
 
     args = parser.parse_args(argv)
     if args.command == "init-db":
@@ -223,7 +243,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "sync-universe":
         _sync_universe()
     elif args.command == "backfill":
-        _backfill(args.start, args.end)
+        _backfill(args.start, args.end, args.exchange)
     elif args.command == "quality":
         _quality(args.start, args.end)
     elif args.command == "features":
@@ -235,7 +255,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "train":
         _train()
     elif args.command == "score":
-        _score(args.replay)
+        _score(args.replay, args.exchange)
 
 
 if __name__ == "__main__":

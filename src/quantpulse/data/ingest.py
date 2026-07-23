@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from quantpulse.data.cleaning import repair_price_units
 from quantpulse.db import Price
 from quantpulse.utils import chunked
 
@@ -149,9 +150,16 @@ def fetch_daily_bars(tickers: list[str], start: dt.date, end: dt.date) -> pd.Dat
 
 
 def upsert_prices(session: Session, bars: pd.DataFrame) -> int:
-    """Idempotent insert-or-update on (ticker, date). Returns number of rows written."""
+    """Idempotent insert-or-update on (ticker, date). Returns number of rows written.
+
+    Vendor unit glitches are repaired first (see data.cleaning): Yahoo intermittently
+    reports a JSE close in Rand rather than cents, which reads as a -99% day followed by
+    a +100x day. Needs neighbouring rows to judge, so this is a no-op on the single-day
+    ingest and does its work on backfills and sweeps.
+    """
     if bars.empty:
         return 0
+    bars, _ = repair_price_units(bars)
     records = bars[BAR_COLUMNS].to_dict(orient="records")
     for chunk in chunked(records):
         stmt = pg_insert(Price).values(list(chunk))

@@ -48,6 +48,17 @@ export interface EquityPoint {
   horizon_equity: number | null;
 }
 
+export interface Exchange {
+  code: string;
+  timezone: string;
+  currency: string;
+  benchmark: string;
+  has_options: boolean;
+  display_symbol: string;
+  display_divisor: number;
+  configured: boolean;
+}
+
 export interface BookStats {
   variant: string;
   rebalance_days: number;

@@ -1,55 +1,96 @@
-# Trading universe: liquid US large caps + broad ETFs.
+# Trading universe, grouped by exchange. Codes must exist in
+# quantpulse.data.calendar.EXCHANGES; the loader rejects typos at sync time.
 # Edit freely; the ingestion pipeline picks this up on its next run.
-etfs:
-  - SPY   # S&P 500
-  - QQQ   # Nasdaq 100
-  - IWM   # Russell 2000
-  - DIA   # Dow Jones
-  - XLF   # Financials
-  - XLK   # Technology
-  - XLE   # Energy
-  - XLV   # Health care
-  - GLD   # Gold
-  - TLT   # 20y+ Treasuries
+#
+# Each market's benchmark ETF must appear here, or fct_portfolio_vs_benchmark has
+# nothing to compare that market's book against.
+exchanges:
+  XNYS:
+    etfs:
+      - SPY
+      - QQQ
+      - IWM
+      - DIA
+      - XLF
+      - XLK
+      - XLE
+      - XLV
+      - GLD
+      - TLT
+    stocks:
+      - AAPL
+      - MSFT
+      - AMZN
+      - GOOGL
+      - META
+      - NVDA
+      - TSLA
+      - AVGO
+      - BRK-B
+      - JPM
+      - V
+      - MA
+      - UNH
+      - JNJ
+      - PG
+      - KO
+      - PEP
+      - COST
+      - WMT
+      - HD
+      - MCD
+      - DIS
+      - NFLX
+      - AMD
+      - INTC
+      - CRM
+      - ORCL
+      - ADBE
+      - CSCO
+      - XOM
+      - CVX
+      - BAC
+      - WFC
+      - GS
+      - CAT
+      - BA
+      - GE
+      - UPS
+      - T
+      - VZ
 
-stocks:
-  - AAPL
-  - MSFT
-  - AMZN
-  - GOOGL
-  - META
-  - NVDA
-  - TSLA
-  - AVGO
-  - BRK-B
-  - JPM
-  - V
-  - MA
-  - UNH
-  - JNJ
-  - PG
-  - KO
-  - PEP
-  - COST
-  - WMT
-  - HD
-  - MCD
-  - DIS
-  - NFLX
-  - AMD
-  - INTC
-  - CRM
-  - ORCL
-  - ADBE
-  - CSCO
-  - XOM
-  - CVX
-  - BAC
-  - WFC
-  - GS
-  - CAT
-  - BA
-  - GE
-  - UPS
-  - T
-  - VZ
+  # JSE Top 40 constituents with usable history. AMS.JO and NHM.JO are omitted:
+  # Yahoo returns no price data for them. Quotes are in ZAc (cents), which the
+  # model is indifferent to (every feature is a ratio) but the UI divides by 100.
+  XJSE:
+    etfs:
+      - STX40.JO
+    stocks:
+      - NPN.JO
+      - PRX.JO
+      - BTI.JO
+      - AGL.JO
+      - BHG.JO
+      - FSR.JO
+      - SBK.JO
+      - ABG.JO
+      - NED.JO
+      - CPI.JO
+      - SOL.JO
+      - MTN.JO
+      - VOD.JO
+      - SHP.JO
+      - CLS.JO
+      - WHL.JO
+      - MRP.JO
+      - TFG.JO
+      - DSY.JO
+      - SLM.JO
+      - OMU.JO
+      - GFI.JO
+      - ANG.JO
+      - IMP.JO
+      - SSW.JO
+      - EXX.JO
+      - KIO.JO
+      - ARI.JO

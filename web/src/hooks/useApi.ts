@@ -4,6 +4,9 @@ import { api } from "../api/client";
 
 const REFRESH_MS = 60_000; // dashboards refresh themselves once a minute
 
+export const useExchanges = () =>
+  useQuery({ queryKey: ["exchanges"], queryFn: api.exchanges, staleTime: Infinity });
+
 export const useHealth = () =>
   useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: REFRESH_MS });
 
@@ -14,8 +17,12 @@ export const usePredictions = () =>
     refetchInterval: REFRESH_MS,
   });
 
-export const useEquityCurve = () =>
-  useQuery({ queryKey: ["equity"], queryFn: api.equityCurve, refetchInterval: REFRESH_MS });
+export const useEquityCurve = (exchange: string) =>
+  useQuery({
+    queryKey: ["equity", exchange],
+    queryFn: () => api.equityCurve(exchange),
+    refetchInterval: REFRESH_MS,
+  });
 
 export const useCurrentModel = () =>
   useQuery({ queryKey: ["model"], queryFn: api.currentModel, refetchInterval: REFRESH_MS });
@@ -23,31 +30,59 @@ export const useCurrentModel = () =>
 export const useDrift = () =>
   useQuery({ queryKey: ["drift"], queryFn: api.latestDrift, refetchInterval: REFRESH_MS });
 
-export const useFreshness = () =>
-  useQuery({ queryKey: ["freshness"], queryFn: api.freshness, refetchInterval: REFRESH_MS });
-
-export const useTrackRecord = () =>
-  useQuery({ queryKey: ["track-record"], queryFn: api.trackRecord, refetchInterval: REFRESH_MS });
-
-export const useAlphaBeta = () =>
-  useQuery({ queryKey: ["alpha-beta"], queryFn: api.alphaBeta, refetchInterval: REFRESH_MS });
-
-export const useBooks = () =>
-  useQuery({ queryKey: ["books"], queryFn: api.books, refetchInterval: REFRESH_MS });
-
-export const useQuintiles = () =>
-  useQuery({ queryKey: ["quintiles"], queryFn: api.quintiles, refetchInterval: REFRESH_MS });
-
-export const useRisk = () =>
-  useQuery({ queryKey: ["risk"], queryFn: api.risk, refetchInterval: REFRESH_MS });
-
-export const usePositions = () =>
-  useQuery({ queryKey: ["positions"], queryFn: api.positions, refetchInterval: REFRESH_MS });
-
-export const useModelHistory = () =>
+export const useFreshness = (exchange: string) =>
   useQuery({
-    queryKey: ["model-history"],
-    queryFn: api.modelHistory,
+    queryKey: ["freshness", exchange],
+    queryFn: () => api.freshness(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const useTrackRecord = (exchange: string) =>
+  useQuery({
+    queryKey: ["track-record", exchange],
+    queryFn: () => api.trackRecord(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const useAlphaBeta = (exchange: string) =>
+  useQuery({
+    queryKey: ["alpha-beta", exchange],
+    queryFn: () => api.alphaBeta(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const useBooks = (exchange: string) =>
+  useQuery({
+    queryKey: ["books", exchange],
+    queryFn: () => api.books(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const useQuintiles = (exchange: string) =>
+  useQuery({
+    queryKey: ["quintiles", exchange],
+    queryFn: () => api.quintiles(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const useRisk = (exchange: string) =>
+  useQuery({
+    queryKey: ["risk", exchange],
+    queryFn: () => api.risk(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const usePositions = (exchange: string) =>
+  useQuery({
+    queryKey: ["positions", exchange],
+    queryFn: () => api.positions(exchange),
+    refetchInterval: REFRESH_MS,
+  });
+
+export const useModelHistory = (exchange: string) =>
+  useQuery({
+    queryKey: ["model-history", exchange],
+    queryFn: () => api.modelHistory(exchange),
     refetchInterval: REFRESH_MS,
   });
 

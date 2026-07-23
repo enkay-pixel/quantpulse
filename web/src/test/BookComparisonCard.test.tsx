@@ -36,7 +36,7 @@ describe("BookComparisonCard", () => {
     render(<BookComparisonCard data={{ books: [DAILY, HORIZON] }} />);
     expect(screen.getByText("Daily")).toBeInTheDocument();
     expect(screen.getByText("21-day")).toBeInTheDocument();
-    expect(screen.getByText("every 1d")).toBeInTheDocument();
+    expect(screen.getByText("daily")).toBeInTheDocument();
     expect(screen.getByText("every 21d")).toBeInTheDocument();
     expect(screen.getByText("14.40%")).toBeInTheDocument();
     expect(screen.getByText("1.31")).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("BookComparisonCard", () => {
 
   it("states the premise that makes the comparison valid", () => {
     render(<BookComparisonCard data={{ books: [DAILY, HORIZON] }} />);
-    expect(screen.getByText(/differ only in how often they/)).toBeInTheDocument();
+    expect(screen.getByText(/each changes exactly one thing from the/)).toBeInTheDocument();
   });
 
   it("does not claim a cost story when the slower book is not ahead", () => {
