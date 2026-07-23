@@ -94,6 +94,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `run_monitoring` in docker/dagster.yaml reaps it; prefer `make down` over quitting Docker.
 - Anything touching option chains must gate on `catchup.is_post_close()` — pre-market IV
   is ~2.1% vs ~33% post-close, so an off-hours snapshot writes junk.
+- **Never `dt.date.today()`** — containers run UTC. Use `calendar.market_today()` (exchange
+  time). Under EDT the 19:00 ET jobs are 23:00 UTC and the two agree; under EST they are
+  00:00 UTC and naive UTC stamps rows with *tomorrow*, shifting options history by a day at
+  the November DST change. Latent all summer, so tests pin both sides.
 - Docker CLI symlinks live in `/opt/homebrew/bin` (the `/usr/local/bin` ones point at a
   dead DMG mount).
 
