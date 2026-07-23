@@ -5,6 +5,15 @@ the platform is multi-market, so **`exchange` is a dimension** on the tables tha
 Tickers are globally unique (JSE names carry a `.JO` suffix), so `prices`, `features` and
 `predictions` reach their market by joining `universe` rather than carrying the column.
 
+**Types are chosen deliberately:** dates are `date`, all `*_at` timestamps are
+`timestamptz`, prices/greeks/IV are `double precision` (matches numpy and the ML stack —
+`numeric` would be pedantic here), counts are `bigint`, feature vectors / positions /
+metrics are `jsonb`. Categorical *domain* columns carry CHECK constraints that document and
+enforce their vocabulary — `asset_type`, `option_type`, `source`, `run_type`, `decision`.
+`exchange` and `variant` are intentionally **not** CHECK-constrained: they are config-driven
+(markets from `data.calendar.EXCHANGES`, books from `ml.portfolio.BOOKS`) and validated in
+Python, so a DB CHECK would duplicate that and force a migration on every new market or book.
+
 | Table | Grain | Purpose |
 |---|---|---|
 | `universe` | ticker | Tradable universe with metadata (name, type stock/etf, active flag, **exchange** — the source of truth for which market a ticker belongs to) |

@@ -49,7 +49,7 @@ class Price(Base):
     low: Mapped[float] = mapped_column(Float)
     close: Mapped[float] = mapped_column(Float)
     volume: Mapped[int] = mapped_column(BigInteger)
-    source: Mapped[str] = mapped_column(String(16))  # 'yfinance' | 'stooq'
+    source: Mapped[str] = mapped_column(String(16))  # data provider, constrained below
     ingested_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -57,6 +57,7 @@ class Price(Base):
     __table_args__ = (
         CheckConstraint("close > 0 AND open > 0 AND high > 0 AND low > 0", name="prices_positive"),
         CheckConstraint("high >= low", name="high_gte_low"),
+        CheckConstraint("source IN ('yfinance', 'stooq')", name="source_valid"),
         Index("ix_prices_date", "date"),
     )
 
@@ -93,14 +94,22 @@ class ModelRun(Base):
     __tablename__ = "model_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    run_type: Mapped[str] = mapped_column(String(16))  # 'train' | 'promotion'
+    run_type: Mapped[str] = mapped_column(String(16))  # 'train' | 'promotion' | 'demotion'
     exchange: Mapped[str] = mapped_column(String(8), default="XNYS")  # whose champion
     mlflow_run_id: Mapped[str | None] = mapped_column(String(64))
-    model_version: Mapped[str | None] = mapped_column(String(64))
+    model_version: Mapped[str | None] = mapped_column(String(64))  # MLflow version, a string
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
-    decision: Mapped[str | None] = mapped_column(String(16))  # 'promoted'|'rejected'|'initial'
+    # 'promoted' | 'rejected'; NULL while a run is in flight
+    decision: Mapped[str | None] = mapped_column(String(16))
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("run_type IN ('train', 'promotion', 'demotion')", name="run_type_valid"),
+        CheckConstraint(
+            "decision IN ('promoted', 'rejected') OR decision IS NULL", name="decision_valid"
+        ),
     )
 
 
