@@ -1,5 +1,5 @@
 # Build stage: compile the React app
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY web/package.json web/package-lock.json ./
 RUN npm ci

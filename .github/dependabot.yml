@@ -37,3 +37,11 @@ updates:
     directory: "/docker"
     schedule:
       interval: "monthly"
+    ignore:
+      # Verified 2026-07-23 by building the image, not assumed: python:3.14-slim fails
+      # at `dbt parse` with mashumaro UnserializableField on dbt-common's dataclass
+      # schema — 3.14's deferred annotations (PEP 649) break its field introspection.
+      # The API image builds fine; the dagster one cannot. Revisit when dbt-common
+      # supports 3.14, then drop this rule.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
