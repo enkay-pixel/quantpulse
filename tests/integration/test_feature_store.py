@@ -24,10 +24,14 @@ def feature_frame(dates: list[dt.date], tickers: list[str]) -> pd.DataFrame:
 
 
 def test_store_and_load_features_roundtrip(db_engine: Engine) -> None:
+    from quantpulse.data.universe import UniverseEntry, sync_universe
+
     dates = [dt.date(2024, 7, 1), dt.date(2024, 7, 2)]
     frame = feature_frame(dates, ["AAPL", "SPY"])
 
     with Session(db_engine) as session:
+        # features FK to universe, as they do in production.
+        sync_universe(session, [UniverseEntry("AAPL", "stock"), UniverseEntry("SPY", "etf")])
         assert store_features(session, frame, version="test-v") == 4
         session.commit()
         # Overwrite with new values — upsert must update, not duplicate.

@@ -48,6 +48,13 @@ def _quote(expiry: dt.date, strike: float, kind: str, price: float) -> OptionQuo
 
 @pytest.fixture
 def client(db_engine: Engine) -> Iterator[TestClient]:
+    from quantpulse.data.universe import UniverseEntry, sync_universe
+
+    with Session(db_engine) as session:
+        # option_quotes and predictions FK to universe, committed first as in production
+        # (bootstrap syncs the universe before any ingestion).
+        sync_universe(session, [UniverseEntry("AAPL", "stock")])
+        session.commit()
     with Session(db_engine) as session:
         for expiry in (NEAR, FAR):
             for strike in (90.0, 100.0, 110.0):
