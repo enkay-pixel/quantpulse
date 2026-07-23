@@ -1,16 +1,17 @@
 # Roadmap & project state
 
-**Updated 2026-07-21.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-07-23.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 
 ## What this project is
 
-A local-first, zero-cost MLOps platform for a self-adapting ML investing model. Dagster
-orchestrates daily ingest → features → champion scoring → paper portfolio → drift checks;
-weekly and drift-triggered retraining promotes challengers through the MLflow registry;
-dbt builds analytics marts; FastAPI serves them; a React dashboard presents the evidence.
-Everything runs free on one 16 GB machine via Docker.
+A local-first, zero-cost MLOps platform for a self-adapting ML investing model, now running
+**two markets — NYSE and the JSE**. Dagster orchestrates daily ingest → features → champion
+scoring → paper books → drift checks per market; weekly and drift-triggered retraining
+promotes challengers through the MLflow registry; dbt builds analytics marts; FastAPI serves
+them; a React dashboard presents the evidence with a market switcher. Everything runs free
+on one 16 GB machine via Docker.
 
 **Hard boundary:** this is decision-support tooling. It presents evidence; it does not
 give investment advice, and the disclaimer stays.
@@ -30,21 +31,43 @@ give investment advice, and the disclaimer stays.
 | M8 | Evidence dashboard | replay-vs-live track record split, SPY benchmark, quintile + risk charts, model audit trail |
 | M9 | Options layer | Black-Scholes Greeks, daily chain snapshots, IV-surface/put-call marts, Options tab, hypothetical spread translation |
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
+| M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 151 Python tests (unit + integration against a disposable database
-that runs a real `dbt build`), 39 Vitest, 54 dbt data tests, plus mypy / ruff / eslint /
-tsc / compose validation — all enforced in CI.
+**Quality gates:** 204 Python tests (156 unit + 40 integration against a disposable
+database that runs a real `dbt build` + 8 Dagster), 59 Vitest, 74 dbt checks, plus mypy /
+ruff / eslint / tsc / compose validation — all enforced in CI.
 
-## Current state
+## Current state (2026-07-23)
 
-- **Data:** 107,350 price bars (from 2018-01-02), 104,200 feature rows, 104,200
-  predictions, 2,083 portfolio snapshots, 35,291 option quotes across all 50 tickers.
-- **Champion:** `quantpulse-lgbm` v1, promoted 2026-07-18 (holdout IC 0.026, Sharpe 0.21).
-- **Honest performance:** over the full 8.5-year replay the strategy returns **+20.5%
-  (Sharpe 0.26) and underperforms SPY buy-and-hold.** The live out-of-sample record began
-  2026-07-18 — that, not the replay, is the number worth judging.
-- **Signal quality:** quintile forward returns are monotonic (Q1 ≈ 24.9bp → Q5 ≈ 0.4bp)
-  across the replay window: real ranking skill, modest in magnitude.
+Two markets, each with its own champion, books and evidence. **Every performance figure
+below is in-sample replay** — the live phase begins at each champion's promotion and is the
+only number worth judging.
+
+| | NYSE (XNYS) | JSE (XJSE) |
+|---|---|---|
+| Universe | 50 tickers | 29 (Top 40 with usable history) |
+| Price bars (from 2018) | 107,500 | 59,929 |
+| Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v2 · IC 0.055 · **holdout Sharpe 1.32** |
+| Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
+| Options | 83,555 quotes, 4 snapshot days | none (no free JSE chain data) |
+
+**Replay book performance** (daily / horizon / long-only), in-sample:
+
+| book | XNYS ann · Sharpe | XJSE ann · Sharpe |
+|---|---|---|
+| `daily` | 7.7% · 0.73 | 21.8% · 1.94 |
+| `horizon` (21d) | 14.3% · 1.30 | 34.8% · 2.94 |
+| `long_only` | 34.6% · 1.16 | 41.9% · 1.41 |
+
+**Read these carefully.** The horizon book's edge over daily is ~85% trading cost, not
+signal (see the resolved horizon-mismatch finding below). The long-only book's higher
+return is market beta it carries by construction — that is what the CAPM decomposition
+strips out. And every number carries survivorship and in-sample bias. NYSE's true holdout
+Sharpe is 0.21, JSE's 1.32; on 29 JSE names with ~8 years, that 1.32 has wide error bars
+and only live days will settle it.
+
+- **Signal quality:** NYSE quintile forward returns are monotonic across the replay window
+  (real ranking skill, modest in magnitude). JSE IC (0.055) is roughly double NYSE's.
 
 ## Resolved: the horizon mismatch was a cost problem, not a signal problem
 
@@ -119,21 +142,26 @@ Every backtested number on this project carries these. They are stated rather th
 because fixing them needs data that costs money — but a result you cannot caveat is a
 result you should not quote.
 
-- **Survivorship bias (the big one).** `configs/universe.yaml` lists 50 tickers *as they
-  exist today*, and the replay runs back to 2018-01-02. Every name in it survived to
-  2026: no delistings, no bankruptcies, no index deletions, no acquisitions. Free
+- **Survivorship bias (the big one).** `configs/universe.yaml` lists each market's tickers
+  *as they exist today*, and the replay runs back to 2018-01-02. Every name in it survived
+  to 2026: no delistings, no bankruptcies, no index deletions, no acquisitions. Free
   point-in-time index constituents effectively do not exist, so the honest move is to
   treat replay returns as an **upper bound**, not an estimate. It biases in the same
   direction as every other soft assumption here, which is exactly why it is written down.
-- **In-sample scoring.** `quantpulse sensitivity` and the replay equity curve score the
-  champion over its own training window. The champion's true holdout Sharpe was 0.21,
-  against 1.33 in the sweep. Do not read the sweep as an edge — read it as evidence that
-  two constructions disagree.
+- **In-sample scoring.** The replay equity curve scores each champion over its own training
+  window. NYSE's true holdout Sharpe was 0.21, JSE's 1.32 — the replay curves sit far
+  above both. Read the replay as a description of the fit, not as evidence of skill.
+- **JSE breadth.** 29 names at 35% quantiles is ~10 per side — comparable to NYSE by
+  design — but the pool it draws from is thin, one name (BHG.JO) has only half the history,
+  and Naspers/Prosus is a large, Tencent-linked share of the index. A holdout Sharpe of
+  1.32 on this many names has wide error bars.
 - **Cost model resolution.** Trading costs are linear in turnover with no market-impact
-  term and no bid-ask spread by name. Fine for 50 liquid large caps at small size;
-  wrong the moment the universe widens or size grows.
-- **No shorting constraints.** The book assumes every name is shortable at the modeled
-  borrow rate. Hard-to-borrow names cost far more, and sometimes are simply unavailable.
+  term and no bid-ask spread by name. Fine for liquid large caps at small size; wrong the
+  moment the universe widens or size grows. JSE shorting in particular is thinner and dearer
+  than the 1%/yr borrow the backtest charges.
+- **No shorting constraints.** The long/short books assume every name is shortable at the
+  modeled borrow rate. Hard-to-borrow names cost far more, and sometimes are simply
+  unavailable — which is exactly why the `long_only` book exists alongside them.
 
 Fixed on 2026-07-22: the backtest previously charged a **flat** turnover equal to the
 quantile width (0.4) rather than measuring position churn, so costs were blind to
@@ -147,39 +175,59 @@ now share `ml/backtest.py`'s convention — 0.5 per side, gross exposure 1.0, bo
 accrued daily. This is why the daily book's Sharpe moved from 0.26 to 0.73 without any
 change to the signal: it had been paying double for its trades.
 
+Fixed 2026-07-23 while onboarding the JSE: Yahoo intermittently reports a JSE close in
+Rand rather than cents (SBK.JO went 22,775 → 228.86 → 23,322 in three sessions with
+normal volume). Left in, that −99%/+100× round trip compounded the first JSE book to
+8,788×. `data/cleaning.py` repairs a close sitting a clean factor of 100 from *both*
+neighbours — deliberately narrow, since no equity falls 99% and recovers 100-fold in two
+days. Four glitches were found and repaired. Also fixed: unreliable ratios are now nulled
+in the marts below `min_days_for_ratios` (20), so a three-day live phase no longer serves
+a Sharpe of −54.93 to any consumer; and the promotion gate now has a first-champion Sharpe
+floor, after the first JSE candidate was promoted at holdout Sharpe −0.069 (a model that
+lost money out-of-sample) purely because "beat the incumbent" cannot gate a first model.
+
 ## Operating notes
 
 - `make up` (fast, reuses images) · `make build` after code changes · `make down`.
 - Ports: Dagster 3000 · MLflow **5001** (macOS AirPlay owns 5000) · API 8000 ·
   dashboard 8080 · Postgres 5432 (database `market`).
-- Schedules run **only while the stack is up**: weekday 18:30 ET ingest, 19:00 ET
-  processing, Saturday 09:00 ET retrain, plus a drift-triggered retrain sensor.
-- **Options snapshots must run post-close.** Measured on the same universe: post-close
-  averages ≈33% ATM IV (realistic) versus ≈2.1% pre-market (stale, untraded contracts).
-  A full 50-ticker snapshot takes ~10 minutes and commits per ticker, so it is safe to
-  interrupt and simply re-run.
-- Missed days are safe: ingestion is idempotent and partitioned — re-materialize the
-  affected partitions in the Dagster UI.
+- Schedules run **only while the stack is up**, and each market ingests in its own
+  timezone two hours after its own close (NYSE 18:00 ET, JSE 19:00 SAST). Processing runs
+  once after the latest close (19:00 ET), then a Saturday 09:00 ET retrain per market plus
+  a drift-triggered retrain sensor. All schedules ship `RUNNING`.
+- **Options snapshots must run post-close** (NYSE only). Measured on the same universe:
+  post-close averages ≈33% ATM IV (realistic) versus ≈2.1% pre-market (stale, untraded
+  contracts). A full 50-ticker snapshot takes ~10 minutes and commits per ticker, so it is
+  safe to interrupt and simply re-run. The repair sensor is gated to post-close so it never
+  fills a partial day with pre-market junk.
+- Missed days are safe: ingestion is idempotent and partitioned by `(date, exchange)` —
+  re-materialize the affected partitions in the Dagster UI.
+- Dates are exchange dates, never the container's UTC date: use `calendar.market_today()`.
+- **Base images**: node 26 is in; python stays on 3.12 (3.14 breaks dbt-common's
+  dataclass introspection under PEP 649 — verified by building, recorded in `dependabot.yml`).
 
 ## Next
 
 1. **Let it run.** The live track record and the options history only accrue with time;
    no code substitutes for weeks of scheduled runs. Highest value, zero effort.
-2. **Screenshots** are current as of 2026-07-22 (all four tabs). Regenerate with headless
-   Chrome against a running stack rather than by hand:
+2. **Let the JSE live phase judge the 1.32.** Its live record begins at the v2 promotion
+   (2026-07-23). A holdout Sharpe that high on 29 names is either signal or a favourable
+   draw, and only accumulated live days distinguish them.
+3. **Screenshots** predate the market switcher — regenerate with headless Chrome against a
+   running stack, now per market:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
    --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,1230
-   --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000 "http://localhost:8080/#overview"`
-   (tab slugs: `overview`, `evidence`, `options`, `model-book`; tune the height per tab).
-3. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
+   --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000 "http://localhost:8080/?market=XNYS#overview"`
+   (tab slugs `overview`/`evidence`/`options`/`model-book`, `?market=XNYS|XJSE`; tune height).
+4. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
    realized-vs-implied volatility, IV-change signals. This is the payoff for the
    snapshot-forward design, and it needs no new data source.
-4. **Model improvements** — only once live evidence justifies them: richer features
+5. **Model improvements** — only once live evidence justifies them: richer features
    (fundamentals, cross-asset), alternative targets, or an ensemble. Measure first.
-5. **Deferred dependency majors** — typescript / eslint / recharts carry documented
-   Dependabot ignore rules; Docker base-image majors are declined because CI does not
-   build images; dbt `tests:` → `data_tests:` rename when the tooling requires it.
-6. **Databricks Free Edition companion repo** — the same pipeline expressed in
+6. **Deferred dependency majors** — typescript / eslint / recharts carry documented
+   Dependabot ignore rules; python-3.14 base image declined (dbt-common/PEP 649); dbt
+   `tests:` → `data_tests:` rename when the tooling requires it.
+7. **Databricks Free Edition companion repo** — the same pipeline expressed in
    PySpark/Delta as a separate portfolio piece. Spark was deliberately *not* used here:
    the data is far too small to justify it, and being able to say so is the stronger
    engineering signal.

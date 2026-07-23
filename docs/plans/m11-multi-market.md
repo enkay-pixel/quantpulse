@@ -1,6 +1,12 @@
 # M11 — Multi-market: making "exchange" a first-class dimension
 
-**Status: APPROVED 2026-07-23, Phase 1 in progress.** Written 2026-07-23.
+**Status: DELIVERED 2026-07-23 (both phases).** Written 2026-07-23. For the final shape and
+current numbers see [roadmap.md](../roadmap.md) and [architecture.md](../architecture.md);
+this document is kept as the design record. Notable deltas from the plan as written:
+Q2 ("build both") added a third `long_only` book and reshaped the book invariant to
+"variations from a baseline"; the JSE onboarding surfaced a vendor units bug
+(`data/cleaning.py`), a missing first-champion Sharpe floor, and small-sample ratios that
+had to be nulled at source.
 
 ## Decisions (settled at approval)
 
