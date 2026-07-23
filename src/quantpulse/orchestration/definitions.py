@@ -226,6 +226,7 @@ defs = dg.Definitions(
     asset_checks=[
         qp_assets.recent_prices_quality,
         qp_assets.option_snapshot_quality,
+        qp_assets.predictions_are_current,
         qp_assets.resource_headroom,
     ],
     jobs=[ingest_job, process_job, training_job],

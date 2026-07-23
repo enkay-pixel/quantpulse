@@ -41,8 +41,9 @@ export const api = {
     ),
   signalHistory: (ticker: string) =>
     getJson<SignalSeries>(`/signals/history/${encodeURIComponent(ticker)}`),
-  latestPredictions: () => getJson<Predictions>("/predictions/latest"),
-  currentModel: () => getJson<ModelInfo>("/models/current"),
+  latestPredictions: (ex: string) =>
+    getJson<Predictions>(`/predictions/latest?exchange=${ex}`),
+  currentModel: (ex: string) => getJson<ModelInfo>(`/models/current?exchange=${ex}`),
   latestDrift: () => getJson<DriftStatus>("/drift/latest"),
   exchanges: () => getJson<Exchange[]>("/exchanges"),
   // Market-scoped: the backend defaults to XNYS, but the dashboard is always explicit

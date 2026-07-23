@@ -60,9 +60,9 @@ function Placeholder({ height = "h-64" }: { height?: string }) {
 }
 
 function OverviewTab({ exchange }: { exchange: string }) {
-  const model = useCurrentModel();
+  const model = useCurrentModel(exchange);
   const equity = useEquityCurve(exchange);
-  const predictions = usePredictions();
+  const predictions = usePredictions(exchange);
   const drift = useDrift();
   const trackRecord = useTrackRecord(exchange);
 
@@ -180,8 +180,8 @@ function EvidenceTab({ exchange, benchmark }: { exchange: string; benchmark?: st
   );
 }
 
-function OptionsTab() {
-  const predictions = usePredictions();
+function OptionsTab({ exchange }: { exchange: string }) {
+  const predictions = usePredictions(exchange);
   const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];
   const rotation = useRotatingTicker(tickers);
   const ticker = rotation.ticker;
@@ -331,7 +331,7 @@ export default function App() {
       {tab === "Evidence" ? (
         <EvidenceTab exchange={exchange} benchmark={market?.benchmark} />
       ) : null}
-      {tab === "Options" && tabs.includes("Options") ? <OptionsTab /> : null}
+      {tab === "Options" && tabs.includes("Options") ? <OptionsTab exchange={exchange} /> : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
     </div>
   );

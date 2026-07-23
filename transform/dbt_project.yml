@@ -11,6 +11,11 @@ vars:
   benchmarks:
     XNYS: SPY
     XJSE: STX40.JO
+  # Ratios (Sharpe, information ratio, win rate, beta) are meaningless on a handful of
+  # days: two days of returns annualize to a confident-looking number that is pure noise.
+  # Marts null them below this, so every consumer gets the same answer rather than each
+  # re-implementing the guard. Mirrors reporting.MIN_DAYS_FOR_RATIOS; a test asserts it.
+  min_days_for_ratios: 20
 
 model-paths: ["models"]
 test-paths: ["tests"]

@@ -24,6 +24,22 @@ describe("TrackRecordCard", () => {
     expect(screen.getByText(/not evidence of skill/)).toBeInTheDocument();
   });
 
+  it("explains an empty market rather than implying data is on the way", () => {
+    // A market whose first candidate failed the promotion gate has no phases at all.
+    // "Accumulating" would wrongly suggest it is merely early.
+    render(<TrackRecordCard record={{ live_since: null, phases: [] }} />);
+    expect(screen.getByText(/No track record yet for this market/)).toBeInTheDocument();
+    expect(screen.getByText(/did not clear the promotion gate/)).toBeInTheDocument();
+    expect(screen.queryByText(/Accumulating/)).not.toBeInTheDocument();
+  });
+
+  it("claims no start date for a market with no live record", () => {
+    // A demoted champion leaves a promotion in the audit trail; the header must not
+    // advertise "since <date>" for a track record that never began.
+    render(<TrackRecordCard record={{ live_since: "2026-07-23", phases: [] }} />);
+    expect(screen.queryByText(/since Jul 23, 2026/)).not.toBeInTheDocument();
+  });
+
   it("shows live stats once the live phase exists", () => {
     const live = {
       ...REPLAY,

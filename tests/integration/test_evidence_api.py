@@ -156,7 +156,23 @@ def test_track_record_has_both_phases(evidence_client: TestClient) -> None:
     assert set(phases) == {"replay", "live"}
     assert phases["replay"]["n_days"] == 6
     assert phases["live"]["n_days"] == 4
-    assert 0 <= phases["live"]["win_rate"] <= 1
+    # Both phases are far below the 20-day floor, so the mart withholds every ratio.
+    # Totals and counts survive — those are honest at any sample size.
+    for phase in phases.values():
+        assert phase["sharpe"] is None
+        assert phase["win_rate"] is None
+        assert phase["annualized_volatility"] is None
+        assert phase["total_return"] is not None
+
+
+def test_small_samples_never_publish_a_ratio(evidence_client: TestClient) -> None:
+    """The guard lives in the mart, not the dashboard: a notebook or a second UI reading
+    this API must get the same answer, or one consumer publishes what another suppresses."""
+    for row in evidence_client.get("/portfolio/alpha-beta").json()["phases"]:
+        if row["n_days"] < 20:
+            assert row["beta"] is None
+            assert row["alpha_annualized"] is None
+            assert row["information_ratio"] is None
 
 
 def test_equity_curve_gains_phase_and_benchmark(evidence_client: TestClient) -> None:
@@ -245,3 +261,34 @@ def test_model_history(evidence_client: TestClient) -> None:
     assert len(body) == 1
     assert body[0]["decision"] == "promoted"
     assert body[0]["metrics"]["holdout_sharpe"] == pytest.approx(1.0)
+
+
+def test_a_demoted_champion_is_not_reported_as_current(
+    evidence_client: TestClient, test_db_url: str
+) -> None:
+    """The audit trail is append-only, so a reversed promotion stays in it. Presenting a
+    withdrawn model as the current champion is how a dashboard ends up showing a model
+    that was explicitly judged unfit to act on."""
+    from quantpulse.db import ModelRun
+
+    assert evidence_client.get("/models/current").json()["model_version"] == "1"
+
+    engine = create_engine(test_db_url)
+    try:
+        with Session(engine) as session:
+            session.add(
+                ModelRun(
+                    run_type="demotion",
+                    exchange="XNYS",
+                    model_version="1",
+                    decision="rejected",
+                    metrics={"holdout_sharpe": -0.07},
+                )
+            )
+            session.commit()
+        assert evidence_client.get("/models/current").json()["model_version"] is None
+    finally:
+        with Session(engine) as session:
+            session.query(ModelRun).filter(ModelRun.run_type == "demotion").delete()
+            session.commit()
+        engine.dispose()
