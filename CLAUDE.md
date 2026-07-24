@@ -13,7 +13,7 @@ numbers, operating notes, and what's next.
 
 **Read [docs/development-history.md](docs/development-history.md) before nontrivial
 work** — it holds the full build narrative: why each stack choice was made, the
-12-entry incident log with root causes, milestone-by-milestone history, current model
+incident log with root causes, milestone-by-milestone history, current model
 and data metrics, dependency-policy decisions, testing architecture, and owner
 preferences. This file stays lean on purpose; that one is the deep archive.
 
@@ -99,6 +99,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `run_monitoring` in docker/dagster.yaml reaps it; prefer `make down` over quitting Docker.
 - Anything touching option chains must gate on `catchup.is_post_close()` — pre-market IV
   is ~2.1% vs ~33% post-close, so an off-hours snapshot writes junk.
+- Sensor `run_key`s are deduplicated by Dagster **forever** — never give a retryable
+  rescue a fixed key (one premature/failed attempt strands it for good). Budget from run
+  history and suffix the attempt number; only runs with a `start_time` spend budget
+  (`catchup.next_ingest_attempt` / `summarize_capture_runs`). Also: the exchange date
+  flips at midnight, so "today" is not a *missed* session until `catchup.ingest_overdue`.
 - **Never `dt.date.today()`** — containers run UTC. Use `calendar.market_today()` (exchange
   time). Under EDT the 19:00 ET jobs are 23:00 UTC and the two agree; under EST they are
   00:00 UTC and naive UTC stamps rows with *tomorrow*, shifting options history by a day at
