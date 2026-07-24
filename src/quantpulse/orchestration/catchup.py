@@ -7,6 +7,7 @@ actually landed in `prices` and let the catch-up sensor request the gaps.
 
 import datetime as dt
 import logging
+from collections.abc import Iterable
 
 from sqlalchemy import text
 
@@ -19,6 +20,9 @@ from quantpulse.data.calendar import (
 from quantpulse.db import get_engine
 
 logger = logging.getLogger(__name__)
+
+#: Dagster statuses meaning a run has not finished — another must not be launched beside it.
+IN_FLIGHT_STATUSES = frozenset({"QUEUED", "NOT_STARTED", "STARTING", "STARTED", "CANCELING"})
 
 # A session counts as ingested only if a healthy share of the universe arrived; a
 # partially-written day should be retried, not treated as done.
@@ -93,3 +97,23 @@ def option_snapshot_incomplete(today: dt.date, exchange: str = DEFAULT_EXCHANGE)
         return None  # market not configured for this exchange — nothing to capture
     coverage = covered / universe_size
     return coverage if coverage < MIN_COVERAGE else None
+
+
+def summarize_capture_runs(runs: Iterable[tuple[str, float | None]]) -> tuple[bool, int]:
+    """From `(status, start_time)` pairs, return `(in_flight, reached_feed)`.
+
+    `reached_feed` counts only runs that actually began executing. Dagster sets
+    `start_time` when a run leaves the queue, so a run cancelled *while still queued* has
+    `start_time is None` and never touched the vendor — it must not consume the daily
+    budget. That is exactly what went wrong on 2026-07-23: three pre-market runs were
+    cancelled before executing, yet they exhausted the budget and locked the sensor out
+    for the whole evening, so the post-close capture fell to the schedule instead.
+    """
+    in_flight = False
+    reached_feed = 0
+    for status, start_time in runs:
+        if status in IN_FLIGHT_STATUSES:
+            in_flight = True
+        if start_time is not None:
+            reached_feed += 1
+    return in_flight, reached_feed

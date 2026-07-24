@@ -166,8 +166,11 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     return dg.SensorResult(run_requests=requests)
 
 
+OPTION_CAPTURE_JOB = "option_resnapshot_job"
+
+
 @dg.sensor(
-    job=dg.define_asset_job("option_resnapshot_job", selection=[qp_assets.option_chains]),
+    job=dg.define_asset_job(OPTION_CAPTURE_JOB, selection=[qp_assets.option_chains]),
     minimum_interval_seconds=1800,
     default_status=dg.DefaultSensorStatus.RUNNING,
 )
@@ -190,8 +193,14 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     ≈33% post-close), which would leave one snapshot_date holding two incompatible
     qualities of data — worse than the clean partial it started as.
     """
-    from quantpulse.data.calendar import market_today
-    from quantpulse.orchestration.catchup import is_post_close, option_snapshot_incomplete
+    import datetime as dt
+
+    from quantpulse.data.calendar import get_exchange, market_today
+    from quantpulse.orchestration.catchup import (
+        is_post_close,
+        option_snapshot_incomplete,
+        summarize_capture_runs,
+    )
 
     if not is_post_close():
         return dg.SensorResult(
@@ -201,20 +210,34 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     # Must be the same clock the ingest stamps rows with, or it looks at a day that does
     # not exist yet and re-snapshots forever.
     today = market_today()
-    # Cursor is "<day>:<attempts>"; a new day resets the budget.
-    seen_day, _, attempts_raw = (context.cursor or ":").partition(":")
-    attempts = int(attempts_raw) if seen_day == str(today) and attempts_raw.isdigit() else 0
-
     coverage = option_snapshot_incomplete(today)
     if coverage is None:
         return dg.SensorResult(skip_reason="today's option snapshot is already complete")
-    if attempts >= MAX_OPTION_REPAIRS_PER_DAY:
+
+    # The budget is derived from Dagster's own run history rather than a cursor the sensor
+    # increments hopefully: a run cancelled before it ever left the queue never reached the
+    # vendor, so it must not count. (A cursor counted requests, which is how three
+    # cancelled pre-market runs locked the sensor out for a whole evening.)
+    day_start = dt.datetime.combine(today, dt.time.min, tzinfo=get_exchange().tz)
+    records = context.instance.get_run_records(
+        filters=dg.RunsFilter(job_name=OPTION_CAPTURE_JOB, created_after=day_start)
+    )
+    in_flight, reached_feed = summarize_capture_runs(
+        [(r.dagster_run.status.value, r.start_time) for r in records]
+    )
+    if in_flight:
+        return dg.SensorResult(skip_reason="a capture for today is already in flight")
+    if reached_feed >= MAX_OPTION_REPAIRS_PER_DAY:
         return dg.SensorResult(
-            skip_reason=f"already attempted today's snapshot {attempts}x at {coverage:.0%} coverage"
+            skip_reason=(
+                f"today's snapshot already reached the feed {reached_feed}x "
+                f"at {coverage:.0%} coverage"
+            )
         )
-    context.update_cursor(f"{today}:{attempts + 1}")
+    # Suffix by total runs (cancelled included) so each emission gets a fresh run_key —
+    # reusing one Dagster has already seen would be silently deduplicated.
     return dg.SensorResult(
-        run_requests=[dg.RunRequest(run_key=f"option-snapshot-{today}-{attempts + 1}")]
+        run_requests=[dg.RunRequest(run_key=f"option-snapshot-{today}-{len(records) + 1}")]
     )
 
 
