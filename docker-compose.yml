@@ -33,7 +33,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quantpulse}
       POSTGRES_DB: ${POSTGRES_DB:-market}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # All host ports bind loopback-only: Dagster and MLflow ship without auth, and an
+      # exposed MLflow means anyone on the LAN can swap the champion model — which the
+      # pipeline then deserializes. This laptop roams networks; nothing needs LAN access.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -61,7 +64,7 @@ services:
       MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
     ports:
       # 5001 on the host: macOS AirPlay Receiver squats on 5000
-      - "5001:5000"
+      - "127.0.0.1:5001:5000"
     volumes:
       - mlflow-artifacts:/mlartifacts
     depends_on:
@@ -84,7 +87,7 @@ services:
     container_name: quantpulse-dagster-web
     command: ["dagster-webserver", "-w", "/opt/dagster/workspace.yaml", "-h", "0.0.0.0", "-p", "3000"]
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     deploy:
       resources:
         limits:
@@ -109,7 +112,7 @@ services:
     command:
       ["uvicorn", "quantpulse.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +134,7 @@ services:
     image: quantpulse-web
     container_name: quantpulse-web
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       api:
         condition: service_healthy
