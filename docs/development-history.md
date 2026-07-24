@@ -163,6 +163,20 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     dies on `mashumaro UnserializableField` (dbt-common dataclass introspection vs PEP 649
     deferred annotations). Declined with the finding recorded in `dependabot.yml`; node 26
     taken after building and serving it.
+22. **Capture budget counted requests, not executions**: three option-capture runs
+    cancelled *while still queued* (pre-market, never touched the vendor) exhausted the
+    daily budget via the sensor's hopeful cursor, locking the repair sensor out for the
+    whole evening of 2026-07-23. Fix: derive the budget from Dagster's run history —
+    only runs with a `start_time` (left the queue) count (`summarize_capture_runs`).
+23. **Catch-up sensor fired for a session that hadn't opened**: the exchange date flips
+    at midnight, hours before trading, so at 00:08 ET the sensor requested
+    `2026-07-24|XNYS` — and its fixed `catchup-{exchange}-{day}` run_key, which Dagster
+    deduplicates *forever*, was thereby consumed: had the evening schedule also been
+    missed, the day was silently unrescuable (the 20:05 JSE rescue that exposed this
+    came from the schedule's missed-tick replay, not the sensor). Fix: today joins the
+    expected window only once its scheduled ingest is overdue (`ingest_overdue`), and
+    run_keys carry an attempt number budgeted from run history (`next_ingest_attempt`),
+    mirroring incident 22's cure.
 
 ## Dependency policy history
 

@@ -64,11 +64,14 @@ Two sensors keep the pipeline honest without any paid service:
   `$DAGSTER_HOME/alerts.jsonl` (surfaced at `GET /alerts`) and fires a macOS desktop
   notification when running outside a container. Without it a broken evening run is only
   noticed days later via stale dates on the dashboard.
-- **`missed_partition_catchup_sensor`** — every 30 minutes it compares expected NYSE
-  sessions over the last 30 days against actual price coverage and requests the missing
-  daily partitions (max 3 per tick so a long sleep can't stampede the queue). A session
-  counts as ingested only above 80% universe coverage, so a partially-written day is
-  retried rather than treated as done.
+- **`missed_partition_catchup_sensor`** — every 30 minutes it compares each market's
+  expected sessions over the last 30 days against actual price coverage and requests the
+  missing daily partitions (max 3 per tick so a long sleep can't stampede the queue). A
+  session counts as ingested only above 80% universe coverage, so a partially-written day
+  is retried rather than treated as done. Today only joins the expected window once its
+  scheduled ingest time is past (the exchange date flips at midnight, hours before
+  trading), and retries are budgeted from Dagster's run history with attempt-numbered
+  run_keys — max 3 runs that actually reached the feed per session, never a reused key.
 
 Check both from the Dagster UI (Automation → Sensors) or `GET /alerts`.
 

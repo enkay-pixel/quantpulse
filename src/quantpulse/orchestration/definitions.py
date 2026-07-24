@@ -36,17 +36,19 @@ MAX_OPTION_REPAIRS_PER_DAY = 3
 
 # Ingest runs per market, in that market's own timezone, a couple of hours after its
 # close. build_schedule_from_partitioned_job cannot express this: one cron cannot serve
-# two closes, and the partition key now carries the exchange.
-INGEST_HOUR_AFTER_CLOSE = 2
+# two closes, and the partition key now carries the exchange. The fire time lives in
+# catchup.py because the catch-up sensor must know when the schedule has had its turn.
 
 
 def _ingest_schedule(exchange: str) -> dg.ScheduleDefinition:
+    from quantpulse.orchestration.catchup import INGEST_HOUR_AFTER_CLOSE, INGEST_MINUTE
+
     ex = get_exchange(exchange)
     hour = (ex.close_hour + INGEST_HOUR_AFTER_CLOSE) % 24
 
     @dg.schedule(
         job=ingest_job,
-        cron_schedule=f"30 {hour} * * 1-5",
+        cron_schedule=f"{INGEST_MINUTE} {hour} * * 1-5",
         execution_timezone=ex.timezone,
         name=f"daily_ingest_{exchange.lower()}",
         default_status=dg.DefaultScheduleStatus.RUNNING,
@@ -147,20 +149,47 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     Schedules only fire while the stack is up, and this runs on a laptop that sleeps.
     Rather than silently skipping those days, request the missing daily partitions
     (bounded per tick) whenever the stack comes back.
+
+    Two rules paid for by incidents (2026-07-23/24), matching the option sensor:
+    - Today only counts as *missed* once its scheduled ingest is overdue — the exchange
+      date flips at midnight, hours before the session trades, and a rescue fired then
+      runs against a session that does not exist yet.
+    - The retry budget comes from Dagster's run history for the partition, and every
+      run_key is fresh: a run_key is deduplicated forever, so a fixed one strands the
+      day after a single premature or failed attempt.
     """
     import datetime as dt
 
     from quantpulse.data.calendar import trading_days
-    from quantpulse.orchestration.catchup import missing_trading_days
+    from quantpulse.orchestration.catchup import (
+        ingest_overdue,
+        missing_trading_days,
+        next_ingest_attempt,
+    )
 
     requests: list[dg.RunRequest] = []
     for exchange in sorted(EXCHANGES):
         # Each market keeps its own budget: a long JSE gap must not crowd out NYSE.
         today = market_today(exchange)
-        recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), today, exchange)
+        end = today if ingest_overdue(exchange=exchange) else today - dt.timedelta(days=1)
+        recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), end, exchange)
         for day in missing_trading_days(recent, exchange)[:MAX_CATCHUP_PER_TICK]:
             key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
-            requests.append(dg.RunRequest(partition_key=key, run_key=f"catchup-{exchange}-{day}"))
+            # Scheduled runs carry the same partition tag, so a failing 18:30 ingest
+            # also consumes this budget rather than being retried on top of.
+            records = context.instance.get_run_records(
+                filters=dg.RunsFilter(
+                    job_name=ingest_job.name, tags={"dagster/partition": str(key)}
+                )
+            )
+            attempt = next_ingest_attempt(
+                [(r.dagster_run.status.value, r.start_time) for r in records]
+            )
+            if attempt is None:
+                continue
+            requests.append(
+                dg.RunRequest(partition_key=key, run_key=f"catchup-{exchange}-{day}-{attempt}")
+            )
     if not requests:
         return dg.SensorResult(skip_reason="no missed trading days in the lookback window")
     return dg.SensorResult(run_requests=requests)

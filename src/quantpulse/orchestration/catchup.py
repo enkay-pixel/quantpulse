@@ -15,6 +15,7 @@ from sqlalchemy import text
 # the sensors import it from here.
 from quantpulse.data.calendar import (
     DEFAULT_EXCHANGE,
+    get_exchange,
     is_post_close,  # noqa: F401
 )
 from quantpulse.db import get_engine
@@ -27,6 +28,37 @@ IN_FLIGHT_STATUSES = frozenset({"QUEUED", "NOT_STARTED", "STARTING", "STARTED", 
 # A session counts as ingested only if a healthy share of the universe arrived; a
 # partially-written day should be retried, not treated as done.
 MIN_COVERAGE = 0.8
+
+# When each market's scheduled ingest fires: close + this many hours, at this minute.
+# Lives here (not in definitions.py) because "has the schedule had its turn yet" is part
+# of deciding whether a session is *missed* — the cron in definitions imports these.
+INGEST_HOUR_AFTER_CLOSE = 2
+INGEST_MINUTE = 30
+
+# A genuinely broken feed must not be hammered every sensor tick all day; failures are
+# already loud via the run-failure sensor. Same shape as MAX_OPTION_REPAIRS_PER_DAY.
+MAX_INGEST_ATTEMPTS_PER_SESSION = 3
+
+
+def ingest_overdue(now: dt.datetime | None = None, exchange: str = DEFAULT_EXCHANGE) -> bool:
+    """Has today's *scheduled* ingest time already passed, in exchange time?
+
+    Until that moment today's session is not "missed" — the schedule simply hasn't had
+    its turn. The exchange's calendar date flips at its midnight, hours before trading
+    starts, so treating the new date as an expected session made the catch-up sensor
+    request 2026-07-24|XNYS at 00:08 ET: a run against a session that had not opened,
+    which fetched nothing and consumed that day's only rescue attempt (see
+    `next_ingest_attempt` for the other half of that incident).
+    """
+    ex = get_exchange(exchange)
+    now = now or dt.datetime.now(ex.tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ex.tz)
+    local = now.astimezone(ex.tz)
+    # Both registered markets close mid-afternoon, so close + 2h is always the same
+    # local day; a market whose ingest crossed midnight would need date math here.
+    due = dt.time(ex.close_hour + INGEST_HOUR_AFTER_CLOSE, INGEST_MINUTE)
+    return local.time() >= due
 
 
 def missing_trading_days(
@@ -108,6 +140,9 @@ def summarize_capture_runs(runs: Iterable[tuple[str, float | None]]) -> tuple[bo
     budget. That is exactly what went wrong on 2026-07-23: three pre-market runs were
     cancelled before executing, yet they exhausted the budget and locked the sensor out
     for the whole evening, so the post-close capture fell to the schedule instead.
+
+    Shared by both rescue sensors: option-capture directly, ingest catch-up via
+    `next_ingest_attempt`.
     """
     in_flight = False
     reached_feed = 0
@@ -117,3 +152,20 @@ def summarize_capture_runs(runs: Iterable[tuple[str, float | None]]) -> tuple[bo
         if start_time is not None:
             reached_feed += 1
     return in_flight, reached_feed
+
+
+def next_ingest_attempt(runs: list[tuple[str, float | None]]) -> int | None:
+    """Attempt number for another catch-up ingest of a session, or None when one is in
+    flight or the session's budget is spent.
+
+    Only runs that reached the feed count against the budget, but *every* prior run —
+    cancelled-in-queue included — advances the attempt number, because the number suffixes
+    the Dagster run_key and a run_key is deduplicated **forever**: reusing one makes the
+    request silently vanish. The old fixed `catchup-{exchange}-{day}` key meant a single
+    premature or failed attempt stranded that session permanently — the opposite of what
+    a rescue sensor is for.
+    """
+    in_flight, reached_feed = summarize_capture_runs(runs)
+    if in_flight or reached_feed >= MAX_INGEST_ATTEMPTS_PER_SESSION:
+        return None
+    return len(runs) + 1
