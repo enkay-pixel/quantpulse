@@ -1,4 +1,6 @@
-FROM ghcr.io/mlflow/mlflow:latest
+# Pinned to the version the Python client is locked to (pyproject/uv.lock) — `latest`
+# means unreproducible builds and whatever upstream pushed. Bump alongside the client.
+FROM ghcr.io/mlflow/mlflow:v3.14.0
 
 RUN pip install --no-cache-dir psycopg2-binary
 

@@ -6,9 +6,14 @@
 |---|---|---|---|
 | `postgres` | 3 databases: `market` (app data), `dagster` (orchestrator storage), `mlflow` (tracking backend) | 5432 | 512M |
 | `dagster-webserver` + `dagster-daemon` | Pipeline UI; schedules/sensors/run launcher. Both load the code location in-process from the shared image (one fewer container than a gRPC code server — deliberate on 16 GB) | 3000 | 768M + 1.5G |
-| `mlflow` | Experiment tracking + model registry (single worker) | 5001→5000 | 768M |
+| `mlflow` | Experiment tracking + model registry (single worker) | 5001→5000 | 1G |
 | `api` | FastAPI serving layer | 8000 | 384M |
 | `web` *(M5)* | React dashboard behind nginx | 8080 | 128M |
+
+All host ports bind **127.0.0.1 only**. Dagster and MLflow ship without authentication, and
+an exposed MLflow registry would let anyone on the LAN reassign the `@champion` alias to
+their own artifact — which the scoring pipeline then deserializes. The laptop roams
+networks, so nothing is published beyond loopback.
 
 Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Docker Desktop capped at ~6 GB.
 

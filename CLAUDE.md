@@ -64,7 +64,9 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   caveat list: "Known biases in the replay" in docs/roadmap.md.
 - Options snapshots are guarded by the `option_snapshot_quality` asset check (coverage,
   plausible median IV among traded contracts, Greeks present).
-- Ports: Dagster 3000 · MLflow **5001** (AirPlay owns 5000; in-network mlflow:5000) ·
+- Ports (**loopback-only** — Dagster/MLflow have no auth and the laptop roams networks;
+  an exposed MLflow lets anyone swap the champion the pipeline deserializes):
+  Dagster 3000 · MLflow **5001** (AirPlay owns 5000; in-network mlflow:5000) ·
   API 8000 · dashboard 8080 · Postgres 5432 (DB `market`, creds in `.env`).
 
 ## Conventions
