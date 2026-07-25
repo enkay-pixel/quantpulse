@@ -33,7 +33,7 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign
 key to `universe.ticker` (`ON DELETE RESTRICT`), so no derived row can point at a ticker the
 platform doesn't know.
-| `model_runs` | run id | Training/evaluation/promotion audit log (metrics, decision, MLflow run id, **exchange**). Append-only: a `demotion` row supersedes an earlier `promoted` one |
+| `model_runs` | run id | Training/evaluation/promotion audit log (metrics, decision, MLflow run id, **exchange**). Append-only: a `demotion` row withdraws *its own version's* promotion (the prior champion stands). `metrics` also carries audit strings — the holdout window (`holdout_start/end/days`) and demotion reasons — which the API filters to numbers |
 | `drift_metrics` | (date, metric) | Evidently drift results per feature set |
 | `portfolio_snapshots` | **(date, exchange, variant)** | Simulated paper-book equity, exposure, turnover. Several *books* (`daily` / `horizon` / `long_only`) run per market — see [architecture.md](architecture.md) |
 | `option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Daily live option-chain snapshots + Black-Scholes Greeks. NYSE only (no free JSE chain data). Accumulates forward — no free history exists to backfill |

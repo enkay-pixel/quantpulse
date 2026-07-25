@@ -50,7 +50,7 @@ Switching to XJSE re-scopes everything: **beta is measured against STX40.JO** (n
 comparing a JSE book to the S&P would measure the rand, not the strategy), the Options tab
 is gone (no free JSE chain data), and the numbers are the JSE champion's. Its in-sample
 replay looks strong (alpha +16%, IR 0.42, all three books positive), but the panel says
-plainly these are in-sample — the JSE champion's true holdout Sharpe is 1.32 on 29 names,
+plainly these are in-sample — the JSE champion's holdout Sharpe is ~1.5 on 29 names,
 which only live days will confirm.
 
 </details>

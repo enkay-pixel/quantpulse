@@ -79,27 +79,34 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
   and ≈36% during market hours, versus ≈2.1% pre-market. Snapshots must run when the
   market has been trading.
 
-## Current model & data snapshot (as of 2026-07-23)
+## Current model & data snapshot (as of 2026-07-25)
 
-- **Two markets.** NYSE: 50 tickers, 107,500 bars, 104,350 feature/prediction rows, 6,258
-  book snapshots (3 books), 83,555 option quotes. JSE: 29 Top-40 tickers, 59,929 bars,
-  58,102 feature/prediction rows, 6,225 book snapshots, no options (no free chain data).
-  Both from 2018-01-02.
+- **Two markets.** NYSE: 50 tickers, 107,550 bars, 104,400 feature/prediction rows, 6,261
+  book snapshots (3 books), 137,001 option quotes over 5 snapshot days. JSE: 29 Top-40
+  tickers, 59,958 bars, 58,131 feature/prediction rows, 6,228 book snapshots, no options
+  (no free chain data). Both from 2018-01-02. Live track record: XNYS 4 days, XJSE 1.
 - **Champions** (registered `quantpulse-lgbm-<exchange>`):
-  - XNYS v1 — holdout IC 0.026, Sharpe 0.21, max DD −5.0%.
-  - XJSE v2 — holdout IC 0.055, Sharpe 1.32, max DD −7.5%. (v1 was auto-promoted at
-    Sharpe −0.069 under a gate with no first-champion floor, then demoted; see below.)
+  - XNYS v1 — holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the first scheduled
+    retrain, was auto-promoted on a mismatched exam and demoted the same day —
+    incident 24.)
+  - XJSE v3 — holdout IC 0.063, Sharpe 1.51, max DD −7.5%, promoted 2026-07-25 in a
+    like-for-like comparison against v2's 1.32. Both were measured under the pre-fix
+    evaluation, so the *relative* read is fair but neither is a clean OOS estimate.
+    (JSE v1 was auto-promoted at Sharpe −0.069 under a gate with no first-champion
+    floor, then demoted; see below.)
 - **Books** (in-sample replay, daily/horizon/long-only): XNYS 7.7%·0.73 / 14.3%·1.30 /
   34.6%·1.16; XJSE 21.8%·1.94 / 34.8%·2.94 / 41.9%·1.41. All carry survivorship + in-sample
   bias; the live phase is the number to judge.
 - Promotion policy (`ml/promotion.py`): candidate needs holdout Sharpe ≥ champion+0.05,
   IC ≥ 0, drawdown better than −35%; a **first** champion must also clear
   `min_first_sharpe` (0.0); NaN never promotes. The gate backtests at the market's own
-  quantile width.
+  quantile width, and **re-scores the incumbent on the candidate's exact holdout** at
+  decision time — stored metrics are never consulted (incident 24).
 - Quantile width per market, set from breadth: 20% of 50 US names and 35% of 29 JSE names
   both ≈10 positions per side.
 - Training (`TrainConfig`): horizon 21d, 4 splits, embargo 21d, 15 Optuna trials,
-  15% holdout, LightGBM early stopping 50.
+  15% holdout, LightGBM early stopping 50 — on an **inner validation split**, never the
+  promotion holdout; each `model_runs` row records its holdout window.
 - Features v1: ret_1/5/21, mom_63, vol_21/63, ma_ratio_21/63, volume_z_21 + cross-
   sectional pct-ranks of ret_5/ret_21/mom_63/ma_ratio_21 — ranked **within each exchange**.
 - Drift: scipy KS + PSI per feature (PSI>0.2 = drifted; share≥0.3 triggers the retrain
@@ -210,12 +217,12 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-337 checks total: 204 pytest (156 unit on synthetic data; 40 integration against a
+355 checks total: 230 pytest (173 unit on synthetic data; 47 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
-use a throwaway sqlite backend; 8 Dagster definition tests), 59 Vitest (components +
-formatters, empty states, market switcher), 74 dbt checks, plus mypy/ruff/eslint/tsc and
-compose validation — all enforced in CI.
+use a throwaway sqlite backend; 10 Dagster definition/sensor tests), 59 Vitest
+(components + formatters, empty states, market switcher), 66 dbt tests (62 data + 4
+unit), plus mypy/ruff/eslint/tsc and compose validation — all enforced in CI.
 
 ## Owner preferences (established in-session)
 

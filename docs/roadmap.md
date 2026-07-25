@@ -33,23 +33,35 @@ give investment advice, and the disclaimer stays.
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 204 Python tests (156 unit + 40 integration against a disposable
-database that runs a real `dbt build` + 8 Dagster), 59 Vitest, 74 dbt checks, plus mypy /
-ruff / eslint / tsc / compose validation — all enforced in CI.
+**Quality gates:** 230 Python tests (173 unit + 47 integration against a disposable
+database that runs a real `dbt build` + 10 Dagster), 59 Vitest, 66 dbt tests (62 data +
+4 unit), plus mypy / ruff / eslint / tsc / compose validation — all enforced in CI.
 
-## Current state (2026-07-23)
+## Current state (2026-07-25)
 
 Two markets, each with its own champion, books and evidence. **Every performance figure
 below is in-sample replay** — the live phase begins at each champion's promotion and is the
-only number worth judging.
+only number worth judging. Live so far: XNYS 4 days, XJSE 1 day (books trail prices by one
+session by construction).
+
+The **first scheduled retrain ran 2026-07-25**. Outcome: XJSE v3 promoted in a like-for-like
+comparison against v2; the XNYS candidate was auto-promoted on a mismatched exam and
+**demoted the same day** — see incident 24 and the resolved gate section below. Since that
+fix, the gate re-scores the incumbent on the candidate's exact holdout, so stored metrics
+can never silently go stale again.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
 | Universe | 50 tickers | 29 (Top 40 with usable history) |
-| Price bars (from 2018) | 107,500 | 59,929 |
-| Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v2 · IC 0.055 · **holdout Sharpe 1.32** |
+| Price bars (from 2018) | 107,550 | 59,958 |
+| Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
 | Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
-| Options | 83,555 quotes, 4 snapshot days | none (no free JSE chain data) |
+| Options | 137,001 quotes, 5 snapshot days | none (no free JSE chain data) |
+
+XJSE v3's absolute numbers were measured under the pre-fix evaluation (early stopping on
+the holdout), the same way v2's 1.32 was — so 1.51-vs-1.32 is a fair *relative* read, but
+neither is a clean out-of-sample estimate. The next retrain re-scores every model under the
+honest procedure.
 
 **Replay book performance** (daily / horizon / long-only), in-sample:
 
@@ -62,9 +74,11 @@ only number worth judging.
 **Read these carefully.** The horizon book's edge over daily is ~85% trading cost, not
 signal (see the resolved horizon-mismatch finding below). The long-only book's higher
 return is market beta it carries by construction — that is what the CAPM decomposition
-strips out. And every number carries survivorship and in-sample bias. NYSE's true holdout
-Sharpe is 0.21, JSE's 1.32; on 29 JSE names with ~8 years, that 1.32 has wide error bars
-and only live days will settle it.
+strips out. And every number carries survivorship and in-sample bias. NYSE's holdout
+Sharpe is 0.21, JSE's 1.51 (pre-fix evaluation; see above); on 29 JSE names with ~8
+years the JSE number has wide error bars and only live days will settle it. A related
+regime finding from incident 24: raw 63-day momentum IC ran **+0.039 over Mar–Dec 2025
+and −0.004 since** — replay windows that include that stretch flatter any momentum model.
 
 - **Signal quality:** NYSE quintile forward returns are monotonic across the replay window
   (real ranking skill, modest in magnitude). JSE IC (0.055) is roughly double NYSE's.
@@ -149,12 +163,12 @@ result you should not quote.
   treat replay returns as an **upper bound**, not an estimate. It biases in the same
   direction as every other soft assumption here, which is exactly why it is written down.
 - **In-sample scoring.** The replay equity curve scores each champion over its own training
-  window. NYSE's true holdout Sharpe was 0.21, JSE's 1.32 — the replay curves sit far
+  window. NYSE's holdout Sharpe is 0.21, JSE's ~1.5 — the replay curves sit far
   above both. Read the replay as a description of the fit, not as evidence of skill.
 - **JSE breadth.** 29 names at 35% quantiles is ~10 per side — comparable to NYSE by
   design — but the pool it draws from is thin, one name (BHG.JO) has only half the history,
   and Naspers/Prosus is a large, Tencent-linked share of the index. A holdout Sharpe of
-  1.32 on this many names has wide error bars.
+  ~1.5 on this many names has wide error bars.
 - **Cost model resolution.** Trading costs are linear in turnover with no market-impact
   term and no bid-ask spread by name. Fine for liquid large caps at small size; wrong the
   moment the universe widens or size grows. JSE shorting in particular is thinner and dearer
@@ -190,11 +204,13 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
 
 - `make up` (fast, reuses images) · `make build` after code changes · `make down`.
 - Ports: Dagster 3000 · MLflow **5001** (macOS AirPlay owns 5000) · API 8000 ·
-  dashboard 8080 · Postgres 5432 (database `market`).
+  dashboard 8080 · Postgres 5432 (database `market`). All published on **127.0.0.1
+  only** — Dagster and MLflow ship without auth, and an exposed registry would let
+  anyone on the LAN swap the champion (see architecture.md).
 - Schedules run **only while the stack is up**, and each market ingests in its own
-  timezone two hours after its own close (NYSE 18:00 ET, JSE 19:00 SAST). Processing runs
-  once after the latest close (19:00 ET), then a Saturday 09:00 ET retrain per market plus
-  a drift-triggered retrain sensor. All schedules ship `RUNNING`.
+  timezone two-and-a-half hours after its own close (NYSE 18:30 ET, JSE 19:30 SAST).
+  Processing runs once after the latest close (19:00 ET), then a Saturday 09:00 ET
+  retrain per market plus a drift-triggered retrain sensor. All schedules ship `RUNNING`.
 - **Options snapshots must run post-close** (NYSE only). Measured on the same universe:
   post-close averages ≈33% ATM IV (realistic) versus ≈2.1% pre-market (stale, untraded
   contracts). A full 50-ticker snapshot takes ~10 minutes and commits per ticker, so it is
@@ -204,15 +220,19 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
   re-materialize the affected partitions in the Dagster UI.
 - Dates are exchange dates, never the container's UTC date: use `calendar.market_today()`.
 - **Base images**: node 26 is in; python stays on 3.12 (3.14 breaks dbt-common's
-  dataclass introspection under PEP 649 — verified by building, recorded in `dependabot.yml`).
+  dataclass introspection under PEP 649 — verified by building, recorded in
+  `dependabot.yml`); the MLflow image and uv are pinned to their client/lockfile versions
+  (`latest` meant unreproducible builds). Image builds survive flaky laptop Wi-Fi: uv
+  cache mounts (retries accumulate wheels), bounded download concurrency, pip timeouts.
 
 ## Next
 
 1. **Let it run.** The live track record and the options history only accrue with time;
    no code substitutes for weeks of scheduled runs. Highest value, zero effort.
-2. **Let the JSE live phase judge the 1.32.** Its live record begins at the v2 promotion
-   (2026-07-23). A holdout Sharpe that high on 29 names is either signal or a favourable
-   draw, and only accumulated live days distinguish them.
+2. **Let the JSE live phase judge the champion (now v3).** Its live record accrues since
+   the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
+   signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
+   toward the latter — and only accumulated live days distinguish them.
 3. **Screenshots** predate the market switcher — regenerate with headless Chrome against a
    running stack, now per market:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
@@ -275,9 +295,10 @@ The width itself is set from breadth, not tuned: 35% of 29 JSE names and 20% of 
 names are both ~10 positions per side. Slicing a thin market at the wide market's
 percentile would hold 6, roughly doubling per-position idiosyncratic risk.
 
-**Still to be earned:** every JSE figure above is in-sample replay. Its live phase begins
-at the 2026-07-23 promotion and is the only number that will settle whether a holdout
-Sharpe of 1.32 on 29 names with ~8 years of history was signal or a favourable draw.
+**Still to be earned:** every JSE figure above is in-sample replay. The live phase began
+at the 2026-07-23 promotion (the champion is now v3, holdout Sharpe 1.51 under the same
+pre-fix evaluation) and is the only number that will settle whether a holdout Sharpe this
+high on 29 names with ~8 years of history was signal or a favourable draw.
 
 ## Deliberately not doing
 
