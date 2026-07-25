@@ -69,3 +69,35 @@ def test_train_final_model_holdout_is_out_of_sample(frame: pd.DataFrame) -> None
     embargo_dates = set(all_dates[all_dates.index(cut) - CFG.embargo_days : all_dates.index(cut)])
     model_train_dates = set(all_dates) - holdout_dates - embargo_dates
     assert max(model_train_dates) < min(holdout_dates)
+
+
+def test_split_by_date_embargoes_the_boundary(frame: pd.DataFrame) -> None:
+    from quantpulse.ml.training import split_by_date
+
+    before, after = split_by_date(frame, 0.15, CFG.embargo_days)
+    all_dates = sorted(frame["date"].unique())
+    gap = all_dates.index(min(after["date"])) - all_dates.index(max(before["date"]))
+    assert gap > CFG.embargo_days  # a full embargo of dates separates the halves
+    assert after["date"].nunique() == pytest.approx(len(all_dates) * 0.15, abs=2)
+
+
+def test_final_fit_early_stops_on_inner_split_not_the_holdout(
+    frame: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Incident 24: choosing the boosting rounds on the promotion holdout partially fits
+    it — 308 rounds ground toward the exact frame the gate then scored. The validation
+    frame handed to LightGBM must be disjoint from (and strictly older than) the holdout."""
+    from quantpulse.ml import training
+
+    captured: dict[str, set] = {}
+    real_fit = training._fit_one
+
+    def spy(train, val, feature_cols, params, cfg):  # type: ignore[no-untyped-def]
+        captured["val"] = set(val["date"])
+        return real_fit(train, val, feature_cols, params, cfg)
+
+    monkeypatch.setattr(training, "_fit_one", spy)
+    _booster, holdout = train_final_model(frame, FEATURES, DEFAULT_PARAMS, CFG)
+    assert captured["val"], "early-stopping validation frame was never captured"
+    assert not (captured["val"] & set(holdout["date"]))
+    assert max(captured["val"]) < min(holdout["date"])

@@ -232,25 +232,24 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
    the data is far too small to justify it, and being able to say so is the stronger
    engineering signal.
 
-## Known issue: the promotion gate compares across cost regimes
+## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 
-The champion's stored metrics (`model_runs`, MLflow) were computed on 2026-07-18 under the
-**old** backtest, which charged a flat turnover of 0.4. Challengers are now scored with
-*measured* turnover, averaging 0.533 — roughly 33% more cost. So a challenger is judged
-under a stricter regime than the incumbent it must beat.
+This section used to size a ~0.015 bias from comparing a measured-turnover candidate
+against a flat-turnover incumbent, and prescribed the durable fix. The first scheduled
+retrain (2026-07-25) demonstrated the failure mode at ~100× that size: the 07-20 JSE
+backfill had grown the XNYS panel from 2023+ to 2018+, the fractional 15% holdout cut
+slid nine months earlier into a momentum-rich 2025 stretch (raw 63-day momentum IC
++0.039 there vs −0.004 since), and a candidate scoring 1.89 on the long exam "beat" an
+incumbent whose stored 0.205 came from a different, harder window. The candidate was
+auto-promoted; a matched 2026-only exam (out-of-sample for both) showed no improvement
+— its IC was negative. It was demoted the same day (see `model_runs`).
 
-Sizing it: the champion's stored holdout Sharpe is 0.205 on a 2.27% annual return. The
-extra cost is ≈0.16%/yr, which re-scored today puts it near **0.19**. The promotion margin
-is 0.05, so the effective bar sits about 0.015 too high — around 30% of the margin.
-
-Left as-is deliberately. The bias favours the incumbent, which is the safe direction to
-fail, and changing the decision gate immediately before a long unattended stretch is worse
-than the bias itself. **If a challenger is ever rejected within ~0.02 of the bar, that
-rejection is not trustworthy** — re-score both under current code before believing it.
-
-The durable fix is structural rather than a one-off re-score: stored metrics go stale
-whenever evaluation code changes, so `ml/pipeline.py` should re-evaluate the incumbent with
-today's backtest instead of reading numbers computed by a previous version of itself.
+The durable fix is in: `ml/pipeline.py` **re-scores the incumbent on the candidate's
+exact holdout under current code** at decision time — stored metrics are never consulted
+(a poisoned-stub test enforces this). The final fit early-stops on an inner validation
+split so the holdout stays untouched, and every `model_runs` row records its holdout
+window (`holdout_start/end/days`), so a moved exam is visible in the audit trail rather
+than archaeology.
 
 ## JSE: what the first champion cost to establish
 

@@ -42,10 +42,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Quantile width is per-market, set from breadth so books hold a comparable NUMBER of
   positions: 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. The
   promotion gate backtests at the market's own width, or it judges a book nobody runs.
-  **Caveat**: those champion metrics predate the measured-turnover backtest, so the gate
-  compares a challenger against a more leniently-scored incumbent (bar ~0.015 too high,
-  conservative direction). See "Known issue" in docs/roadmap.md — a narrow rejection is
-  not trustworthy without re-scoring both.
+  The gate **re-scores the incumbent on the candidate's exact holdout** at decision time
+  — never trust stored metrics across code/panel changes (incident 24: a backfill grew
+  the panel, the fractional holdout slid into a momentum-rich stretch, and a no-better
+  candidate auto-promoted at Sharpe 1.89). Final fits early-stop on an inner split, and
+  each model_runs row records its holdout window.
 
 ## Environment & commands
 

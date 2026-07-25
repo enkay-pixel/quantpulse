@@ -177,6 +177,21 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     expected window only once its scheduled ingest is overdue (`ingest_overdue`), and
     run_keys carry an attempt number budgeted from run history (`next_ingest_attempt`),
     mirroring incident 22's cure.
+24. **First scheduled retrain promoted on a moved exam (2026-07-25)**: the 07-20
+    JSE-onboarding backfill grew the XNYS panel (2023+ → 2018+), so the fractional 15%
+    holdout cut slid from Dec-2025 back to Mar-2025 — into a stretch where raw 63-day
+    momentum IC ran +0.039 (vs −0.004 after). The candidate scored holdout Sharpe 1.89
+    on that long exam; the incumbent's stored 0.205 came from the old, shorter window;
+    the gate compared the two as if they were the same test and auto-promoted. Two
+    lesser leaks compounded it: the final fit early-stopped on the promotion holdout
+    itself (308 rounds ground toward it; honest refit 1.61), and Optuna's CV folds
+    overlap the holdout period. A matched 2026-only exam (OOS for both) showed the
+    candidate no better — IC negative — and it was demoted same-day. Fixes: the gate
+    re-scores the incumbent on the candidate's exact holdout (stored metrics never
+    consulted; a poisoned-stub test enforces it), the final fit early-stops on an inner
+    split, every model_runs row records its holdout window, and `/models/current`
+    demotion fallback became version-aware. The 2025 momentum regime itself is a real
+    finding — the cleanest case yet for judging on live record, not replay.
 
 ## Dependency policy history
 

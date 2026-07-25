@@ -113,6 +113,17 @@ def tune_hyperparameters(
     return {**DEFAULT_PARAMS, **study.best_params}
 
 
+def split_by_date(
+    frame: pd.DataFrame, fraction: float, embargo_days: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split off the last `fraction` of dates, with an embargo gap before the cut so
+    overlapping forward-return labels cannot straddle the boundary."""
+    dates = sorted(frame["date"].unique())
+    cut = dates[int(len(dates) * (1 - fraction))]
+    embargo_start_idx = max(0, dates.index(cut) - embargo_days)
+    return frame[frame["date"] < dates[embargo_start_idx]], frame[frame["date"] >= cut].copy()
+
+
 def train_final_model(
     frame: pd.DataFrame,
     feature_cols: list[str],
@@ -123,15 +134,17 @@ def train_final_model(
     """Train on all but the last `holdout_fraction` of dates; return model + holdout preds.
 
     The holdout frame (with `pred` column) is the candidate's out-of-sample evidence,
-    used by the promotion gate.
+    used by the promotion gate. Early stopping therefore must not see it: the boosting
+    rounds are chosen on an *inner* validation tail carved from the training window.
+    Incident 24 is what happens otherwise — a final fit ground 308 rounds toward the
+    exact frame the gate then scored, and the "out-of-sample" Sharpe was partly fit.
     """
-    dates = sorted(frame["date"].unique())
-    cut = dates[int(len(dates) * (1 - holdout_fraction))]
-    embargo_start_idx = max(0, dates.index(cut) - cfg.embargo_days)
-    train = frame[frame["date"] < dates[embargo_start_idx]]
-    holdout = frame[frame["date"] >= cut].copy()
+    train, holdout = split_by_date(frame, holdout_fraction, cfg.embargo_days)
     if train.empty or holdout.empty:
         raise ValueError("Holdout split produced an empty frame")
-    booster = _fit_one(train, holdout, feature_cols, params, cfg)
+    inner_train, inner_val = split_by_date(train, holdout_fraction, cfg.embargo_days)
+    if inner_train.empty or inner_val.empty:
+        raise ValueError("Inner validation split produced an empty frame")
+    booster = _fit_one(inner_train, inner_val, feature_cols, params, cfg)
     holdout["pred"] = np.asarray(booster.predict(holdout[feature_cols]))
     return booster, holdout

@@ -292,3 +292,52 @@ def test_a_demoted_champion_is_not_reported_as_current(
             session.query(ModelRun).filter(ModelRun.run_type == "demotion").delete()
             session.commit()
         engine.dispose()
+
+
+def test_a_demoted_later_version_falls_back_to_the_prior_champion(
+    evidence_client: TestClient, test_db_url: str
+) -> None:
+    """Incident 24 rollback: demoting v2 must surface v1 again — not "no champion".
+    The blanket any-newer-demotion rule was written for the first-champion rollback,
+    where nothing remained to fall back to; a demotion only withdraws its own version."""
+    from quantpulse.db import ModelRun
+
+    engine = create_engine(test_db_url)
+    try:
+        with Session(engine) as session:
+            session.add(
+                ModelRun(
+                    run_type="train",
+                    exchange="XNYS",
+                    model_version="2",
+                    decision="promoted",
+                    # audit strings ride along; the API must serve numbers and skip them
+                    metrics={"holdout_sharpe": 9.9, "holdout_start": "2025-03-28"},
+                )
+            )
+            session.commit()
+        assert evidence_client.get("/models/current").json()["model_version"] == "2"
+
+        with Session(engine) as session:
+            session.add(
+                ModelRun(
+                    run_type="demotion",
+                    exchange="XNYS",
+                    model_version="2",
+                    decision="rejected",
+                    metrics={"reason": "promoted on mismatched holdouts"},
+                )
+            )
+            session.commit()
+
+        body = evidence_client.get("/models/current").json()
+        assert body["model_version"] == "1"  # the prior champion stands again
+        assert "holdout_start" not in body["metrics"]  # strings filtered from the contract
+
+        history = evidence_client.get("/models/history").json()
+        assert any(r["run_type"] == "demotion" for r in history)  # strings don't 500 it
+    finally:
+        with Session(engine) as session:
+            session.query(ModelRun).filter(ModelRun.model_version == "2").delete()
+            session.commit()
+        engine.dispose()

@@ -47,6 +47,17 @@ def build_dataset(
     return frame
 
 
+def _score_holdout(holdout: pd.DataFrame, width: float) -> dict[str, float]:
+    """One scoring rule for every model the gate compares — candidate and incumbent."""
+    backtest = run_backtest(holdout, BacktestConfig(long_quantile=width, short_quantile=width))
+    return {
+        "holdout_ic": information_coefficient(holdout),
+        "holdout_sharpe": backtest.stats.get("sharpe", float("nan")),
+        "holdout_max_drawdown": backtest.stats.get("max_drawdown", float("nan")),
+        "holdout_annual_return": backtest.stats.get("annual_return", float("nan")),
+    }
+
+
 def train_evaluate_promote(
     engine: Engine,
     session: Session,
@@ -69,29 +80,47 @@ def train_evaluate_promote(
     # book while the JSE trades a 35% one would promote on evidence about a portfolio
     # that does not exist.
     width = get_exchange(exchange).quantile_width
-    backtest = run_backtest(holdout, BacktestConfig(long_quantile=width, short_quantile=width))
-    candidate_metrics = {
-        "holdout_ic": information_coefficient(holdout),
-        "holdout_sharpe": backtest.stats.get("sharpe", float("nan")),
-        "holdout_max_drawdown": backtest.stats.get("max_drawdown", float("nan")),
-        "holdout_annual_return": backtest.stats.get("annual_return", float("nan")),
-    }
+    candidate_metrics = _score_holdout(holdout, width)
 
     version = registry.log_candidate(
         booster, params, candidate_metrics, feature_cols, FEATURE_VERSION, exchange=exchange
     )
-    incumbent_metrics = registry.champion_metrics(exchange=exchange)
+    # Both models sit the SAME exam: the incumbent is re-scored on this run's holdout
+    # under this run's code, never trusted from its stored metrics. Stored numbers go
+    # stale whenever the evaluation code or the panel changes — incident 24: a backfill
+    # grew the panel, the fractional cut slid 9 months into a momentum-rich stretch, and
+    # a candidate "beat" an incumbent that had been examined on a different window.
+    champion = registry.load_champion(exchange=exchange)
+    incumbent_metrics = None
+    if champion is not None:
+        champ_booster, _ = champion
+        rescored = holdout.copy()
+        rescored["pred"] = np.asarray(champ_booster.predict(rescored[feature_cols]))
+        incumbent_metrics = _score_holdout(rescored, width)
+        logger.info(
+            "%s incumbent re-scored on candidate's holdout: sharpe=%.3f ic=%.4f",
+            exchange,
+            incumbent_metrics["holdout_sharpe"],
+            incumbent_metrics["holdout_ic"],
+        )
     decision = decide_promotion(candidate_metrics, incumbent_metrics)
     if decision.promote:
         registry.promote(version.version, exchange=exchange)
 
+    # The exam window goes in the audit row: a holdout defined as a fraction of the panel
+    # moves when the panel grows, and a moved exam must be visible, not archaeology.
+    window = {
+        "holdout_start": str(holdout["date"].min()),
+        "holdout_end": str(holdout["date"].max()),
+        "holdout_days": int(holdout["date"].nunique()),
+    }
     session.add(
         ModelRun(
             run_type="train",
             exchange=exchange,
             mlflow_run_id=version.run_id,
             model_version=str(version.version),
-            metrics={k: v for k, v in candidate_metrics.items() if v == v},
+            metrics={**{k: v for k, v in candidate_metrics.items() if v == v}, **window},
             decision="promoted" if decision.promote else "rejected",
         )
     )
