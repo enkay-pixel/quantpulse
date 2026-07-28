@@ -60,10 +60,12 @@ so interrupting it is safe and it can simply be re-run.
 
 Two sensors keep the pipeline honest without any paid service:
 
-- **`pipeline_failure_alert`** — a Dagster run-failure sensor appends every failure to
-  `$DAGSTER_HOME/alerts.jsonl` (surfaced at `GET /alerts`) and fires a macOS desktop
-  notification when running outside a container. Without it a broken evening run is only
-  noticed days later via stale dates on the dashboard.
+- **`pipeline_failure_alert`** — a Dagster run-failure sensor records every failure in the
+  `pipeline_alerts` table (surfaced at `GET /alerts`, capped at the newest 200) and fires a
+  macOS desktop notification when running outside a container. Without it a broken evening
+  run is only noticed days later via stale dates on the dashboard. It records alerts from
+  the daemon while the API serves them from another container, which is why the log lives
+  in Postgres and not a file — see incident 25.
 - **`missed_partition_catchup_sensor`** — every 30 minutes it compares each market's
   expected sessions over the last 30 days against actual price coverage and requests the
   missing daily partitions (max 3 per tick so a long sleep can't stampede the queue). A

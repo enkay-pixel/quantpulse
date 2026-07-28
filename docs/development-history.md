@@ -199,6 +199,18 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     split, every model_runs row records its holdout window, and `/models/current`
     demotion fallback became version-aware. The 2025 momentum regime itself is a real
     finding — the cleanest case yet for judging on live record, not replay.
+25. **Failure alerts were written where nothing could read them (2026-07-28)**: a degraded
+    yfinance failed the XNYS ingest twice overnight; the run-failure sensor recorded both
+    perfectly — into `$DAGSTER_HOME/alerts.jsonl` inside the *daemon's* container. The API
+    serves `/alerts` from a **different** container with no `DAGSTER_HOME`, so it read
+    `/tmp/alerts.jsonl`, found nothing, and returned `[]`; the path was also a writable
+    layer rather than a volume, so `compose up` erased it. The alerting had a working
+    detector and a dead reporter for its whole life, and every reassuring empty `/alerts`
+    was uninformative. Fix: the log moved to a `pipeline_alerts` table (migration
+    `3de6e54eece0`) — the database is the one durable thing both containers already share;
+    writes swallow DB errors so a broken alert can never mask the failure it describes.
+    Lesson: an observability feature isn't done until the read path is verified from the
+    consumer's process, not just the producer's.
 
 ## Dependency policy history
 

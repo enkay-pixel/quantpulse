@@ -37,6 +37,7 @@ platform doesn't know.
 | `drift_metrics` | (date, metric) | Evidently drift results per feature set |
 | `portfolio_snapshots` | **(date, exchange, variant)** | Simulated paper-book equity, exposure, turnover. Several *books* (`daily` / `horizon` / `long_only`) run per market — see [architecture.md](architecture.md) |
 | `option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Daily live option-chain snapshots + Black-Scholes Greeks. NYSE only (no free JSE chain data). Accumulates forward — no free history exists to backfill |
+| `pipeline_alerts` | alert id | Pipeline failures recorded by the Dagster run-failure sensor, served at `GET /alerts`. Operational tail, not an audit trail: trimmed to the newest 200. In the database because the daemon writes it and the API (a different container) reads it |
 
 ## `analytics` schema (dbt-managed — see `transform/`)
 

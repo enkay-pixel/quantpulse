@@ -187,3 +187,24 @@ class OptionQuote(Base):
         CheckConstraint("option_type IN ('call', 'put')", name="option_type_valid"),
         Index("ix_option_quotes_ticker_date", "ticker", "snapshot_date"),
     )
+
+
+class PipelineAlert(Base):
+    """Pipeline failures, recorded by the Dagster run-failure sensor.
+
+    In Postgres rather than a file: the daemon writes these and the API serves them from a
+    different container, and a file under DAGSTER_HOME is visible to neither the other
+    container nor the next `compose up` (it lives in a writable layer, not a volume). That
+    is exactly how two real ingest failures were recorded correctly and still showed up as
+    an empty `/alerts` — the surfacing half of the alerting was silently dead.
+    """
+
+    __tablename__ = "pipeline_alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_name: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[str | None] = mapped_column(String(64))
+    error: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
