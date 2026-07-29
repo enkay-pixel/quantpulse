@@ -103,6 +103,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `run_monitoring` in docker/dagster.yaml reaps it; prefer `make down` over quitting Docker.
 - Anything touching option chains must gate on `catchup.is_post_close()` — pre-market IV
   is ~2.1% vs ~33% post-close, so an off-hours snapshot writes junk.
+- Scoring fills **every unscored feature date** in a 30-day window, not just the newest —
+  a late/rescued ingest is never the max again, so it would go unscored forever (incident
+  26). Never re-score a date an earlier champion already scored: the marts take the newest
+  model version per date, so it silently rewrites the live record. Freshness checks that
+  compare *maxima* answer "has it stopped?", never "did it skip?" — count gaps too.
 - Cross-container state goes in **Postgres**, never a file under `DAGSTER_HOME`: that path
   is per-container and not a volume, so the API cannot read what the daemon writes and
   `compose up` erases it (incident 25 — failure alerts were invisible for weeks). Verify

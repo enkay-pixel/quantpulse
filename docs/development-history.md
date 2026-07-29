@@ -211,6 +211,22 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     writes swallow DB errors so a broken alert can never mask the failure it describes.
     Lesson: an observability feature isn't done until the read path is verified from the
     consumer's process, not just the producer's.
+26. **A late session was never scored, and the check couldn't see it (2026-07-29)**:
+    scoring only ever looked at `features["date"].max()`. XNYS 2026-07-27 was ingested
+    late — rescued by the catch-up sensor at 04:05, *after* that night's 01:00 process —
+    so it was never the maximum at any later run and was never scored: prices and
+    features present, predictions absent, a permanent hole in the paper book. The live
+    track record read 5 days instead of 6, and the missing day was positive, so the
+    record understated itself (−0.40% → +0.50% once filled). `predictions_are_current`
+    compared only the two *maxima*, which the next night's run pushed back into
+    agreement, so it passed throughout. Fix: score every unscored feature date in a
+    bounded window, never re-scoring a date some earlier champion already scored (that
+    would rewrite the live record with a model that did not exist then — invisibly, since
+    the marts take the newest version per date); the newest date stays idempotently
+    re-scored so a fresh champion's view of today lands at once. The check now counts
+    gaps as well as lag. Lesson: comparing maxima answers "has it stopped?", never "did
+    it skip?" — and every rescue path needs a downstream consumer that can act on
+    backfilled data, not just the newest.
 
 ## Dependency policy history
 
@@ -229,12 +245,13 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-355 checks total: 230 pytest (173 unit on synthetic data; 47 integration against a
+359 checks total: 237 pytest (166 unit on synthetic data; 61 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 10 Dagster definition/sensor tests), 59 Vitest
-(components + formatters, empty states, market switcher), 66 dbt tests (62 data + 4
-unit), plus mypy/ruff/eslint/tsc and compose validation — all enforced in CI.
+(components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
+unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
+mypy/ruff/eslint/tsc and compose validation — all enforced in CI.
 
 ## Owner preferences (established in-session)
 

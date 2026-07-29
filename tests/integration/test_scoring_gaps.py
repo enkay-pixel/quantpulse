@@ -1,0 +1,207 @@
+"""Scoring must fill dates that were never scored, without rewriting history.
+
+Incident 26: XNYS 2026-07-27 was ingested late — rescued by the catch-up sensor *after*
+that night's process run. Scoring only ever looked at the newest feature date, so 07-27
+was never the maximum at any later run and was never scored at all. Features existed,
+predictions did not, the paper book carried a permanent hole, and the live track record
+was silently a day short (5 days instead of 6).
+"""
+
+import datetime as dt
+from types import SimpleNamespace
+
+import lightgbm as lgb
+import numpy as np
+import pandas as pd
+import pytest
+from sqlalchemy import Engine, text
+from sqlalchemy.orm import Session
+
+from quantpulse.data.universe import UniverseEntry, sync_universe
+from quantpulse.features.engineering import FEATURE_COLUMNS, FEATURE_VERSION
+from quantpulse.features.store import store_features
+from quantpulse.ml import pipeline, registry
+from quantpulse.ml.training import DEFAULT_PARAMS
+
+pytestmark = pytest.mark.integration
+
+TICKERS = ["AAA", "BBB", "CCC"]
+# A late-arriving session in the middle, exactly like 2026-07-27.
+DATES = [dt.date(2026, 7, 23), dt.date(2026, 7, 24), dt.date(2026, 7, 27), dt.date(2026, 7, 28)]
+LATE = DATES[2]
+
+
+def _frame(dates: list[dt.date]) -> pd.DataFrame:
+    rng = np.random.default_rng(11)
+    rows = []
+    for date in dates:
+        for ticker in TICKERS:
+            row: dict[str, object] = {"ticker": ticker, "date": date}
+            row.update(
+                dict(zip(FEATURE_COLUMNS, rng.normal(size=len(FEATURE_COLUMNS)), strict=True))
+            )
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def seeded(db_engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Engine:
+    """Universe + features for every date, and a stub champion (version 7)."""
+    with Session(db_engine) as session:
+        sync_universe(session, [UniverseEntry(t, "stock") for t in TICKERS])
+        session.commit()
+    with Session(db_engine) as session:
+        store_features(session, _frame(DATES), version=FEATURE_VERSION)
+        session.commit()
+
+    rng = np.random.default_rng(3)
+    train = _frame(DATES)
+    booster = lgb.train(
+        {**DEFAULT_PARAMS, "seed": 1},
+        lgb.Dataset(train[list(FEATURE_COLUMNS)], label=rng.normal(size=len(train))),
+        num_boost_round=5,
+    )
+    monkeypatch.setattr(
+        registry, "load_champion", lambda exchange=None: (booster, SimpleNamespace(version="7"))
+    )
+    return db_engine
+
+
+def _scored(engine: Engine) -> dict[dt.date, set[str]]:
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT date, model_version FROM predictions")).all()
+    out: dict[dt.date, set[str]] = {}
+    for row in rows:
+        out.setdefault(row.date, set()).add(row.model_version)
+    return out
+
+
+def test_a_late_session_is_scored_rather_than_skipped_forever(seeded: Engine) -> None:
+    """The incident, reproduced: score up to 07-24, then let 07-27 arrive late."""
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, asof=DATES[1], exchange="XNYS")
+        session.commit()
+    # As of 07-24 the later sessions do not exist yet, so nothing scores them.
+    assert set(_scored(seeded)) == {DATES[0], DATES[1]}
+    assert LATE not in _scored(seeded)
+
+    # 07-27's ingest lands late; the next run's newest date is 07-28.
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+
+    scored = _scored(seeded)
+    assert LATE in scored, "the late session must be scored, not skipped forever"
+    assert DATES[3] in scored
+    with seeded.connect() as conn:
+        filled = conn.execute(
+            text("SELECT count(*) FROM predictions WHERE date = :d"), {"d": LATE}
+        ).scalar_one()
+    assert filled == len(TICKERS)  # the whole cross-section, not a partial fill
+
+
+def test_history_is_filled_but_never_rewritten(seeded: Engine) -> None:
+    """A date an earlier champion already scored must keep that champion's prediction.
+
+    Re-scoring it would rewrite the live track record with a model that did not exist at
+    the time — invisibly, because the marts take the newest model version per date.
+    """
+    with Session(seeded) as session:
+        session.execute(
+            text(
+                "INSERT INTO predictions (ticker, date, model_version, score, created_at) "
+                "VALUES ('AAA', :d, '1', 0.5, now())"
+            ),
+            {"d": DATES[0]},
+        )
+        session.commit()
+
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+
+    # The old date keeps only its original champion; the new champion did not touch it.
+    assert _scored(seeded)[DATES[0]] == {"1"}
+
+
+def test_the_newest_date_is_always_rescored(seeded: Engine) -> None:
+    """The deliberate exception: today is re-scored idempotently so a freshly promoted
+    champion's view of today lands immediately rather than waiting a day."""
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+    with Session(seeded) as session:
+        session.execute(
+            text("UPDATE predictions SET score = 999.0 WHERE date = :d"), {"d": DATES[3]}
+        )
+        session.commit()
+
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+
+    with Session(seeded) as session:
+        overwritten = session.execute(
+            text("SELECT count(*) FROM predictions WHERE date = :d AND score = 999.0"),
+            {"d": DATES[3]},
+        ).scalar_one()
+    assert overwritten == 0  # re-scored, not left stale
+
+
+def test_dates_beyond_the_lookback_window_are_left_alone(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scoring is bounded: it fills recent holes, it does not rescore all history."""
+    monkeypatch.setattr(pipeline, "SCORING_LOOKBACK_DAYS", 2)
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+    # Window is 07-26..07-28, so the two July-23/24 dates stay unscored.
+    assert set(_scored(seeded)) == {LATE, DATES[3]}
+
+
+def test_no_champion_writes_nothing(seeded: Engine, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(registry, "load_champion", lambda exchange=None: None)
+    with Session(seeded) as session:
+        assert pipeline.score_latest(seeded, session, exchange="XNYS") == 0
+        session.commit()
+    assert _scored(seeded) == {}
+
+
+def _run_check(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> object:
+    """Evaluate the asset check against the disposable test database."""
+    from quantpulse.orchestration import assets
+
+    monkeypatch.setattr(assets, "get_engine", lambda: engine)
+    monkeypatch.setattr(assets, "get_session", lambda: Session(engine))
+    return assets.predictions_are_current()
+
+
+def test_the_check_is_blind_to_nothing_when_history_is_complete(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+    result = _run_check(seeded, monkeypatch)
+    assert result.passed
+    assert result.metadata["XNYS/unscored_days"].value == 0
+
+
+def test_the_check_catches_a_hole_that_the_maxima_hide(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The incident-26 blind spot: with 07-27 unscored but 07-28 scored, both maxima agree
+    and a lag-only check passes while the live record is quietly a day short."""
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+    with Session(seeded) as session:  # punch the exact hole the incident left
+        session.execute(text("DELETE FROM predictions WHERE date = :d"), {"d": LATE})
+        session.commit()
+
+    result = _run_check(seeded, monkeypatch)
+    assert not result.passed, "a hole between the maxima must fail the check"
+    assert result.metadata["XNYS/unscored_days"].value == 1
+    assert result.metadata["XNYS/lag_days"].value == 0  # lag alone would have said "fine"
+    assert str(LATE) in str(result.metadata["stale"].value)

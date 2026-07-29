@@ -9,7 +9,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -28,8 +28,13 @@ from quantpulse.ml.backtest import BacktestConfig, run_backtest
 from quantpulse.ml.metrics import information_coefficient
 from quantpulse.ml.promotion import decide_promotion
 from quantpulse.ml.training import TrainConfig, train_final_model, tune_hyperparameters
+from quantpulse.utils import chunked
 
 logger = logging.getLogger(__name__)
+
+#: How far back scoring looks for feature dates that were never scored. Matches the
+#: catch-up sensor's ingest lookback — a session it rescues must still be scorable.
+SCORING_LOOKBACK_DAYS = 30
 
 
 def build_dataset(
@@ -140,6 +145,20 @@ def train_evaluate_promote(
     }
 
 
+def dates_with_predictions(engine: Engine, exchange: str, since: dt.date) -> set[dt.date]:
+    """Dates this market already has predictions for, from *any* champion."""
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT DISTINCT p.date FROM predictions p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex "
+                "WHERE p.date >= :since"
+            ),
+            {"ex": exchange, "since": since},
+        ).all()
+    return {row.date for row in rows}
+
+
 def score_latest(
     engine: Engine,
     session: Session,
@@ -147,7 +166,21 @@ def score_latest(
     tracking_uri: str | None = None,
     exchange: str = DEFAULT_EXCHANGE,
 ) -> int:
-    """Score one market's most recent feature date with its champion; upsert predictions."""
+    """Score one market's unscored recent feature dates with its champion; upsert.
+
+    Not just the newest date. A session ingested late — rescued by the catch-up sensor
+    after that night's process run — is never the maximum at any later scoring time, so it
+    would never be scored at all: features exist, predictions do not, and the paper book
+    carries a permanent hole. XNYS 2026-07-27 was lost exactly that way (incident 26), and
+    it silently shortened the live track record, the one number this project asks to be
+    judged on.
+
+    Only dates with **no predictions from any champion** are filled in. Re-scoring a date
+    some earlier champion already scored would rewrite the live record with a model that
+    did not exist at the time — and invisibly, because the marts take the newest model
+    version per date. The newest feature date is the deliberate exception: it is always
+    re-scored (idempotently) so a freshly promoted champion's view of today lands at once.
+    """
     if tracking_uri:
         registry.configure(tracking_uri)
     loaded = registry.load_champion(exchange)
@@ -160,9 +193,15 @@ def score_latest(
     if features.empty:
         logger.warning("No stored features to score for %s", exchange)
         return 0
+
     latest_date = features["date"].max()
-    latest = features[features["date"] == latest_date].copy()
-    latest["score"] = np.asarray(booster.predict(latest[list(FEATURE_COLUMNS)]))
+    window_start = latest_date - dt.timedelta(days=SCORING_LOOKBACK_DAYS)
+    recent = features[features["date"] >= window_start]
+    pending = (set(recent["date"]) - dates_with_predictions(engine, exchange, window_start)) | {
+        latest_date
+    }
+    to_score = recent[recent["date"].isin(pending)].copy()
+    to_score["score"] = np.asarray(booster.predict(to_score[list(FEATURE_COLUMNS)]))
 
     records = [
         {
@@ -171,15 +210,22 @@ def score_latest(
             "model_version": str(champion.version),
             "score": float(row["score"]),
         }
-        for row in latest.to_dict(orient="records")
+        for row in to_score.to_dict(orient="records")
     ]
-    stmt = pg_insert(Prediction).values(records)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=[Prediction.ticker, Prediction.date, Prediction.model_version],
-        set_={"score": stmt.excluded.score},
-    )
-    session.execute(stmt)
+    for batch in chunked(records):
+        stmt = pg_insert(Prediction).values(list(batch))
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[Prediction.ticker, Prediction.date, Prediction.model_version],
+            set_={"score": stmt.excluded.score},
+        )
+        session.execute(stmt)
+    backfilled = sorted(pending - {latest_date})
     logger.info(
-        "Scored %d tickers for %s with model v%s", len(records), latest_date, champion.version
+        "Scored %d rows across %d date(s) for %s with model v%s%s",
+        len(records),
+        len(pending),
+        exchange,
+        champion.version,
+        f" (backfilled {backfilled})" if backfilled else "",
     )
     return len(records)

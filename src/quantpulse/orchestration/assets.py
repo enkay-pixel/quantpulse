@@ -156,16 +156,23 @@ def predictions() -> dg.MaterializeResult:
 
 @dg.asset_check(asset=predictions, blocking=False)
 def predictions_are_current() -> dg.AssetCheckResult:
-    """Catch a market whose predictions have quietly stopped updating.
+    """Catch a market whose predictions have quietly stopped updating, or skipped a day.
 
     A market can have data, features and a universe yet no champion — the registry name
     changed, or a candidate failed the promotion gate. Scoring then writes nothing while
     the dashboard keeps serving yesterday's predictions as if they were today's. That is
     the worst kind of failure here: nothing errors, the numbers just stop moving.
+
+    Lag alone is not enough. Comparing only the two *maxima* is blind to a hole in the
+    middle: when XNYS 2026-07-27 went unscored (incident 26), the next night's run pushed
+    both maxima to 07-28 and this check passed while the live track record was quietly a
+    day short. So gaps are counted too — any feature date inside the scoring window with
+    no predictions at all.
     """
     import pandas as pd
 
     from quantpulse.data.universe import active_tickers
+    from quantpulse.ml.pipeline import SCORING_LOOKBACK_DAYS
 
     rows = pd.read_sql(
         "SELECT u.exchange, max(p.date) AS latest_prediction, "
@@ -191,10 +198,37 @@ def predictions_are_current() -> dg.AssetCheckResult:
                 f"{exchange}: predictions {lag}d behind features "
                 f"({row['latest_prediction']} vs {row['latest_feature']}) — likely no champion"
             )
+        gaps = _unscored_dates(exchange, row["latest_feature"], SCORING_LOOKBACK_DAYS)
+        metadata[f"{exchange}/unscored_days"] = dg.MetadataValue.int(len(gaps))
+        if gaps:
+            stale.append(f"{exchange}: {len(gaps)} feature date(s) never scored: {gaps[:5]}")
     return dg.AssetCheckResult(
         passed=not stale,
         metadata={**metadata, **({"stale": dg.MetadataValue.json(stale)} if stale else {})},
     )
+
+
+def _unscored_dates(exchange: str, latest_feature: dt.date, lookback: int) -> list[str]:
+    """Feature dates in the scoring window that have no predictions at all."""
+    from sqlalchemy import text
+
+    from quantpulse.ml.pipeline import dates_with_predictions
+
+    window_start = latest_feature - dt.timedelta(days=lookback)
+    with get_engine().connect() as conn:
+        feature_dates = {
+            r.date
+            for r in conn.execute(
+                text(
+                    "SELECT DISTINCT f.date FROM features f "
+                    "JOIN universe u ON u.ticker = f.ticker AND u.exchange = :ex "
+                    "WHERE f.date >= :since"
+                ),
+                {"ex": exchange, "since": window_start},
+            ).all()
+        }
+    scored = dates_with_predictions(get_engine(), exchange, window_start)
+    return [str(d) for d in sorted(feature_dates - scored)]
 
 
 @dg.asset(deps=[predictions], group_name="serving", kinds={"python", "postgres"})

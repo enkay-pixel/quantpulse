@@ -33,8 +33,8 @@ give investment advice, and the disclaimer stays.
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 230 Python tests (173 unit + 47 integration against a disposable
-database that runs a real `dbt build` + 10 Dagster), 59 Vitest, 66 dbt tests (62 data +
+**Quality gates:** 237 Python tests (166 unit + 61 integration against a disposable
+database that runs a real `dbt build` + 10 Dagster), 59 Vitest, 63 dbt tests (59 data +
 4 unit), plus mypy / ruff / eslint / tsc / compose validation — all enforced in CI.
 
 ## Current state (2026-07-25)
