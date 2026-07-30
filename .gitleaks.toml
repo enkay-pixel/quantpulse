@@ -1,0 +1,21 @@
+# gitleaks config for the pre-commit hook in .pre-commit-config.yaml.
+# Starts from the full upstream ruleset and subtracts only proven false positives.
+# Every allowlist below must name the rule it narrows and say why the match is benign;
+# never widen one to silence a finding you have not read.
+
+[extend]
+useDefault = true
+
+# Recharts spells its series accessor `dataKey="<column>"`, which is literally
+# `key="<value>"` to the generic-api-key rule. Long snake_case column names
+# (rolling_sharpe_63d) clear its entropy threshold. These are database column
+# names rendered into a chart, not credentials — the frontend holds no secrets,
+# it reads everything from the API. Scoped to that exact prop on that exact line
+# in frontend source, so a real token elsewhere in the same file still fails.
+[[allowlists]]
+description = "Recharts dataKey props are column names, not credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^web/src/.*\.tsx$''']
+regexTarget = "line"
+regexes = ['''\bdataKey="[A-Za-z0-9_]+"''']

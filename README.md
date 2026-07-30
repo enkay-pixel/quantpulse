@@ -145,7 +145,7 @@ make fmt        # format + autofix
 make lint       # CI-style checks
 make type       # mypy
 make test-all   # includes integration tests (needs `make up`)
-make hooks      # install pre-commit hooks
+make hooks      # install pre-commit hooks (format, lint, gitleaks secret scan)
 ```
 
 Current state, honest performance, and what's next: [docs/roadmap.md](docs/roadmap.md).
