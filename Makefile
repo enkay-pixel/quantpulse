@@ -73,6 +73,9 @@ clean:  ## Remove caches
 # days here. The uv wheel cache (type=exec.cachemount) is deliberately KEPT: it is what
 # lets a rebuild survive a flaky connection by resuming downloads instead of restarting
 # ~200 wheels, and it is ~1 GB against the ~19 GB of layer cache worth reclaiming.
+backup:  ## Snapshot the market database (options history + live record are unbackfillable)
+	./scripts/backup-market.sh
+
 prune-cache:  ## Reclaim Docker build cache, keeping the uv wheel cache
 	docker builder prune --force --filter "type!=exec.cachemount"
 	docker image prune --force

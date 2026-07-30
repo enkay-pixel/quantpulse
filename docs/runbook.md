@@ -81,6 +81,49 @@ Note: yfinance returns a *partial* bar for the current session during market hou
 intraday ingest stores a mid-session price. The scheduled post-close run upserts the true
 close over it — self-healing, no action needed.
 
+## Backups
+
+```bash
+make backup                 # -> ~/quantpulse-backups/market-YYYY-MM-DD.sql.gz
+```
+
+Most of `market` is rebuildable — prices re-download, features recompute, models retrain.
+Two things are not, and they are why backups exist: **`option_quotes`** (live-only chains;
+a day not captured is gone permanently) and the **live record** in `portfolio_snapshots` /
+`predictions` (recreating it would mean re-scoring history with today's champion — the
+retroactive rewrite the promotion gate exists to prevent). The whole database is dumped
+regardless: ~48 MB gzipped, and a single-file restore beats reasoning about foreign-key
+order at the moment you need it.
+
+Runs daily at 07:00 via launchd, after every overnight job — the option-capture window
+runs until ~06:00, so an earlier backup would routinely miss the irreplaceable table.
+Keeps 14 days. Dumps are written to `.partial` and verified with `gzip -t` before being
+renamed, so an interrupted dump never sits there looking valid.
+
+To restore into a running stack:
+
+```bash
+gzcat ~/quantpulse-backups/market-YYYY-MM-DD.sql.gz | docker exec -i quantpulse-postgres psql -U quantpulse -d market
+```
+
+## Host agents (launchd)
+
+Four scheduled jobs on the dev machine. Each keeps only its *schedule* in
+`~/Library/LaunchAgents/com.quantpulse.*.plist`; the logic lives in `scripts/` or the
+Makefile, so changing behaviour is a code change with a diff. All log to
+`~/Library/Logs/quantpulse-*.log`.
+
+| Agent | When | Does |
+|---|---|---|
+| `backup` | 07:00 daily | Dumps `market`, keeps 14 |
+| `readiness` | 21:45 weekdays | Warns if the stack is down or on battery, 15 min before the option window |
+| `power` | every 2h | Warns only when sleep is disabled **and** on battery — the combination that runs the machine flat |
+| `prune-cache` | Sun 03:00 | Reclaims Docker build cache, keeps the uv wheel cache |
+
+The checks notify but never act: bringing the stack up automatically would override a
+deliberate `make down` before travel. Disable any of them with
+`launchctl bootout gui/$(id -u)/com.quantpulse.<name>`.
+
 ## Reclaiming Docker build cache
 
 ```bash
