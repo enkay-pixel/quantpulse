@@ -91,3 +91,40 @@ jobs:
 
       - name: Validate compose file
         run: docker compose config -q
+
+  # The pre-commit gitleaks hook only protects machines that ran `make hooks`, and
+  # `--no-verify` walks straight past it. This is the backstop. It cannot prevent a leak
+  # — anything it catches is already pushed and must be ROTATED, not force-pushed away —
+  # but it turns "never noticed" into "noticed in a minute".
+  secrets:
+    runs-on: ubuntu-latest
+    env:
+      # Keep in lockstep with the gitleaks rev in .pre-commit-config.yaml. The guard step
+      # below fails the build if they drift, so CI and the hook can't disagree about what
+      # counts as a secret.
+      GITLEAKS_VERSION: v8.30.1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # gitleaks walks history, so the default shallow clone would leave older commits
+          # unscanned — exactly the ones a bypassed hook lands in.
+          fetch-depth: 0
+
+      - name: Check the hook and CI agree on a gitleaks version
+        run: |
+          hook_rev="$(grep -A1 'repo: https://github.com/gitleaks/gitleaks$' \
+            .pre-commit-config.yaml | sed -n 's/.*rev: *//p')"
+          if [ "$hook_rev" != "$GITLEAKS_VERSION" ]; then
+            echo "gitleaks drift: .pre-commit-config.yaml=$hook_rev ci.yml=$GITLEAKS_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+
+      - name: Scan full history
+        # --redact is not optional here: Actions logs on a public repo are public, so a
+        # finding must never print the value that triggered it.
+        run: gitleaks git . --config .gitleaks.toml --redact --no-banner --verbose

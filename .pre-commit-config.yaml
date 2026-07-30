@@ -9,6 +9,14 @@ repos:
       - id: check-added-large-files
       - id: detect-private-key
 
+  # detect-private-key above only catches private key material. This is a public repo,
+  # where a leaked token has to be rotated (forks and GitHub's caches survive a
+  # force-push), so scan every staged diff for API tokens too.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.22
     hooks:

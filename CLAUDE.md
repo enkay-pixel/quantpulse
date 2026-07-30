@@ -81,7 +81,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Frontend: palette/roles as CSS vars in `web/src/index.css` (dataviz method: legends
   for ≥2 series, status colors always icon+label, vendor chunks split).
 - Commits: imperative subject, body explains why, trailer
-  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Pre-commit hooks installed.
+  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Pre-commit hooks installed —
+  incl. gitleaks (222 rules) over every staged diff, since this repo is public and a
+  leaked token must be *rotated*, not force-pushed away. False positives go in
+  `.gitleaks.toml` narrowly scoped to rule + path + line pattern, never as a blanket skip.
 - CI (GitHub Actions): python (ruff/mypy/pytest + Postgres service) · dbt build ·
   web · compose validation. Keep it green; Dependabot weekly with documented major
   ignores (typescript/eslint/recharts) — don't take Docker base-image majors untested.
@@ -128,6 +131,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   the November DST change. Latent all summer, so tests pin both sides.
 - Docker CLI symlinks live in `/opt/homebrew/bin` (the `/usr/local/bin` ones point at a
   dead DMG mount).
+- `pre-commit run gitleaks --all-files` is a **no-op that always passes** — the hook's entry
+  is `gitleaks git --staged` with `pass_filenames: false`, so pre-commit's file list is
+  discarded and an empty index scans nothing. Verify it with a real scan
+  (`gitleaks dir . --redact`) or by staging a probe; a green `--all-files` proves nothing.
+  Note gitleaks allowlists documentation keys by default, so `AKIAIOSFODNN7EXAMPLE` is
+  *also* a false negative — probe with a correctly-shaped random token (AWS access key IDs
+  are base32, `[A-Z2-7]`, so a probe containing 0/1/8/9 silently won't match either).
 
 ## Standing preference: build both, then measure
 
