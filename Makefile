@@ -1,10 +1,31 @@
 # QuantPulse developer entrypoints.
 # Local Python work uses the monorepo's shared virtualenv unless VENV_PYTHON is overridden.
-VENV_PYTHON ?= ../../.venv/bin/python
+#
+# The venv sits two levels above the MAIN checkout (<monorepo>/projects/quantpulse), so
+# resolving it from the CWD only works there. A git worktree lives under
+# .claude/worktrees/<name>, where ../../.venv resolves to <checkout>/.claude/.venv and
+# every target dies with "No such file or directory". Anchor on the main worktree instead
+# — git reports it first from anywhere in the repo, worktrees included — and keep the old
+# relative path as the fallback for when git can't answer (tarball export, no repo).
+MAIN_WORKTREE := $(shell git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')
+ifeq ($(MAIN_WORKTREE),)
+VENV_ROOT := ../..
+else
+VENV_ROOT := $(abspath $(MAIN_WORKTREE)/../..)
+endif
+
+VENV_PYTHON ?= $(VENV_ROOT)/.venv/bin/python
+VENV_BIN ?= $(VENV_ROOT)/.venv/bin
+
+# Anything that IMPORTS quantpulse at runtime needs this checkout's src ahead of the venv's
+# editable .pth, which is a plain path entry pointing at the main checkout. Without it a
+# worktree runs its own tests against the main checkout's source and passes green on code
+# you never touched — a wrong answer, not an error. In the main checkout it names the very
+# directory the .pth already points at, so it changes nothing there.
+# ruff takes file paths and mypy resolves via mypy_path, so neither needs it.
+VENV_PYTHON_SRC := PYTHONPATH=$(CURDIR)/src $(VENV_PYTHON)
 
 .PHONY: install lock fmt lint type test test-all hooks build up up-build down ps logs clean bootstrap dbt-build dbt-docs
-
-VENV_BIN ?= ../../.venv/bin
 
 dbt-build:  ## Run dbt models + tests against local Postgres
 	set -a && . ./.env && set +a && $(VENV_BIN)/dbt build --project-dir transform --profiles-dir transform
@@ -14,12 +35,12 @@ dbt-docs:  ## Generate and serve the dbt documentation site
 		&& $(VENV_BIN)/dbt docs serve --project-dir transform --profiles-dir transform --port 8081
 
 bootstrap:  ## First-run seed: migrate, universe, backfill, features, train, score
-	$(VENV_PYTHON) -m quantpulse.cli init-db
-	$(VENV_PYTHON) -m quantpulse.cli sync-universe
-	$(VENV_PYTHON) -m quantpulse.cli backfill
-	$(VENV_PYTHON) -m quantpulse.cli features
-	$(VENV_PYTHON) -m quantpulse.cli train
-	$(VENV_PYTHON) -m quantpulse.cli score --replay
+	$(VENV_PYTHON_SRC) -m quantpulse.cli init-db
+	$(VENV_PYTHON_SRC) -m quantpulse.cli sync-universe
+	$(VENV_PYTHON_SRC) -m quantpulse.cli backfill
+	$(VENV_PYTHON_SRC) -m quantpulse.cli features
+	$(VENV_PYTHON_SRC) -m quantpulse.cli train
+	$(VENV_PYTHON_SRC) -m quantpulse.cli score --replay
 
 install:  ## Install the package + dev tools into the shared venv
 	uv pip install -e ".[dev]" --python $(VENV_PYTHON)
@@ -39,10 +60,10 @@ type:  ## Static type check
 	$(VENV_PYTHON) -m mypy
 
 test:  ## Fast unit tests (no external services)
-	$(VENV_PYTHON) -m pytest -m "not integration"
+	$(VENV_PYTHON_SRC) -m pytest -m "not integration"
 
 test-all:  ## All tests incl. integration (needs `make up`)
-	$(VENV_PYTHON) -m pytest
+	$(VENV_PYTHON_SRC) -m pytest
 
 hooks:  ## Install pre-commit hooks into .git
 	$(VENV_PYTHON) -m pre_commit install
