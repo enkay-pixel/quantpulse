@@ -101,8 +101,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Killing Docker mid-run leaves a zombie `STARTED` run; with `max_concurrent_runs: 1` it
   blocks the queue forever AND is invisible to the failure sensor (STARTED ≠ FAILURE).
   `run_monitoring` in docker/dagster.yaml reaps it; prefer `make down` over quitting Docker.
-- Anything touching option chains must gate on `catchup.is_post_close()` — pre-market IV
-  is ~2.1% vs ~33% post-close, so an off-hours snapshot writes junk.
+- Option chains are gated on `is_post_close()` **inside `snapshot_option_chains()`**, so
+  every caller inherits it — pre-market IV is ~2.1% vs ~33% post-close, and because the
+  upsert is keyed on `(snapshot_date, ticker, …)` an off-hours run OVERWRITES good rows
+  with junk. It raises `OffHoursSnapshotError`; `--force` is for off-hours testing against
+  a throwaway date only. The gate used to live only in the repair sensor, which left the
+  CLI and manual Dagster materializes free to corrupt a day. Don't push it back up into
+  the callers: a rule each scheduling path must remember is one a new path won't.
 - Scoring fills **every unscored feature date** in a 30-day window, not just the newest —
   a late/rescued ingest is never the max again, so it would go unscored forever (incident
   26). Never re-score a date an earlier champion already scored: the marts take the newest

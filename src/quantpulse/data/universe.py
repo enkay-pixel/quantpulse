@@ -8,7 +8,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from quantpulse.data.calendar import DEFAULT_EXCHANGE, get_exchange
+from quantpulse.data.calendar import DEFAULT_EXCHANGE, EXCHANGES, get_exchange
 from quantpulse.db import UniverseMember
 
 
@@ -91,6 +91,23 @@ def active_tickers(session: Session, exchange: str | None = None) -> list[str]:
     if exchange:
         stmt = stmt.where(UniverseMember.exchange == exchange)
     return list(session.scalars(stmt.order_by(UniverseMember.ticker)))
+
+
+def options_tickers(session: Session) -> list[str]:
+    """Active tickers in the markets where free option chains actually exist.
+
+    The universe spans markets the options layer cannot serve — only XNYS has
+    `has_options` — so option callers must narrow through here rather than reaching for
+    `active_tickers()`. Passing the whole universe is not merely wasteful (a vendor
+    round-trip per JSE name, each returning nothing); it puts the "which markets have
+    options?" rule in every caller, where one of them will get it wrong.
+    """
+    return [
+        ticker
+        for code, ex in sorted(EXCHANGES.items())
+        if ex.has_options
+        for ticker in active_tickers(session, code)
+    ]
 
 
 def active_exchanges(session: Session) -> list[str]:

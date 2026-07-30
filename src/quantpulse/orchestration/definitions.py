@@ -221,6 +221,11 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     Gated to post-close: capturing pre-market fills tickers with stale IV (≈2.1% against
     ≈33% post-close), which would leave one snapshot_date holding two incompatible
     qualities of data — worse than the clean partial it started as.
+
+    `snapshot_option_chains()` now enforces that gate itself, so this one is no longer
+    what protects the data — but keep it. Without it every pre-market sensor tick would
+    queue a run that fails on arrival, burning the retry budget and firing a failure
+    alert; skipping here is the difference between "not yet" and "broken".
     """
     import datetime as dt
 

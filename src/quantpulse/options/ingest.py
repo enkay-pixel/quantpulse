@@ -16,12 +16,22 @@ from sqlalchemy.orm import Session
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from quantpulse.config import get_settings
-from quantpulse.data.calendar import market_today
+from quantpulse.data.calendar import is_post_close, market_today
 from quantpulse.db import OptionQuote
 from quantpulse.options.pricing import OptionType, black_scholes, years_to_expiry
 from quantpulse.utils import chunked
 
 logger = logging.getLogger(__name__)
+
+
+class OffHoursSnapshotError(RuntimeError):
+    """A snapshot was attempted while the vendor's marks are not yet meaningful.
+
+    Raised rather than returning 0, because a silent no-op is indistinguishable from
+    "the feed had nothing today" — the Dagster asset would materialize green and the
+    evening's real snapshot would never be chased.
+    """
+
 
 QUOTE_COLUMNS = [
     "snapshot_date",
@@ -165,13 +175,41 @@ def snapshot_option_chains(
     session_factory: Callable[[], AbstractContextManager[Session]],
     tickers: list[str],
     snapshot_date: dt.date | None = None,
+    *,
+    force: bool = False,
 ) -> int:
     """Fetch, enrich, and upsert an option-chain snapshot, COMMITTING PER TICKER.
 
     A full universe takes ~10 minutes of network calls; committing per ticker means an
     interruption (timeout, crash, rate limit) keeps everything already fetched and the
     run is simply resumable. Per-ticker failures are logged and skipped.
+
+    Refuses to run outside post-close (`OffHoursSnapshotError`) unless `force=True`,
+    which exists only for deliberate off-hours testing against a throwaway
+    `snapshot_date`. Never force against a real trading date.
     """
+    # The gate lives HERE, in the data layer, so every caller inherits it: the CLI, the
+    # Dagster asset, the repair sensor's job, and whatever gets added next. It used to
+    # sit only in the sensor, which meant `quantpulse options-snapshot` at 08:00 — or a
+    # manual materialize from the Dagster UI — captured pre-market chains (≈2.1% IV vs
+    # ≈33% post-close) and, because the upsert is keyed on (snapshot_date, ticker, ...),
+    # OVERWROTE good post-close rows for every ticker it reached. One snapshot_date, two
+    # incompatible qualities of data, in a dataset that cannot be rebuilt.
+    #
+    # Checked against the default (XNYS) clock because XNYS is the only exchange with
+    # has_options (data/calendar.py) — so it is the only market whose chains this can
+    # actually capture, whatever else is in `tickers`.
+    #
+    # Deliberately independent of `snapshot_date`: the marks always come from the vendor
+    # NOW, so what makes them trustworthy is the wall clock, not the date we stamp.
+    if not force and not is_post_close():
+        raise OffHoursSnapshotError(
+            "Refusing to snapshot option chains before the close — vendor IV is stale "
+            "off-hours (≈2.1% vs ≈33% post-close) and this upsert would overwrite good "
+            "post-close rows. Re-run after 16:00 ET on a trading day, or pass --force "
+            "(testing only)."
+        )
+
     settings = get_settings()
     # Exchange time, not the container's UTC clock — see calendar.market_today().
     snapshot_date = snapshot_date or market_today()

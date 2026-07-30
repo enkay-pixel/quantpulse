@@ -272,14 +272,11 @@ def option_chains() -> dg.MaterializeResult:
     Only markets with `has_options` are snapshotted: no free JSE chain data exists from
     any vendor we can use, so this stays a US-only layer by necessity.
     """
-    from quantpulse.data.universe import active_tickers
+    from quantpulse.data.universe import options_tickers
     from quantpulse.options.ingest import snapshot_option_chains
 
-    tickers: list[str] = []
     with get_session() as session:
-        for code, ex in sorted(EXCHANGES.items()):
-            if ex.has_options:
-                tickers.extend(active_tickers(session, code))
+        tickers = options_tickers(session)
     if not tickers:
         return dg.MaterializeResult(metadata={"quotes": 0, "note": "no options-bearing market"})
     rows = snapshot_option_chains(get_session, tickers)  # commits per ticker
@@ -293,13 +290,13 @@ def option_snapshot_quality() -> dg.AssetCheckResult:
     import pandas as pd
 
     from quantpulse.data.quality import failed_checks
-    from quantpulse.data.universe import active_tickers
+    from quantpulse.data.universe import options_tickers
     from quantpulse.options.quality import run_option_quality_checks
 
     with get_session() as session:
-        n_tickers = sum(
-            len(active_tickers(session, code)) for code, ex in EXCHANGES.items() if ex.has_options
-        )
+        # Must match what the asset snapshots, or coverage is scored against the wrong
+        # denominator.
+        n_tickers = len(options_tickers(session))
     if not n_tickers:
         return dg.AssetCheckResult(passed=True, metadata={"note": "no options-bearing market"})
     quotes = pd.read_sql(
