@@ -81,6 +81,27 @@ Note: yfinance returns a *partial* bar for the current session during market hou
 intraday ingest stores a mid-session price. The scheduled post-close run upserts the true
 close over it — self-healing, no action needed.
 
+## Reclaiming Docker build cache
+
+```bash
+make prune-cache
+```
+
+Repeated `make build` accumulates BuildKit layer cache without bound — 20 GB over ten days
+of this project's rebuilds. This reclaims it while **keeping the uv wheel cache**
+(`type=exec.cachemount`, ~1 GB): that cache is what lets a rebuild resume downloads instead
+of restarting ~200 wheels, which is the difference between a 3-minute build and an
+all-night one on a bad connection.
+
+Scheduled weekly on the dev machine via a launchd agent
+(`~/Library/LaunchAgents/com.quantpulse.prune-cache.plist`, Sundays 03:00, logging to
+`~/Library/Logs/quantpulse-prune-cache.log`). Only the *schedule* lives there — it invokes
+this make target, so what gets pruned stays a code change. Disable with
+`launchctl bootout gui/$(id -u)/com.quantpulse.prune-cache`.
+
+The in-container `resource_report` deliberately cannot see any of this: it has no Docker
+socket by design, and monitors database growth instead.
+
 ## Checking whether costs would kill the strategy
 
 ```bash
