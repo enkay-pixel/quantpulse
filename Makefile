@@ -90,14 +90,11 @@ clean:  ## Remove caches
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov
 	find . -type d -name __pycache__ -not -path "./node_modules/*" -exec rm -rf {} +
 
-# Repeated `make build` accumulates BuildKit layer cache without bound — 20 GB over ten
-# days here. The uv wheel cache (type=exec.cachemount) is deliberately KEPT: it is what
-# lets a rebuild survive a flaky connection by resuming downloads instead of restarting
-# ~200 wheels, and it is ~1 GB against the ~19 GB of layer cache worth reclaiming.
 backup:  ## Snapshot the market database (options history + live record are unbackfillable)
 	./scripts/backup-market.sh
 
-prune-cache:  ## Reclaim Docker build cache, keeping the uv wheel cache
-	docker builder prune --force --filter "type!=exec.cachemount"
-	docker image prune --force
-	@docker system df
+# Gated on size: pruning costs the next build every layer step above the uv wheel cache,
+# and running it weekly against a ~3 GB cache bought nothing but a slower Monday. Override
+# the ceiling with PRUNE_CEILING_GB. Rationale in the script.
+prune-cache:  ## Reclaim Docker build cache, but only above PRUNE_CEILING_GB (default 12)
+	./scripts/prune-cache.sh
