@@ -14,12 +14,47 @@ set -uo pipefail
 RUNNING=$(docker ps --filter "name=quantpulse-" --format '{{.Names}}' 2>/dev/null | wc -l | tr -d ' ')
 EXPECTED=6
 problems=()
+caveats=()
 
 [ "$RUNNING" -lt "$EXPECTED" ] && problems+=("stack is down ($RUNNING/$EXPECTED containers)")
 pmset -g ps 2>/dev/null | head -1 | grep -q "AC Power" || problems+=("on battery")
 
+# A stack that is up is worth nothing if the Mac sleeps through the window, and only
+# SleepDisabled=1 actually prevents that. The assertions that keep it awake day to day —
+# "prevent sleep while display is on", Handoff, audio — all drop the moment the lid
+# closes, and the idle timer on battery here is one minute.
+#
+# Worth checking rather than assuming: on 2026-07-31 the setting was believed to be on and
+# was not. `pmset -a disablesleep 1` needs sudo and fails quietly without it, so the belief
+# and the state had diverged with nothing reporting the difference.
+sleep_disabled=$(pmset -g 2>/dev/null | awk '/SleepDisabled/ {print $2}')
+if [ "${sleep_disabled:-0}" != "1" ]; then
+    lid=$(ioreg -r -k AppleClamshellState 2>/dev/null |
+        awk -F'= ' '/AppleClamshellState/ {gsub(/ /, "", $2); print $2; exit}')
+    if [ "$lid" = "Yes" ]; then
+        problems+=("lid is closed and sleep is enabled — the Mac will sleep through the window")
+    else
+        # Open lid is holding it awake, so this is not a failure yet. But a bare "ready"
+        # invites the one action that breaks it, so state the contingency. Self-
+        # extinguishing: it stops once disablesleep is actually set.
+        caveats+=("sleep is enabled — keep the lid open, or run: sudo pmset -a disablesleep 1 (on AC)")
+    fi
+fi
+
 if [ ${#problems[@]} -eq 0 ]; then
-    printf '%s ready: %s containers, on AC\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$RUNNING"
+    line="ready: $RUNNING containers, on AC"
+    if [ ${#caveats[@]} -gt 0 ]; then
+        caveat="$(
+            IFS='; '
+            echo "${caveats[*]}"
+        )"
+        line="$line — CAVEAT: $caveat"
+        # Notified, unlike a plain ready: the log is read after the fact, and the whole
+        # point is to prompt before the window rather than explain afterwards.
+        osascript -e "display notification \"${caveat//\"/\'}\" \
+            with title \"QuantPulse: ready, but the Mac can still sleep\"" 2>/dev/null || true
+    fi
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$line"
     exit 0
 fi
 
