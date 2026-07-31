@@ -129,8 +129,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   time). Under EDT the 19:00 ET jobs are 23:00 UTC and the two agree; under EST they are
   00:00 UTC and naive UTC stamps rows with *tomorrow*, shifting options history by a day at
   the November DST change. Latent all summer, so tests pin both sides.
-- Docker CLI symlinks live in `/opt/homebrew/bin` (the `/usr/local/bin` ones point at a
-  dead DMG mount).
+- Docker CLI lives in `/opt/homebrew/bin`, symlinked into `/Applications/Docker.app`, so
+  anything running without a login shell — launchd jobs above all — must put that on PATH
+  or `docker` is simply not found. The duplicate `/usr/local/bin` copies pointing at an
+  unmounted `/Volumes/Docker` DMG were deleted 2026-07-31: dead since the app moved out of
+  its installer image, and unnoticed for months precisely because `/opt/homebrew/bin`
+  precedes them on PATH and a dangling symlink is not executable, so `which` skips it.
 - `pre-commit run gitleaks --all-files` is a **no-op that always passes** — the hook's entry
   is `gitleaks git --staged` with `pass_filenames: false`, so pre-commit's file list is
   discarded and an empty index scans nothing. Verify it with a real scan
