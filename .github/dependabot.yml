@@ -8,22 +8,31 @@ updates:
       python-deps:
         patterns: ["*"]
     ignore:
-      # Verified 2026-08-01 against the real resolver, not assumed — the weekly update
-      # job had been failing since at least 07-23 with dependency_file_not_resolvable on
-      # exactly these two, while the rest of the group still opened a PR. Both are blocked
-      # downstream of us, so an ignore silences a failure we cannot act on rather than
-      # hiding a decision we could:
+      # The weekly update job had been failing since at least 07-23 with
+      # dependency_file_not_resolvable on exactly these two, while the rest of the group
+      # still opened a PR. Both reproduce with `uv lock --upgrade-package <pkg>==<latest>`.
       #
-      #   pandas 3.x  — forcing it drags the resolver back to mlflow<=2.15.1, which caps
-      #                 pyarrow<16, via a yanked mlflow 3.1.2. The ecosystem has not caught
-      #                 up with pandas 3 yet; nothing here needs it.
-      #   dbt-core 1.12 — dagster-dbt pins dbt-core<1.10 through its latest published
-      #                 release, so no version of dagster-dbt accepts 1.12. Resolves itself
-      #                 when dagster-dbt widens that range.
+      #   dbt-core 1.12 — dagster-dbt caps dbt-core through its latest published release,
+      #                 and no published version accepts 1.12. Confirmed to bite at
+      #                 python 3.13 on darwin, i.e. the environment actually in use, not a
+      #                 hypothetical resolver split. Self-clearing when dagster-dbt widens
+      #                 its range. Note this is the SAME dependency that blocks python 3.14
+      #                 (see the docker ignore below) — dbt is the tightest constraint in
+      #                 this stack, from two directions at once.
       #
-      # Minor and patch updates for both still come through. Drop each rule once its
-      # blocker clears, and re-check by running `uv lock --upgrade-package <pkg>==<latest>`
-      # rather than trusting this comment.
+      #   pandas 3.x  — resolution fails; the cause is NOT established. An earlier version
+      #                 of this comment blamed the ecosystem not supporting pandas 3, which
+      #                 is wrong: nothing in uv.lock caps pandas below 3. Four constraint
+      #                 combinations were tried on 2026-08-01 — bounding requires-python to
+      #                 <3.15, to <3.14, restricting [tool.uv] environments to darwin+linux,
+      #                 and both together — and it stayed blocked in every one. The traces
+      #                 name mlflow version ranges without ever reaching a conclusion line.
+      #                 Treat this as "unexplained", not "understood": if you need pandas 3,
+      #                 the investigation starts fresh rather than from this comment.
+      #
+      # Minor and patch updates for both still come through. Nothing re-checks whether these
+      # blockers have cleared, so they will outlive their reason unless someone re-runs the
+      # command above.
       - dependency-name: "pandas"
         update-types: ["version-update:semver-major"]
       - dependency-name: "dbt-core"
