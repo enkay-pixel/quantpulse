@@ -7,6 +7,35 @@ updates:
     groups:
       python-deps:
         patterns: ["*"]
+    ignore:
+      # Verified 2026-08-01 against the real resolver, not assumed — the weekly update
+      # job had been failing since at least 07-23 with dependency_file_not_resolvable on
+      # exactly these two, while the rest of the group still opened a PR. Both are blocked
+      # downstream of us, so an ignore silences a failure we cannot act on rather than
+      # hiding a decision we could:
+      #
+      #   pandas 3.x  — forcing it drags the resolver back to mlflow<=2.15.1, which caps
+      #                 pyarrow<16, via a yanked mlflow 3.1.2. The ecosystem has not caught
+      #                 up with pandas 3 yet; nothing here needs it.
+      #   dbt-core 1.12 — dagster-dbt pins dbt-core<1.10 through its latest published
+      #                 release, so no version of dagster-dbt accepts 1.12. Resolves itself
+      #                 when dagster-dbt widens that range.
+      #
+      # Minor and patch updates for both still come through. Drop each rule once its
+      # blocker clears, and re-check by running `uv lock --upgrade-package <pkg>==<latest>`
+      # rather than trusting this comment.
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "dbt-core"
+        update-types: ["version-update:semver-major"]
+      # mypy is the one blocked HERE rather than downstream: it is exact-pinned to 1.19.1
+      # in [dev] so local checks run the same tool CI gates on, and Dependabot wanting 2.3.0
+      # against that pin is simply unsatisfiable. Ignoring the major keeps the pin honest —
+      # 1.19.x -> 1.20.x still arrives, because Dependabot rewrites an exact pin — while
+      # adopting mypy 2 becomes a deliberate act. That is the right shape for a major that
+      # typically surfaces new errors across the whole codebase at once.
+      - dependency-name: "mypy"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/web"
