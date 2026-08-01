@@ -79,21 +79,30 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
   and ≈36% during market hours, versus ≈2.1% pre-market. Snapshots must run when the
   market has been trading.
 
-## Current model & data snapshot (as of 2026-07-25)
+## Current model & data snapshot (as of 2026-08-01)
 
-- **Two markets.** NYSE: 50 tickers, 107,550 bars, 104,400 feature/prediction rows, 6,261
-  book snapshots (3 books), 137,001 option quotes over 5 snapshot days. JSE: 29 Top-40
-  tickers, 59,958 bars, 58,131 feature/prediction rows, 6,228 book snapshots, no options
-  (no free chain data). Both from 2018-01-02. Live track record: XNYS 4 days, XJSE 1.
+- **Two markets.** NYSE: 50 tickers, 107,800 bars, 104,650 feature/prediction rows, 6,276
+  book snapshots (3 books), 274,008 option quotes over 10 snapshot days. JSE: 29 Top-40
+  tickers, 60,103 bars, 58,276 feature/prediction rows, 6,243 book snapshots, no options
+  (no free chain data). Both from 2018-01-02. Live track record: XNYS 9 days (−0.09%),
+  XJSE 6 days (+0.02%) — both under the 20-day floor, so ratios stay withheld.
 - **Champions** (registered `quantpulse-lgbm-<exchange>`):
-  - XNYS v1 — holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the first scheduled
-    retrain, was auto-promoted on a mismatched exam and demoted the same day —
-    incident 24.)
-  - XJSE v3 — holdout IC 0.063, Sharpe 1.51, max DD −7.5%, promoted 2026-07-25 in a
-    like-for-like comparison against v2's 1.32. Both were measured under the pre-fix
-    evaluation, so the *relative* read is fair but neither is a clean OOS estimate.
-    (JSE v1 was auto-promoted at Sharpe −0.069 under a gate with no first-champion
-    floor, then demoted; see below.)
+  - XNYS v1 — promoted at holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the
+    first scheduled retrain, was auto-promoted on a mismatched exam and demoted the same
+    day — incident 24.)
+  - XJSE v3 — promoted at holdout IC 0.063, Sharpe 1.51, max DD −7.5%, on 2026-07-25 in a
+    like-for-like comparison against v2's 1.32.
+  - Those figures are **historical records of what each model was promoted on, not
+    comparable across models**. Both predate the fix, and the 2026-08-01 retrain showed
+    how far apart stored and current can drift: XNYS v1 re-scored **2.570** on that run's
+    311-day holdout against its stored 0.205. The gate no longer reads stored numbers.
+  - (JSE v1 was auto-promoted at Sharpe −0.069 under a gate with no first-champion floor,
+    then demoted; see below.)
+- **Retrains.** 2026-07-25: XJSE v3 promoted, XNYS candidate promoted-then-demoted
+  (incident 24). 2026-08-01, first under the corrected gate: **both challengers rejected**
+  — XNYS 1.595 vs incumbent re-scored at 2.570, XJSE 1.326 vs 1.786. The old gate would
+  have promoted the XNYS challenger against the stored 0.205, repeating the previous
+  week's error; instead it was rejected silently and correctly.
 - **Books** (in-sample replay, daily/horizon/long-only): XNYS 7.7%·0.73 / 14.3%·1.30 /
   34.6%·1.16; XJSE 21.8%·1.94 / 34.8%·2.94 / 41.9%·1.41. All carry survivorship + in-sample
   bias; the live phase is the number to judge.
@@ -199,6 +208,10 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     split, every model_runs row records its holdout window, and `/models/current`
     demotion fallback became version-aware. The 2025 momentum regime itself is a real
     finding — the cleanest case yet for judging on live record, not replay.
+    **Validated 2026-08-01**: the next retrain met the same conditions and the gate
+    absorbed them without incident — XNYS v1 re-scored 2.570 against its stored 0.205, so
+    the challenger's 1.595 was rejected where the old gate would have read it as a
+    landslide win. The fix is confirmed in production, not only in tests.
 25. **Failure alerts were written where nothing could read them (2026-07-28)**: a degraded
     yfinance failed the XNYS ingest twice overnight; the run-failure sensor recorded both
     perfectly — into `$DAGSTER_HOME/alerts.jsonl` inside the *daemon's* container. The API

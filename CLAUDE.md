@@ -38,8 +38,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   walk-forward CV, Optuna(15), promotion gate = holdout Sharpe ≥ champion+0.05,
   IC ≥ 0, DD > −35%, and a **first** champion must clear `min_first_sharpe` (0.0) —
   without it a model that lost money out-of-sample becomes the dashboard's champion.
-  Champions: XNYS v1 (IC 0.026 / Sharpe 0.21), XJSE v3 (IC 0.063 / Sharpe 1.51,
-  pre-fix evaluation — fair vs v2's 1.32, not a clean OOS number).
+  Champions: XNYS v1 (IC 0.026 / Sharpe 0.21), XJSE v3 (IC 0.063 / Sharpe 1.51). Those are
+  **what each was promoted on, not comparable across models** — both predate the gate fix,
+  and on 2026-08-01 XNYS v1 re-scored 2.570 on that run's holdout against its stored 0.205.
+  Never compare a stored Sharpe to a fresh one; the gate re-scores instead.
 - Quantile width is per-market, set from breadth so books hold a comparable NUMBER of
   positions: 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. The
   promotion gate backtests at the market's own width, or it judges a book nobody runs.

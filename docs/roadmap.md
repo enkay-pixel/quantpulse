@@ -37,31 +37,46 @@ give investment advice, and the disclaimer stays.
 database that runs a real `dbt build` + 10 Dagster), 59 Vitest, 63 dbt tests (59 data +
 4 unit), plus mypy / ruff / eslint / tsc / compose validation — all enforced in CI.
 
-## Current state (2026-07-25)
+## Current state (2026-08-01)
 
 Two markets, each with its own champion, books and evidence. **Every performance figure
 below is in-sample replay** — the live phase begins at each champion's promotion and is the
-only number worth judging. Live so far: XNYS 4 days, XJSE 1 day (books trail prices by one
-session by construction).
-
-The **first scheduled retrain ran 2026-07-25**. Outcome: XJSE v3 promoted in a like-for-like
-comparison against v2; the XNYS candidate was auto-promoted on a mismatched exam and
-**demoted the same day** — see incident 24 and the resolved gate section below. Since that
-fix, the gate re-scores the incumbent on the candidate's exact holdout, so stored metrics
-can never silently go stale again.
+only number worth judging. Live so far: XNYS 9 days (−0.09%), XJSE 6 days (+0.02%); both
+still under the 20-day floor, so the marts correctly withhold every ratio. Books trail
+prices by one session by construction.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
 | Universe | 50 tickers | 29 (Top 40 with usable history) |
-| Price bars (from 2018) | 107,550 | 59,958 |
+| Price bars (from 2018) | 107,800 | 60,103 |
 | Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
 | Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
-| Options | 137,001 quotes, 5 snapshot days | none (no free JSE chain data) |
+| Options | 274,008 quotes, 10 snapshot days | none (no free JSE chain data) |
 
-XJSE v3's absolute numbers were measured under the pre-fix evaluation (early stopping on
-the holdout), the same way v2's 1.32 was — so 1.51-vs-1.32 is a fair *relative* read, but
-neither is a clean out-of-sample estimate. The next retrain re-scores every model under the
-honest procedure.
+Those champion Sharpes are the numbers each model was *promoted* on, and they are not
+comparable across models — see the retrain log below for why. Both were measured under the
+pre-fix evaluation (early stopping on the promotion holdout), so neither is a clean
+out-of-sample estimate.
+
+### Retrain log
+
+| Date | XNYS | XJSE |
+|---|---|---|
+| 2026-07-25 | candidate promoted on a mismatched exam, **demoted same day** (incident 24) | v3 promoted, like-for-like vs v2 |
+| 2026-08-01 | v3 rejected — 1.595 vs incumbent **2.570** | v4 rejected — 1.326 vs incumbent **1.786** |
+
+The 2026-08-01 run is the first under the corrected gate, and it is worth reading closely
+because it demonstrates the failure it was built to prevent. Those incumbent figures appear
+nowhere in the database: they were computed at decision time by re-scoring each champion on
+its challenger's exact 311-day holdout. XNYS v1's **stored** Sharpe is 0.205, from a
+131-day window; re-examined on the longer window it scores **2.570**. Same model, same
+code, different exam, a 12× difference in apparent skill.
+
+So the old gate would have compared the challenger's 1.595 against a stored 0.205, declared
+a landslide, and promoted a model that is in fact substantially worse — repeating the
+previous week's error exactly. The new gate rejected both challengers without drama. One
+retrain is not a trend, and rejection may or may not turn out to be the normal outcome, but
+the mechanism is now demonstrated in production rather than only in tests.
 
 **Replay book performance** (daily / horizon / long-only), in-sample:
 
@@ -270,6 +285,14 @@ exact holdout under current code** at decision time — stored metrics are never
 split so the holdout stays untouched, and every `model_runs` row records its holdout
 window (`holdout_start/end/days`), so a moved exam is visible in the audit trail rather
 than archaeology.
+
+**Confirmed in production 2026-08-01.** The next retrain hit the same conditions and the
+gate handled them silently: XNYS v1 scored **2.570** re-examined on the challenger's
+311-day holdout against its stored **0.205**, so the challenger's 1.595 — which the old
+gate would have read as a landslide win over 0.205 — was correctly rejected. The
+comparison the gate makes is now internally consistent by construction; the stored number
+remains a historical record of what a model was promoted on, not a figure to compare
+against.
 
 ## JSE: what the first champion cost to establish
 
