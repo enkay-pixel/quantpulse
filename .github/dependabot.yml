@@ -35,16 +35,30 @@ updates:
       # command above.
       - dependency-name: "pandas"
         update-types: ["version-update:semver-major"]
+      # MINOR as well as major: 1.11.12 -> 1.12.0 moves the minor component, so a
+      # major-only rule never matched it and the update job kept failing for a day after
+      # the rule was added. Patches within 1.11.x still come through, which is what we
+      # want — dagster-dbt's cap is on the minor, not on bug fixes.
       - dependency-name: "dbt-core"
-        update-types: ["version-update:semver-major"]
-      # mypy is the one blocked HERE rather than downstream: it is exact-pinned to 1.19.1
-      # in [dev] so local checks run the same tool CI gates on, and Dependabot wanting 2.3.0
-      # against that pin is simply unsatisfiable. Ignoring the major keeps the pin honest —
-      # 1.19.x -> 1.20.x still arrives, because Dependabot rewrites an exact pin — while
-      # adopting mypy 2 becomes a deliberate act. That is the right shape for a major that
-      # typically surfaces new errors across the whole codebase at once.
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+      # mypy is ignored ENTIRELY, not by update-type, and the earlier attempt to ignore only
+      # its major was wrong. The major ignore did suppress 2.3.0 — and Dependabot simply fell
+      # back to the highest allowed 1.x (1.20.0), which fails the same way:
+      #
+      #   Because quantpulse[dev] depends on mypy==1.19.1 and mypy==1.20.0,
+      #   quantpulse[dev]'s requirements are unsatisfiable.
+      #
+      # That is the exact pin refusing ANY bump, not just majors, so no update-type filter
+      # can help — each one only moves the failure down a version. The assumption in the
+      # previous comment, that "Dependabot rewrites an exact pin", does not hold here.
+      #
+      # The pin is deliberate (local `make lint`/`make type` must run the tool CI gates on),
+      # so the pin stays and the automation goes. Cost: mypy never gets an update PR, and
+      # bumping it is a manual act — edit the pin, run `uv lock`, run the QA loop. That is
+      # the honest trade for an exact pin, and worth doing periodically rather than never.
       - dependency-name: "mypy"
-        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/web"
