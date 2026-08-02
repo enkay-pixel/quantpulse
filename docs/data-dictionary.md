@@ -52,7 +52,7 @@ any sample size.
 | `stg_*` (views) | 1:1 with raw | Typed, renamed staging; `stg_predictions` dedupes to newest model version; `stg_portfolio_snapshots` pins `variant = 'daily'` but keeps every market |
 | `fct_daily_returns` | (ticker, exchange, date) | Simple returns + 21-day rolling volatility/mean |
 | `fct_signal_performance` | (date, exchange, signal_quintile) | Next-day realized return per signal quintile (1 = strongest), ranked **within each market** — model-skill readout |
-| `fct_portfolio_daily` | (date, exchange) | Portfolio with cumulative return, running drawdown, rolling 63d Sharpe, and evidence `phase` (replay/live), all partitioned per market |
+| `fct_portfolio_daily` | (date, exchange) | Portfolio with cumulative return, running drawdown, rolling 63d Sharpe, and evidence `phase`, all partitioned per market. **Three phases**: `replay` (before the first promotion), `backfilled` (a day scored by a champion promoted *after* it — in-sample, so excluded from the live record), `live` (genuinely out-of-sample) |
 | `fct_portfolio_vs_benchmark` | (date, exchange) | Strategy equity vs that market's benchmark (SPY / STX40.JO) indexed to the portfolio's first date |
 | `fct_track_record` | (exchange, phase) | Per-phase performance summary — the `live` row is the honest out-of-sample record |
 | `dim_universe` | ticker | Members with exchange and price-coverage metadata |

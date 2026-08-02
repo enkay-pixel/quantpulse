@@ -46,8 +46,9 @@ models:
             combination_of_columns: [date, exchange]
     description: >
       Paper portfolio with cumulative return, running drawdown, rolling Sharpe, and
-      the evidence phase: 'replay' before the first champion promotion (in-sample),
-      'live' after (true out-of-sample).
+      the evidence phase: 'replay' before the first champion promotion, 'backfilled'
+      for a day scored by a champion promoted after it, 'live' for the rest. Only
+      'live' is out-of-sample; the other two are in-sample for different reasons.
     columns:
       - name: date
         tests: [not_null]
@@ -60,11 +61,15 @@ models:
               arguments:
                 expression: "<= 0.0000001"
       - name: phase
+        description: >
+          'backfilled' catches a gap filled after a later promotion — the scoring model
+          was trained on that day, so counting it as live would flatter the record with
+          in-sample results and nothing about the date would reveal it.
         tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ["replay", "live"]
+                values: ["replay", "backfilled", "live"]
 
   - name: fct_portfolio_vs_benchmark
     tests:
@@ -93,14 +98,17 @@ models:
             combination_of_columns: [exchange, phase]
     description: >
       Per-phase performance summary. The 'live' row is the strategy's honest
-      out-of-sample record; the 'replay' row is labeled in-sample history.
+      out-of-sample record; 'replay' is labeled in-sample history, and 'backfilled'
+      (if present) is days scored retrospectively by a later champion — also in-sample,
+      and kept as its own row rather than folded into either neighbour so that an
+      outage is visible instead of quietly inflating the record.
     columns:
       - name: phase
         tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ["replay", "live"]
+                values: ["replay", "backfilled", "live"]
       - name: n_days
         tests: [not_null]
       - name: win_rate
@@ -118,14 +126,15 @@ models:
       CAPM decomposition vs SPY per evidence phase: beta (market exposure — a
       market-neutral book should sit near 0), annualized alpha (return earned
       independently of the market), R², tracking error, and information ratio. This is
-      the fair read on a long/short strategy; raw return vs SPY is not.
+      the fair read on a long/short strategy; raw return vs SPY is not. Phases carry the
+      same meaning as in fct_portfolio_daily — only 'live' is out-of-sample.
     columns:
       - name: phase
         tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ["replay", "live"]
+                values: ["replay", "backfilled", "live"]
       - name: n_days
         tests: [not_null]
 

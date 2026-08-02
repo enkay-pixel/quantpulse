@@ -113,6 +113,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   a throwaway date only. The gate used to live only in the repair sensor, which left the
   CLI and manual Dagster materializes free to corrupt a day. Don't push it back up into
   the callers: a rule each scheduling path must remember is one a new path won't.
+- An outage longer than the scoring floor widens the window back to the last scored date
+  (`scoring_window_start`), so a trip doesn't leave permanent holes. Safe only because
+  `fct_portfolio_daily` marks a day scored by a champion promoted **after** it as
+  `backfilled`, not `live` — otherwise a long catch-up files in-sample predictions as
+  out-of-sample evidence, and nothing about the date reveals it.
 - Scoring fills **every unscored feature date** in a 30-day window, not just the newest —
   a late/rescued ingest is never the max again, so it would go unscored forever (incident
   26). Never re-score a date an earlier champion already scored: the marts take the newest

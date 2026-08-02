@@ -159,6 +159,44 @@ def dates_with_predictions(engine: Engine, exchange: str, since: dt.date) -> set
     return {row.date for row in rows}
 
 
+def last_scored_date(engine: Engine, exchange: str) -> dt.date | None:
+    """Newest date this market has any prediction for; None on a fresh database."""
+    with engine.connect() as conn:
+        return conn.execute(
+            text(
+                "SELECT max(p.date) FROM predictions p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex"
+            ),
+            {"ex": exchange},
+        ).scalar()
+
+
+def scoring_window_start(engine: Engine, exchange: str, latest_feature_date: dt.date) -> dt.date:
+    """Where scoring starts looking for gaps: far enough back to cover the whole outage.
+
+    A fixed 30-day floor covers ordinary operation, but the laptop this runs on gets shut
+    down for travel, and an absence longer than the floor would leave the oldest sessions
+    permanently unscored — silently, exactly like incident 26 but at the scale of the trip.
+    So the window also stretches back to the last date that has any prediction: whatever
+    accumulated during the gap gets filled on return.
+
+    Reaching back is only safe because `fct_portfolio_daily` marks days scored by a
+    champion promoted after them as **backfilled** rather than live. Without that, a long
+    catch-up would quietly file in-sample predictions as out-of-sample evidence.
+    """
+    floor = latest_feature_date - dt.timedelta(days=SCORING_LOOKBACK_DAYS)
+    last = last_scored_date(engine, exchange)
+    if last is None or last >= floor:
+        return floor
+    logger.info(
+        "%s: last scored %s, %d days before the usual floor — widening the scoring window",
+        exchange,
+        last,
+        (floor - last).days,
+    )
+    return last
+
+
 def score_latest(
     engine: Engine,
     session: Session,
@@ -195,7 +233,7 @@ def score_latest(
         return 0
 
     latest_date = features["date"].max()
-    window_start = latest_date - dt.timedelta(days=SCORING_LOOKBACK_DAYS)
+    window_start = scoring_window_start(engine, exchange, latest_date)
     recent = features[features["date"] >= window_start]
     pending = (set(recent["date"]) - dates_with_predictions(engine, exchange, window_start)) | {
         latest_date

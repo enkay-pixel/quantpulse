@@ -205,3 +205,34 @@ def test_the_check_catches_a_hole_that_the_maxima_hide(
     assert result.metadata["XNYS/unscored_days"].value == 1
     assert result.metadata["XNYS/lag_days"].value == 0  # lag alone would have said "fine"
     assert str(LATE) in str(result.metadata["stale"].value)
+
+
+def test_the_window_widens_to_cover_a_long_outage(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shutdown longer than the fixed floor must not strand the oldest sessions.
+
+    With a 2-day floor, 07-23 and 07-24 sit outside it. They are still unscored, so the
+    window has to stretch back past the floor to reach them — otherwise a fortnight away
+    means a fortnight permanently missing from the books.
+    """
+    monkeypatch.setattr(pipeline, "SCORING_LOOKBACK_DAYS", 2)
+    with Session(seeded) as session:  # one old date scored: the pre-outage state
+        pipeline.score_latest(seeded, session, asof=DATES[0], exchange="XNYS")
+        session.commit()
+
+    with Session(seeded) as session:  # ...then the machine comes back days later
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+
+    assert set(_scored(seeded)) == set(DATES), "the whole outage must be filled, not the tail"
+
+
+def test_a_fresh_database_falls_back_to_the_floor(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing scored yet is bootstrap territory (`score --replay`), not an outage."""
+    monkeypatch.setattr(pipeline, "SCORING_LOOKBACK_DAYS", 2)
+    assert pipeline.last_scored_date(seeded, "XNYS") is None
+    start = pipeline.scoring_window_start(seeded, "XNYS", DATES[3])
+    assert start == DATES[3] - dt.timedelta(days=2)
