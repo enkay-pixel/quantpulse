@@ -14,7 +14,17 @@
 # no-op that says so.
 set -uo pipefail
 
-CEILING_GB="${PRUNE_CEILING_GB:-12}"
+# Lowered from 12 on 2026-08-02. The ceiling is not really about the cache — it is about
+# Docker.raw, the VM disk image, which grows monotonically and NEVER shrinks on macOS.
+# Pruning frees space inside the VM and reclaims nothing on the host, so this cannot recover
+# disk; it can only stop the file getting permanently larger. Measured that day: one full
+# `make build` took the cache 3.15 -> 8.53 GB and Docker.raw 11.6 -> 14.5 GB, and the 2.9 GB
+# on the host is now unrecoverable short of deleting the VM.
+#
+# 10 rather than lower: at 8.53 GB a full rebuild's cache sits just under it, so the next
+# build still starts warm. Setting it below the resting size would prune a cache that is
+# doing its job and buy nothing on the host — the worst of both.
+CEILING_GB="${PRUNE_CEILING_GB:-10}"
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
