@@ -26,7 +26,7 @@ from quantpulse.features.store import load_features, load_price_bars
 from quantpulse.ml import registry
 from quantpulse.ml.backtest import BacktestConfig, run_backtest
 from quantpulse.ml.metrics import information_coefficient
-from quantpulse.ml.promotion import decide_promotion
+from quantpulse.ml.promotion import PromotionPolicy, decide_promotion
 from quantpulse.ml.training import TrainConfig, train_final_model, tune_hyperparameters
 from quantpulse.utils import chunked
 
@@ -108,7 +108,10 @@ def train_evaluate_promote(
             incumbent_metrics["holdout_sharpe"],
             incumbent_metrics["holdout_ic"],
         )
-    decision = decide_promotion(candidate_metrics, incumbent_metrics)
+    # The IC margin is per-market: a thinner cross-section re-rolls wider, so the JSE needs
+    # a larger difference before it means anything (see Exchange.ic_promotion_margin).
+    policy = PromotionPolicy(min_ic_improvement=get_exchange(exchange).ic_promotion_margin)
+    decision = decide_promotion(candidate_metrics, incumbent_metrics, policy)
     if decision.promote:
         registry.promote(version.version, exchange=exchange)
 

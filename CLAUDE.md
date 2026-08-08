@@ -35,9 +35,14 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - `web/`: React dashboard · `docker/`: images · `alembic/`: migrations ·
   `tests/`: unit / integration (disposable market_test DB, real dbt build) / dagster
 - Model: LightGBM on 13 technical+cross-sectional features, 21d horizon, purged
-  walk-forward CV, Optuna(15), promotion gate = holdout Sharpe ≥ champion+0.05,
-  IC ≥ 0, DD > −35%, and a **first** champion must clear `min_first_sharpe` (0.0) —
-  without it a model that lost money out-of-sample becomes the dashboard's champion.
+  walk-forward CV, Optuna(15). Promotion gate compares **IC**, not Sharpe: holdout IC ≥
+  champion + a per-market margin (`Exchange.ic_promotion_margin`, 2 sd of a measured seed
+  re-roll), IC ≥ 0, DD > −35%, Sharpe kept only as a wide veto (`max_sharpe_regression`
+  0.50) applied **after** IC decides. A **first** champion must clear `min_first_sharpe`
+  (0.0) — without it a model that lost money out-of-sample becomes the dashboard's
+  champion. Why IC: refitting one spec with only the seed changed moves Sharpe by sd
+  0.12–0.24 and moves it ~2.0 across six-month windows, while IC moves by 0.003–0.004.
+  The old 0.05 Sharpe margin sat 5–10× **below** its own noise floor.
   Champions: XNYS v1 (IC 0.026 / Sharpe 0.21), XJSE v3 (IC 0.063 / Sharpe 1.51). Those are
   **what each was promoted on, not comparable across models** — both predate the gate fix,
   and on 2026-08-01 XNYS v1 re-scored 2.570 on that run's holdout against its stored 0.205.

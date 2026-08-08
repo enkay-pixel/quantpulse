@@ -294,6 +294,46 @@ comparison the gate makes is now internally consistent by construction; the stor
 remains a historical record of what a model was promoted on, not a figure to compare
 against.
 
+## Measured: the gate's metric was noisier than its own decision margin
+
+Four challengers were rejected across the 2026-08-01 and 08-08 retrains. Rather than
+assume that meant they were worse, the noise was measured — refit one specification
+changing only the RNG, and score one fixed model across different windows.
+
+| | Sharpe | IC |
+|---|---|---|
+| **XNYS** seed re-roll (12 fits) | 1.565 ± **0.119** (spread 0.38) | 0.083 ± **0.003** |
+| **XJSE** seed re-roll (12 fits) | 1.808 ± **0.235** (spread 0.87) | 0.067 ± **0.004** |
+| One fixed model, 6-month windows | sd ≈ **2.0**, range 0.6 → 5.9 | — |
+
+The old gate required a challenger to beat the champion's Sharpe by **0.05**, five to ten
+times *below* the noise of simply re-rolling the seed — and ~40× below the window noise.
+Decisions inside that band were coin flips wearing a number. IC is 2–2.4× more stable in
+relative terms (3.6% vs 7.6% on XNYS), which is unsurprising: Sharpe divides by a
+volatility estimate and inherits noise from both parts, then gets amplified by regime.
+
+So **the gate now compares IC** with a per-market margin set at 2 sd of the measured
+re-roll (0.006 XNYS, 0.008 XJSE), and Sharpe is demoted to a wide veto that may overrule a
+promotion but never cause one. Replayed over both retrains, no decision changes — but the
+*reasons* do, and one is instructive: on 08-01 the JSE candidate's IC was genuinely
+**higher** (+0.0042), and the margin correctly refused it as smaller than a re-roll.
+
+Two related findings from the same investigation, both recorded because they overturn
+plausible-sounding intuitions:
+
+- **Early stopping on RMSE is a no-op.** Validation RMSE never improves on 21-day forward
+  returns — it drifts *worse* from round 1 — so the fit stops after 1–6 trees every time.
+  It costs nothing (holdout results are flat from 6 to 800 trees) but it is not the tuned
+  stopping rule it appears to be.
+- **More history helps; the incumbent's edge is not contamination.** Restricting training
+  to 2023+ scored 0.807 against 1.787 for the full panel. And the incumbent's advantage
+  sits entirely in the window it never early-stopped against (+1.39) rather than the
+  overlapping one (−0.31) — the opposite of the leak that was suspected.
+
+**Caveat**: these numbers come from a holdout inside the 2025 momentum-rich stretch, which
+inflates Sharpe. Re-measure with the variance study when the panel or evaluation code
+changes materially, rather than treating the margins as permanent.
+
 ## JSE: what the first champion cost to establish
 
 The first JSE candidate was promoted at holdout Sharpe **-0.069** — a model that lost

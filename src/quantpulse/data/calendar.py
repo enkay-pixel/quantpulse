@@ -32,6 +32,13 @@ class Exchange:
     # 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. A thin market
     # sliced at 20% would hold 6, roughly doubling per-position idiosyncratic risk.
     quantile_width: float = 0.2
+    # How much better a challenger's IC must be to count as better rather than luckier.
+    # Measured, not chosen: refit the same specification with only the RNG changed and the
+    # holdout IC moves with sd ~0.003 (XNYS) / ~0.004 (XJSE); this is 2 sd. Sharpe is far
+    # noisier (sd 0.12 / 0.24 on the same experiment, and ~2.0 across six-month windows),
+    # which is why the gate compares IC and keeps Sharpe only as a floor. Re-measure with
+    # the variance study when the panel or the evaluation code changes materially.
+    ic_promotion_margin: float = 0.006
 
     @property
     def tz(self) -> ZoneInfo:
@@ -57,6 +64,7 @@ XJSE = Exchange(
     display_divisor=100.0,
     display_symbol="R",
     quantile_width=0.35,  # 29 names -> ~10 per side, matching XNYS
+    ic_promotion_margin=0.008,  # 2 sd; a thinner cross-section re-rolls wider than XNYS
 )
 
 EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE)}

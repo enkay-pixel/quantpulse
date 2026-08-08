@@ -106,8 +106,11 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
 - **Books** (in-sample replay, daily/horizon/long-only): XNYS 7.7%·0.73 / 14.3%·1.30 /
   34.6%·1.16; XJSE 21.8%·1.94 / 34.8%·2.94 / 41.9%·1.41. All carry survivorship + in-sample
   bias; the live phase is the number to judge.
-- Promotion policy (`ml/promotion.py`): candidate needs holdout Sharpe ≥ champion+0.05,
-  IC ≥ 0, drawdown better than −35%; a **first** champion must also clear
+- Promotion policy (`ml/promotion.py`): the comparison runs on **IC**, not Sharpe.
+  Candidate needs holdout IC ≥ champion + a per-market margin (2 sd of the measured seed
+  re-roll: 0.006 XNYS, 0.008 XJSE), IC ≥ 0, drawdown better than −35%; Sharpe survives
+  only as a wide veto (`max_sharpe_regression` 0.50) checked **after** IC decides, so it
+  can overrule a promotion but never make one. A **first** champion must also clear
   `min_first_sharpe` (0.0); NaN never promotes. The gate backtests at the market's own
   quantile width, and **re-scores the incumbent on the candidate's exact holdout** at
   decision time — stored metrics are never consulted (incident 24).

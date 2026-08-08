@@ -14,9 +14,30 @@ DRAWDOWN = "holdout_max_drawdown"
 
 @dataclass(frozen=True)
 class PromotionPolicy:
-    min_sharpe_improvement: float = 0.05  # challenger must beat champion by this margin
+    """What it takes to replace a champion.
+
+    The comparison runs on **information coefficient**, not Sharpe. That is a measurement
+    decision rather than a modelling one: refitting an identical specification with only
+    the RNG changed moves holdout Sharpe by sd 0.12 (XNYS) and 0.24 (XJSE), and scoring one
+    fixed model across six-month windows moves it by sd ~2.0 — while IC moves by 0.003 and
+    0.004. The old gate compared Sharpe with a 0.05 margin, five to ten times *below* its
+    own noise floor, so decisions inside that band were coin flips wearing a number.
+
+    Sharpe is kept as a **veto, not a comparison**. A model can rank better while building
+    a worse book, and `max_sharpe_regression` catches that — but the tolerance is wide on
+    purpose. Sharpe cannot support a fine comparison, so it is only allowed to object when
+    the drop is far larger than the noise that produced it.
+    """
+
+    #: Per-market IC margin (2 sd of the seed re-roll) lives on the Exchange registry;
+    #: this is the fallback when a caller does not supply one.
+    min_ic_improvement: float = 0.006
     max_drawdown_floor: float = -0.35  # reject anything with worse drawdown than this
     min_ic: float = 0.0  # reject negative-IC models outright
+    # How far Sharpe may fall while IC improves. Roughly 2 sd of the seed re-roll, rounded
+    # up: below this a "regression" is indistinguishable from reshuffling the RNG, so
+    # objecting to it would just reintroduce the noise this gate was rewritten to escape.
+    max_sharpe_regression: float = 0.50
     # A first champion has nothing to beat, so "better than the incumbent" cannot gate it.
     # It still has to be worth acting on: a model that lost money on data it never saw
     # must not become the signal a dashboard presents as its champion's view.
@@ -57,16 +78,35 @@ def decide_promotion(
             )
         return PromotionDecision(True, "no champion exists — promoting first viable model")
 
-    champ_sharpe = champion.get(SHARPE, float("nan"))
-    if math.isnan(champ_sharpe):
-        return PromotionDecision(True, "champion has no comparable Sharpe — promoting candidate")
-    required = champ_sharpe + p.min_sharpe_improvement
-    if cand_sharpe >= required:
+    # IC decides. The Sharpe veto is applied *after*, and only to a candidate that would
+    # otherwise be promoted — a veto that runs first is not a veto, it is the primary test,
+    # and it would quietly restore Sharpe as the decider this gate was rewritten to demote.
+    champ_ic = champion.get(IC, float("nan"))
+    if math.isnan(champ_ic):
+        return PromotionDecision(True, "champion has no comparable IC — promoting candidate")
+    if math.isnan(cand_ic):
+        return PromotionDecision(False, "candidate IC is NaN")
+
+    required = champ_ic + p.min_ic_improvement
+    if cand_ic < required:
         return PromotionDecision(
-            True, f"candidate Sharpe {cand_sharpe:.3f} beats champion {champ_sharpe:.3f} + margin"
+            False,
+            f"candidate IC {cand_ic:.4f} does not beat champion {champ_ic:.4f} "
+            f"+ margin {p.min_ic_improvement:.4f}",
+        )
+
+    # Ranking better while the book gets materially worse is not an upgrade. Wide on
+    # purpose: only a collapse far beyond the metric's own noise may overrule IC.
+    champ_sharpe = champion.get(SHARPE, float("nan"))
+    if not math.isnan(champ_sharpe) and cand_sharpe < champ_sharpe - p.max_sharpe_regression:
+        return PromotionDecision(
+            False,
+            f"candidate IC {cand_ic:.4f} beats champion {champ_ic:.4f}, but Sharpe "
+            f"{cand_sharpe:.3f} falls more than {p.max_sharpe_regression:.2f} below "
+            f"{champ_sharpe:.3f} — better ranking, materially worse book",
         )
     return PromotionDecision(
-        False,
-        f"candidate Sharpe {cand_sharpe:.3f} does not beat champion {champ_sharpe:.3f} "
-        f"+ margin {p.min_sharpe_improvement}",
+        True,
+        f"candidate IC {cand_ic:.4f} beats champion {champ_ic:.4f} "
+        f"+ margin {p.min_ic_improvement:.4f}",
     )
