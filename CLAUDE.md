@@ -147,6 +147,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   unmounted `/Volumes/Docker` DMG were deleted 2026-07-31: dead since the app moved out of
   its installer image, and unnoticed for months precisely because `/opt/homebrew/bin`
   precedes them on PATH and a dangling symlink is not executable, so `which` skips it.
+  Note what the surviving links point *into*: `Docker.app/Contents/Resources/bin/`. That is
+  inside the app bundle, so a Docker Desktop upgrade that moves or renames that directory
+  breaks `docker`, `docker-credential-osxkeychain` and `hub-tool` for all 17 launchd jobs
+  at once — and silently, since nothing runs `which docker` after an upgrade. Re-check with
+  `readlink -f /opt/homebrew/bin/docker` after upgrading; relevant now, with 4.45.0
+  installed against a current 4.85.0.
 - `pre-commit run gitleaks --all-files` is a **no-op that always passes** — the hook's entry
   is `gitleaks git --staged` with `pass_filenames: false`, so pre-commit's file list is
   discarded and an empty index scans nothing. Verify it with a real scan
