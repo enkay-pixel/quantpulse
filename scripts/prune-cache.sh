@@ -14,16 +14,28 @@
 # no-op that says so.
 set -uo pipefail
 
-# Lowered from 12 on 2026-08-02. The ceiling is not really about the cache — it is about
-# Docker.raw, the VM disk image, which grows monotonically and NEVER shrinks on macOS.
-# Pruning frees space inside the VM and reclaims nothing on the host, so this cannot recover
-# disk; it can only stop the file getting permanently larger. Measured that day: one full
-# `make build` took the cache 3.15 -> 8.53 GB and Docker.raw 11.6 -> 14.5 GB, and the 2.9 GB
-# on the host is now unrecoverable short of deleting the VM.
+# Lowered from 12 on 2026-08-02. This comment claimed until 2026-08-09 that Docker.raw grows
+# monotonically and NEVER shrinks on macOS, so pruning could not recover host disk and could
+# only stop the file getting permanently larger. That was true of Docker Desktop 4.45 and is
+# no longer true. Both measurements stand; the version changed underneath them:
 #
-# 10 rather than lower: at 8.53 GB a full rebuild's cache sits just under it, so the next
-# build still starts warm. Setting it below the resting size would prune a cache that is
-# doing its job and buy nothing on the host — the worst of both.
+#   4.45  fstrim inside the VM freed 114 MiB in-VM and 0 MB on the host. One `make build`
+#         took Docker.raw 11.6 -> 14.5 GB and the 2.9 GB never came back.
+#   4.85  this script reclaimed 7.01 GB of build cache and Docker.raw fell 16,661 -> 9,976 MB
+#         (du, stable on re-measure; apparent size is ~471 GB and always was — sparse).
+#         Host free went 291 -> 297 GB.
+#
+# The visible difference is the storage driver: 4.85 with engine 29.6.2 reports overlayfs on
+# io.containerd.snapshotter.v1, where 4.45 used overlay2. That discards now reach the host
+# sparse file is the obvious reading and it matches the numbers, but it was NOT verified
+# directly — treat the mechanism as inferred and the reclaim itself as measured. There is no
+# `docker desktop disk` command in 4.85 either; the space came back as a side effect of the
+# ordinary prune, not from anything asked for.
+#
+# The ceiling stays at 10 even though pruning now pays back on the host, because the cost
+# side is unchanged: at 8.53 GB a full rebuild's cache sits just under it, so the next build
+# still starts warm. Lowering it would prune a cache that is doing its job to reclaim space
+# on a disk with 297 GB free. The premise moved; the number it implies did not.
 CEILING_GB="${PRUNE_CEILING_GB:-10}"
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
