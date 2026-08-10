@@ -28,3 +28,12 @@ repos:
     rev: 0.11.29
     hooks:
       - id: uv-lock
+
+  # Rules and their justifications live in .markdownlint.yaml — the defaults disagree with
+  # conventions this project already chose (100-char prose to match ruff, the README's
+  # <details> block), and without that config the tool reports ~830 problems, which is the
+  # same as reporting none.
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.2
+    hooks:
+      - id: markdownlint-cli2

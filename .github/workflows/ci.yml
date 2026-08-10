@@ -92,6 +92,37 @@ jobs:
       - name: Validate compose file
         run: docker compose config -q
 
+  # The docs are the deliverable here as much as the code — a broken table renders as
+  # literal pipes on GitHub, which is how the data-dictionary shipped a split table for
+  # two weeks without anyone noticing.
+  markdown:
+    runs-on: ubuntu-latest
+    env:
+      # Keep in lockstep with the markdownlint-cli2 rev in .pre-commit-config.yaml; the
+      # guard below fails the build on drift, so the hook and CI cannot disagree about
+      # what counts as valid markdown.
+      MARKDOWNLINT_VERSION: v0.23.2
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the hook and CI agree on a markdownlint version
+        run: |
+          hook_rev="$(grep -A1 'repo: https://github.com/DavidAnson/markdownlint-cli2$' \
+            .pre-commit-config.yaml | sed -n 's/.*rev: *//p')"
+          if [ "$hook_rev" != "$MARKDOWNLINT_VERSION" ]; then
+            echo "markdownlint drift: .pre-commit-config.yaml=$hook_rev ci.yml=$MARKDOWNLINT_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Lint markdown
+        # The exclusions must be `**/`-prefixed: a bare `#node_modules` only matches the
+        # top level, so `web/node_modules` and `transform/dbt_packages` would be linted —
+        # vendored READMEs failing against this project's rules. It passes on a fresh
+        # runner where neither directory exists, which is exactly how that stays hidden.
+        run: |
+          npx --yes markdownlint-cli2@"${MARKDOWNLINT_VERSION#v}" \
+            "**/*.md" "#**/node_modules" "#**/dbt_packages"
+
   # The pre-commit gitleaks hook only protects machines that ran `make hooks`, and
   # `--no-verify` walks straight past it. This is the backstop. It cannot prevent a leak
   # — anything it catches is already pushed and must be ROTATED, not force-pushed away —
