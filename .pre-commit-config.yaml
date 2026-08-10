@@ -6,6 +6,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-toml
+      - id: check-json
       - id: check-added-large-files
       - id: detect-private-key
 
@@ -37,3 +38,11 @@ repos:
     rev: v0.23.2
     hooks:
       - id: markdownlint-cli2
+
+  # scripts/ runs unattended under launchd, where a failure is silent by construction —
+  # backup-market.sh is the only copy of data no vendor will sell back. All four pass
+  # today; this is here so they keep passing.
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck

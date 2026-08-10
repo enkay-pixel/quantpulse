@@ -58,6 +58,13 @@ jobs:
           uv run dbt deps --project-dir transform --profiles-dir transform
           uv run dbt build --project-dir transform --profiles-dir transform
 
+      # `init-db` above brought the schema to head, so anything alembic still wants to
+      # generate is a model edited without a migration. The tests cannot catch this: they
+      # run the migrations, so they describe the schema rather than compare it to the
+      # models, and the two can drift apart while everything stays green.
+      - name: Models and migrations agree
+        run: uv run alembic check
+
   web:
     runs-on: ubuntu-latest
     defaults:
