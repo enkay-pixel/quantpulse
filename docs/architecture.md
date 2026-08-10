@@ -15,17 +15,25 @@ an exposed MLflow registry would let anyone on the LAN reassign the `@champion` 
 their own artifact — which the scoring pipeline then deserializes. The laptop roams
 networks, so nothing is published beyond loopback.
 
-Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Docker Desktop capped at ~6 GB.
+Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Docker Desktop capped at
+~6 GB.
 
 ## Data flow
 
-1. `raw_prices` (partitioned by **`(date, exchange)`**) pulls OHLCV bars from yfinance (Stooq fallback), repairs vendor unit glitches, and upserts into `market.prices`. A `MultiPartitionsDefinition` because a JSE holiday is not an NYSE holiday and each market has its own post-close schedule.
-2. `features` computes technical + cross-sectional features into `market.features`, ranking cross-sectionally **within each exchange**.
-3. `predictions` loads each market's champion (`quantpulse-lgbm-<exchange>@champion`) and scores its latest features.
+1. `raw_prices` (partitioned by **`(date, exchange)`**) pulls OHLCV bars from yfinance (Stooq
+   fallback), repairs vendor unit glitches, and upserts into `market.prices`. A
+   `MultiPartitionsDefinition` because a JSE holiday is not an NYSE holiday and each market has its
+   own post-close schedule.
+2. `features` computes technical + cross-sectional features into `market.features`, ranking
+   cross-sectionally **within each exchange**.
+3. `predictions` loads each market's champion (`quantpulse-lgbm-<exchange>@champion`) and scores its
+   latest features.
 4. `portfolio_equity` rebuilds the three paper books **per market** from predictions.
-5. `drift_report` (Evidently) compares recent feature/prediction distributions against the champion's training reference.
+5. `drift_report` (Evidently) compares recent feature/prediction distributions against the
+   champion's training reference.
 
-`market_today()` / `is_post_close()` / the calendars are all exchange-aware; nothing uses the container's UTC clock (`data/calendar.py`).
+`market_today()` / `is_post_close()` / the calendars are all exchange-aware; nothing uses the
+container's UTC clock (`data/calendar.py`).
 
 ## Transform layer (dbt)
 
@@ -155,13 +163,19 @@ fresh database before the first dbt build.
 
 ## The adaptation loop
 
-- **Weekly schedule** (and a **drift sensor**) trigger the training job: purged/embargoed time-series CV, Optuna hyperparameter search (capped trial budget), final LightGBM fit, all logged to MLflow.
+- **Weekly schedule** (and a **drift sensor**) trigger the training job: purged/embargoed
+  time-series CV, Optuna hyperparameter search (capped trial budget), final LightGBM fit, all logged
+  to MLflow.
 - The candidate is evaluated on a holdout backtest (Sharpe, max drawdown, information coefficient).
-- Promotion logic assigns the `@champion` alias only if the candidate beats the incumbent by a configured margin — otherwise the champion stays. Every decision is recorded in `market.model_runs`.
+- Promotion logic assigns the `@champion` alias only if the candidate beats the incumbent by a
+  configured margin — otherwise the champion stays. Every decision is recorded in
+  `market.model_runs`.
 
 ## Package layout
 
-Single installable package `quantpulse` (src layout). Dagster definitions live in `quantpulse.orchestration` and import the same modules the API uses — pipeline code is plain, testable Python; Dagster assets are thin wrappers.
+Single installable package `quantpulse` (src layout). Dagster definitions live in
+`quantpulse.orchestration` and import the same modules the API uses — pipeline code is plain,
+testable Python; Dagster assets are thin wrappers.
 
 ## Why these tools
 

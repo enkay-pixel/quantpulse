@@ -27,7 +27,7 @@ requires every book to differ in exactly one field, which a long-only book would
 The correct generalisation: books are **variations from a shared baseline**, each differing
 from the baseline in exactly one dimension.
 
-```
+```text
 baseline   daily long/short          (rebalance 1d, short_weight 0.5)
   ├─ horizon    rebalance 1d → 21d   ← isolates trading cost
   └─ long_only  short_weight 0.5 → 0 ← isolates the contribution of the short leg
@@ -119,6 +119,7 @@ and avoids denormalisation drift.
 ### Code
 
 - **`data/calendar.py`** — replace the `XNYS` constant with a small registry:
+
   ```python
   @dataclass(frozen=True)
   class Exchange:
@@ -130,6 +131,7 @@ and avoids denormalisation drift.
       benchmark: str     # 'SPY'
       has_options: bool  # True
   ```
+
   `market_today(exchange)`, `is_post_close(exchange)`, `trading_days(exchange, …)`,
   `is_trading_day(exchange, day)` all take it. Default `XNYS` so nothing else changes yet.
 - **`features/engineering.py`** — `compute_features` takes bars carrying `exchange` and

@@ -1,0 +1,24 @@
+# markdownlint configuration.
+#
+# Without this the editor reports ~830 problems, of which ~820 are the tool's defaults
+# disagreeing with conventions this project already chose deliberately. A linter that
+# cries wolf 820 times hides the 10 findings worth acting on, so the defaults that
+# conflict are set to match the project rather than the project rewrapped to match them.
+
+# Prose wraps at 100, the same width ruff enforces for Python (pyproject.toml). Wrapping
+# docs at 80 while code sits at 100 would be two conventions for one repository.
+MD013:
+  line_length: 100
+  tables: false # a table row is as wide as its widest cell; wrapping breaks the syntax
+  code_blocks: false # shell commands and SQL must stay copy-pasteable on one line
+
+# The README's screenshot tour is a collapsed <details> block — the one thing plain
+# markdown cannot express, and worth the exception to keep four large images out of the
+# reader's way.
+MD033:
+  allowed_elements: [details, summary, b]
+
+# Table pipe padding. Every table here uses compact separators (|---|---|) with padded
+# content rows, which renders identically to any other style. Enforcing consistency would
+# mean rewriting 126 separator rows to change nothing a reader sees.
+MD060: false

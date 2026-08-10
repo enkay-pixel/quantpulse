@@ -29,15 +29,15 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 | `prices` | (ticker, date) | Daily OHLCV bars, adjusted; source column (yfinance/stooq). Vendor unit glitches repaired on write (see `data/cleaning.py`) |
 | `features` | (ticker, date) | Engineered features; cross-sectional ranks are computed **within** each exchange |
 | `predictions` | (ticker, date, model_version) | Champion-model forward-return scores, per market's own champion |
-
-Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign
-key to `universe.ticker` (`ON DELETE RESTRICT`), so no derived row can point at a ticker the
-platform doesn't know.
 | `model_runs` | run id | Training/evaluation/promotion audit log (metrics, decision, MLflow run id, **exchange**). Append-only: a `demotion` row withdraws *its own version's* promotion (the prior champion stands). `metrics` also carries audit strings — the holdout window (`holdout_start/end/days`) and demotion reasons — which the API filters to numbers |
 | `drift_metrics` | (date, metric) | Evidently drift results per feature set |
 | `portfolio_snapshots` | **(date, exchange, variant)** | Simulated paper-book equity, exposure, turnover. Several *books* (`daily` / `horizon` / `long_only`) run per market — see [architecture.md](architecture.md) |
 | `option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Daily live option-chain snapshots + Black-Scholes Greeks. NYSE only (no free JSE chain data). Accumulates forward — no free history exists to backfill |
 | `pipeline_alerts` | alert id | Pipeline failures recorded by the Dagster run-failure sensor, served at `GET /alerts`. Operational tail, not an audit trail: trimmed to the newest 200. In the database because the daemon writes it and the API (a different container) reads it |
+
+Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign
+key to `universe.ticker` (`ON DELETE RESTRICT`), so no derived row can point at a ticker the
+platform doesn't know.
 
 ## `analytics` schema (dbt-managed — see `transform/`)
 

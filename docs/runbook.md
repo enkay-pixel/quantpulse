@@ -9,7 +9,8 @@ make logs    # tail logs
 make down    # stop everything; data survives in Docker volumes
 ```
 
-The stack is designed to be **spun up when you want it working in the background** and shut down when you don't — schedules catch up via Dagster backfills/partitions when the stack was off.
+The stack is designed to be **spun up when you want it working in the background** and shut down
+when you don't — schedules catch up via Dagster backfills/partitions when the stack was off.
 
 ## Connecting DBeaver
 
@@ -23,7 +24,8 @@ Create a **PostgreSQL** connection with exactly these settings (values come from
 | Username | `POSTGRES_USER` from `.env` (default `quantpulse`) |
 | Password | `POSTGRES_PASSWORD` from `.env` |
 
-Tick **"Show all databases"** on the PostgreSQL tab of the connection dialog to browse all three databases from one connection. Tables live under *database ▸ Schemas ▸ public ▸ Tables*.
+Tick **"Show all databases"** on the PostgreSQL tab of the connection dialog to browse all three
+databases from one connection. Tables live under *database ▸ Schemas ▸ public ▸ Tables*.
 
 ### What lives where
 
@@ -33,7 +35,9 @@ Tick **"Show all databases"** on the PostgreSQL tab of the connection dialog to 
 | `mlflow` | MLflow's backend store — model registry metadata is in `registered_models`, `model_versions`, `registered_model_aliases` (the `champion` alias lives here), run metrics in `metrics`/`params` |
 | `dagster` | Dagster's run/event storage (internals; rarely useful to browse) |
 
-The trained model **files** (pickled LightGBM boosters) are not in Postgres — they're artifacts in the `mlflow-artifacts` Docker volume, browsable through the MLflow UI (http://localhost:5001 → Model training → Models) which links each version to its artifacts and metrics.
+The trained model **files** (pickled LightGBM boosters) are not in Postgres — they're artifacts in
+the `mlflow-artifacts` Docker volume, browsable through the MLflow UI (<http://localhost:5001> →
+Model training → Models) which links each version to its artifacts and metrics.
 
 ## Resetting state
 
@@ -264,6 +268,9 @@ whole situation.
 
 ## Troubleshooting
 
-- **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait for the whale icon, retry `make up`.
-- **yfinance rate limiting**: ingestion retries with backoff and falls back to Stooq; a partition that still fails can be re-materialized later — the pipeline is idempotent (upserts).
-- **Memory pressure**: `docker stats` to inspect; every service carries a compose memory limit. Cap Docker Desktop at ~6 GB (Settings → Resources).
+- **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait
+  for the whale icon, retry `make up`.
+- **yfinance rate limiting**: ingestion retries with backoff and falls back to Stooq; a partition
+  that still fails can be re-materialized later — the pipeline is idempotent (upserts).
+- **Memory pressure**: `docker stats` to inspect; every service carries a compose memory limit. Cap
+  Docker Desktop at ~6 GB (Settings → Resources).
