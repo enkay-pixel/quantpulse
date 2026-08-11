@@ -292,6 +292,27 @@ has happened**, so the least-examined code is systematically the least protected
 last three bugs were all found there. Two of the six guards had been rewritten the same
 morning and shipped untested, the same asymmetry that produced the bug they were fixing.
 
+A second pass covered the five functions that build the evidence base — `fetch_daily_bars`
+(vendor failure and Stooq fallback), `load_price_bars`, `build_dataset`, `score_history`
+(~2,000 replay predictions per market) and `rebuild_portfolio` — taking coverage to 83%.
+The initial reasoning for deferring them, that they fail loudly, turned out to be only
+half right: a broken loader raises, but scoring one market with another's champion or
+collapsing the three books into one produces a **full-looking dashboard built on the wrong
+thing**. So those tests assert market isolation and book separation rather than that the
+code runs.
+
+Writing them surfaced a latent bug of the quietest kind: concatenating the Stooq fallback
+onto an empty frame raises a pandas `FutureWarning`, and the behaviour it warns about —
+losing dtype preservation — would have silently changed what a **total-outage day**
+ingests. That path only executes when yfinance fails wholesale, so it would have broken on
+some future pandas upgrade in the middle of an incident. Two bugs in one day found by
+*writing* a test rather than by one failing.
+
+What is left untested is now genuinely thin: CLI argument plumbing and Dagster asset
+wrappers over modules that are themselves covered. The distinction worth maintaining is
+not tested-versus-untested but **whether a failure announces itself** — everything that
+fails silently now has a test.
+
 ## Dependency policy history
 
 Dependabot PR dispositions: action bumps and python/js-deps groups merged when green;
@@ -309,14 +330,14 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-400 checks total: 278 pytest (177 unit on synthetic data; 91 integration against a
+420 checks total: 298 pytest (182 unit on synthetic data; 106 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 10 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
-drift, and compose validation — all enforced in CI. Line coverage 80%.
+drift, and compose validation — all enforced in CI. Line coverage 83%.
 
 **Green is not evidence.** Every serious bug in the log above shipped with fully green CI
 and was found by reading data, not by a failing test. So a new test is verified by
