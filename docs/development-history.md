@@ -308,10 +308,27 @@ ingests. That path only executes when yfinance fails wholesale, so it would have
 some future pandas upgrade in the middle of an incident. Two bugs in one day found by
 *writing* a test rather than by one failing.
 
-What is left untested is now genuinely thin: CLI argument plumbing and Dagster asset
-wrappers over modules that are themselves covered. The distinction worth maintaining is
-not tested-versus-untested but **whether a failure announces itself** — everything that
-fails silently now has a test.
+That "genuinely thin" claim was then checked rather than asserted, by asking of each
+remaining untested wrapper: what does it delegate to, and is *that* covered? Thirteen of
+fourteen held — `option_chains` is two lines around `options_tickers`, which sits at 100%
+with a test named for exactly the decision it makes.
+
+The fourteenth did not. `snapshot_option_chains` was **32%**, the least-covered function
+on any live path, and it is the only writer of data no vendor will sell back. It had been
+mis-sorted into Tier 3 by reading "32%" as *partially covered* rather than as *the
+least-covered thing guarding unrebuildable data*. Now 88%, with tests for the failure
+modes that matter: one ticker's vendor error costing only that ticker, a re-run absorbing
+into the same rows rather than doubling the table, the off-hours gate refusing and writing
+nothing, and the stamped date coming from the exchange clock (incident 14). One test
+documents a sharp edge instead of asserting it away — a partial snapshot returns a
+positive count and raises nothing, which is deliberate for resumability and is exactly how
+2026-07-27 captured 15 tickers of 50 and looked successful.
+
+Three times in one day the wrong code was judged risky, always in the same direction:
+**underestimating quiet partial-success paths.** The rule that survives is not
+tested-versus-untested but **whether a failure announces itself** — and a function that
+returns a plausible number while doing half its job is the hardest case to see, precisely
+because nothing about the return value is wrong.
 
 ## Dependency policy history
 
@@ -330,14 +347,14 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-420 checks total: 298 pytest (182 unit on synthetic data; 106 integration against a
+428 checks total: 306 pytest (182 unit on synthetic data; 114 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 10 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
-drift, and compose validation — all enforced in CI. Line coverage 83%.
+drift, and compose validation — all enforced in CI. Line coverage 84%.
 
 **Green is not evidence.** Every serious bug in the log above shipped with fully green CI
 and was found by reading data, not by a failing test. So a new test is verified by
