@@ -128,6 +128,17 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   26). Never re-score a date an earlier champion already scored: the marts take the newest
   model version per date, so it silently rewrites the live record. Freshness checks that
   compare *maxima* answer "has it stopped?", never "did it skip?" — count gaps too.
+- **Anything computed across markets must group by exchange** — ranks (incident 15) and
+  drift (incident 28) both pooled them, and pooling halves a signal while looking healthy.
+  In the API the subtle form is an unscoped aggregate inside a correctly-scoped endpoint:
+  `max(Price.date)` over the whole table returns whichever market ingested last, which
+  blanked the JSE positions panel for weeks (incident 27). Scope every `max()` to the rows
+  you are about to read.
+- **A green test run is not evidence.** Every serious bug in the incident log shipped with
+  CI green and was found by reading data. Verify a new test by breaking the code it guards
+  and watching it fail — and assert your sabotage actually applied, because a
+  non-matching string looks exactly like a test that cannot see the bug. Coverage tracks
+  where debugging has happened, not where risk is: six guards sat at 0% until 2026-08-11.
 - Cross-container state goes in **Postgres**, never a file under `DAGSTER_HOME`: that path
   is per-container and not a volume, so the API cannot read what the daemon writes and
   `compose up` erases it (incident 25 — failure alerts were invisible for weeks). Verify

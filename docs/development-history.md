@@ -79,13 +79,13 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
   and ≈36% during market hours, versus ≈2.1% pre-market. Snapshots must run when the
   market has been trading.
 
-## Current model & data snapshot (as of 2026-08-01)
+## Current model & data snapshot (as of 2026-08-11)
 
-- **Two markets.** NYSE: 50 tickers, 107,800 bars, 104,650 feature/prediction rows, 6,276
-  book snapshots (3 books), 274,008 option quotes over 10 snapshot days. JSE: 29 Top-40
-  tickers, 60,103 bars, 58,276 feature/prediction rows, 6,243 book snapshots, no options
-  (no free chain data). Both from 2018-01-02. Live track record: XNYS 9 days (−0.09%),
-  XJSE 6 days (+0.02%) — both under the 20-day floor, so ratios stay withheld.
+- **Two markets.** NYSE: 50 tickers, 108,091 bars, 104,941 feature/prediction rows, 6,294
+  book snapshots (3 books), 470,046 option quotes over 16 snapshot days. JSE: 29 Top-40
+  tickers, 60,248 bars, 58,421 feature/prediction rows, 6,258 book snapshots, no options
+  (no free chain data). Both from 2018-01-02. Live track record: XNYS 15 days (+1.24%),
+  XJSE 11 days (+0.30%) — both under the 20-day floor, so ratios stay withheld.
 - **Champions** (registered `quantpulse-lgbm-<exchange>`):
   - XNYS v1 — promoted at holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the
     first scheduled retrain, was auto-promoted on a mismatched exam and demoted the same
@@ -243,6 +243,54 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     gaps as well as lag. Lesson: comparing maxima answers "has it stopped?", never "did
     it skip?" — and every rescue path needs a downstream consumer that can act on
     backfilled data, not just the newest.
+27. **The JSE positions panel was blank, and nothing errored (2026-08-11)**: the fifth
+    instance of the cross-market leak. `/portfolio/positions` scoped its snapshot by
+    exchange, then looked up closes and scores with a **global** `max(date)`. With NYSE a
+    session ahead of the JSE — the ordinary state, since NYSE ingests after midnight SAST
+    — every JSE row asked for a close on a day the JSE never traded and got nothing back:
+    0/20 prices and scores against NYSE's 20/20. `/options/{ticker}/idea` had the same
+    shape and would have reported every idea unavailable on a US holiday. Both scoped to
+    the rows actually being read. Found while writing a `routes.py` docstring claiming
+    "everything is scoped to one market" and checking whether it was true — the earlier
+    four leaks were whole endpoints missing the parameter, so nobody had looked for the
+    subtler form, an **unscoped aggregate inside a correctly-scoped endpoint**.
+28. **Feature drift was measured across both markets pooled (2026-08-11)**: incident 15's
+    mistake — cross-market mixing — in a place nobody revisited after fixing it in the
+    cross-sectional ranks. `run_drift_check` loaded every market's features into one
+    distribution. Measured on live data: pooled share 0.077 against 0.154 for either
+    market alone, and the worst pooled feature psi 0.21 against XJSE's 0.74. So the
+    monitor was systematically half as sensitive as intended against a 0.3 retrain
+    threshold, and when it did fire it retrained **both** markets on evidence about
+    neither. The markets also drift on different features — NYSE volatility, JSE
+    momentum — so the single number was an average of two unrelated things. Fix:
+    per-market measurement, an `exchange` column on `drift_metrics` (legacy rows stamped
+    `POOLED` rather than reassigned or deleted), a per-market cursor on the retrain
+    sensor, and the exchange threaded through `/drift/latest` and the dashboard. Lesson,
+    and the reason the next section exists: `run_drift_check` and `store_drift_report`
+    had **no tests at all**, which is why 255 tests passed unchanged through a semantic
+    rewrite. The bug was not missed by the tests; it was outside them.
+
+## Coverage tracks debugging history, not risk (2026-08-11)
+
+Prompted by "I don't trust that this is the only issue since you happened upon it by
+chance." A repo-wide search over known bug classes — unscoped aggregates, naive
+`date.today()`, swallowed exceptions, book-variant leaks, marts missing `exchange`,
+missing small-sample guards, mutable defaults — found everything clean except the drift
+pooling above. But pattern-matching only finds shapes already known, so the follow-up was
+function-level coverage: **47 functions never executed by any test**.
+
+Most were thin by design (CLI argument plumbing, Dagster assets over tested modules). Six
+were decision logic, all at 0%: `drift_retrain_sensor`, `drift_report`,
+`recent_prices_quality`, `option_snapshot_quality`, `option_snapshot_repair_sensor`,
+`resource_headroom` — now all at 100%. Their pure helpers were already well covered; what
+was bare was the wiring, which is where a guard fails quietly. A gate returning
+`passed=True` because its query found nothing is indistinguishable from one that looked
+and approved.
+
+The generalisable finding: **tests and explanatory comments both cluster where debugging
+has happened**, so the least-examined code is systematically the least protected — and the
+last three bugs were all found there. Two of the six guards had been rewritten the same
+morning and shipped untested, the same asymmetry that produced the bug they were fixing.
 
 ## Dependency policy history
 
@@ -261,13 +309,21 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-359 checks total: 237 pytest (166 unit on synthetic data; 61 integration against a
+400 checks total: 278 pytest (177 unit on synthetic data; 91 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 10 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
-mypy/ruff/eslint/tsc and compose validation — all enforced in CI.
+mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
+drift, and compose validation — all enforced in CI. Line coverage 80%.
+
+**Green is not evidence.** Every serious bug in the log above shipped with fully green CI
+and was found by reading data, not by a failing test. So a new test is verified by
+breaking the code it guards and watching it fail — the practice caught a "passing" hook
+that was only passing because `tail` had cropped its verdict, and a sabotage that appeared
+to prove tests blind when the replacement string had simply never matched. Assert the
+anchor applied before trusting the result.
 
 ## Owner preferences (established in-session)
 

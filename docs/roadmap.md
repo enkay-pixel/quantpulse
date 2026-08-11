@@ -1,6 +1,6 @@
 # Roadmap & project state
 
-**Updated 2026-07-23.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-08-11.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 
@@ -33,25 +33,30 @@ give investment advice, and the disclaimer stays.
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 237 Python tests (166 unit + 61 integration against a disposable
+**Quality gates:** 278 Python tests (177 unit + 91 integration against a disposable
 database that runs a real `dbt build` + 10 Dagster), 59 Vitest, 63 dbt tests (59 data +
-4 unit), plus mypy / ruff / eslint / tsc / compose validation — all enforced in CI.
+4 unit), 80% line coverage, plus mypy / ruff / eslint / tsc, shellcheck, markdownlint,
+`alembic check` for model/migration drift, and compose validation — all enforced in CI.
 
-## Current state (2026-08-01)
+Read that with the caveat the log earns: every serious bug found so far shipped with CI
+fully green. The tests catch regressions in what has already gone wrong; the bugs that
+matter have been found by reading the data and asking whether it makes sense.
+
+## Current state (2026-08-11)
 
 Two markets, each with its own champion, books and evidence. **Every performance figure
 below is in-sample replay** — the live phase begins at each champion's promotion and is the
-only number worth judging. Live so far: XNYS 9 days (−0.09%), XJSE 6 days (+0.02%); both
+only number worth judging. Live so far: XNYS 15 days (+1.24%), XJSE 11 days (+0.30%); both
 still under the 20-day floor, so the marts correctly withhold every ratio. Books trail
 prices by one session by construction.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
 | Universe | 50 tickers | 29 (Top 40 with usable history) |
-| Price bars (from 2018) | 107,800 | 60,103 |
+| Price bars (from 2018) | 108,091 | 60,248 |
 | Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
 | Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
-| Options | 274,008 quotes, 10 snapshot days | none (no free JSE chain data) |
+| Options | 470,046 quotes, 16 snapshot days | none (no free JSE chain data) |
 
 Those champion Sharpes are the numbers each model was *promoted* on, and they are not
 comparable across models — see the retrain log below for why. Both were measured under the
