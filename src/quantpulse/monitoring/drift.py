@@ -16,6 +16,7 @@ from scipy import stats
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from quantpulse.data.calendar import DEFAULT_EXCHANGE
 from quantpulse.db import DriftMetric
 from quantpulse.features.engineering import FEATURE_COLUMNS, FEATURE_VERSION
 from quantpulse.features.store import load_features
@@ -84,10 +85,11 @@ def compute_drift(reference: pd.DataFrame, current: pd.DataFrame, asof: dt.date)
     return DriftReport(asof=asof, features=results, share_drifted=share)
 
 
-def store_drift_report(session: Session, report: DriftReport) -> int:
+def store_drift_report(session: Session, report: DriftReport, exchange: str) -> int:
     rows = [
         DriftMetric(
             date=report.asof,
+            exchange=exchange,
             feature_version=FEATURE_VERSION,
             metric_name=f"psi:{f.feature}",
             value=f.psi,
@@ -98,6 +100,7 @@ def store_drift_report(session: Session, report: DriftReport) -> int:
     rows.append(
         DriftMetric(
             date=report.asof,
+            exchange=exchange,
             feature_version=FEATURE_VERSION,
             metric_name="share_drifted",
             value=report.share_drifted,
@@ -108,20 +111,34 @@ def store_drift_report(session: Session, report: DriftReport) -> int:
     return len(rows)
 
 
-def run_drift_check(engine: Engine, session: Session, asof: dt.date | None = None) -> DriftReport:
-    """Compare the recent feature window against the reference history and persist results."""
-    features = load_features(engine, FEATURE_VERSION)
+def run_drift_check(
+    engine: Engine,
+    session: Session,
+    asof: dt.date | None = None,
+    exchange: str = DEFAULT_EXCHANGE,
+) -> DriftReport:
+    """Compare one market's recent feature window against its own reference history.
+
+    Per market, because a mixture describes neither. Measured 2026-08-10 on live data: the
+    pooled share of drifted features read 0.077 while each market alone read 0.154, and the
+    worst pooled feature psi 0.21 against XJSE's 0.74 — pooling halved the signal and hid
+    its size. They drift on different features too (NYSE volatility, JSE momentum), so the
+    one number was an average of two unrelated things. Same reasoning as the cross-sectional
+    ranks in `features.engineering`, which are grouped by `(date, exchange)` for it.
+    """
+    features = load_features(engine, FEATURE_VERSION, exchange=exchange)
     if features.empty:
-        raise ValueError("No stored features — run the feature pipeline first")
+        raise ValueError(f"No stored features for {exchange} — run the feature pipeline first")
     dates = sorted(features["date"].unique())
     asof = asof or dates[-1]
     current_start = dates[max(0, len(dates) - CURRENT_DAYS)]
     reference = features[features["date"] < current_start].tail(REFERENCE_DAYS * 100)
     current = features[features["date"] >= current_start]
     report = compute_drift(reference, current, asof)
-    store_drift_report(session, report)
+    store_drift_report(session, report, exchange)
     logger.info(
-        "Drift check %s: %d features, share_drifted=%.2f (drifted=%s)",
+        "Drift check %s %s: %d features, share_drifted=%.2f (drifted=%s)",
+        exchange,
         asof,
         len(report.features),
         report.share_drifted,

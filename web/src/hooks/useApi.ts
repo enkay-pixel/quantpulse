@@ -31,8 +31,12 @@ export const useCurrentModel = (exchange: string) =>
     refetchInterval: REFRESH_MS,
   });
 
-export const useDrift = () =>
-  useQuery({ queryKey: ["drift"], queryFn: api.latestDrift, refetchInterval: REFRESH_MS });
+export const useDrift = (exchange: string) =>
+  useQuery({
+    queryKey: ["drift", exchange],
+    queryFn: () => api.latestDrift(exchange),
+    refetchInterval: REFRESH_MS,
+  });
 
 export const useFreshness = (exchange: string) =>
   useQuery({

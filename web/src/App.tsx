@@ -63,7 +63,7 @@ function OverviewTab({ exchange }: { exchange: string }) {
   const model = useCurrentModel(exchange);
   const equity = useEquityCurve(exchange);
   const predictions = usePredictions(exchange);
-  const drift = useDrift();
+  const drift = useDrift(exchange);
   const trackRecord = useTrackRecord(exchange);
 
   const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];

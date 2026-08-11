@@ -712,11 +712,17 @@ def current_model(session: SessionDep, exchange: ExchangeDep) -> schemas.ModelIn
 
 
 @router.get("/drift/latest", response_model=schemas.DriftStatus)
-def latest_drift(session: SessionDep) -> schemas.DriftStatus:
-    latest_date = session.scalar(select(func.max(DriftMetric.date)))
+def latest_drift(session: SessionDep, exchange: ExchangeDep) -> schemas.DriftStatus:
+    # Scoped like every other endpoint. Pre-2026-08-11 rows are stamped POOLED and so are
+    # invisible here: they measured both markets mixed together and belong to neither.
+    latest_date = session.scalar(
+        select(func.max(DriftMetric.date)).where(DriftMetric.exchange == exchange)
+    )
     if latest_date is None:
         return schemas.DriftStatus(date=None, share_drifted=None, drifted=None, features=[])
-    rows = session.scalars(select(DriftMetric).where(DriftMetric.date == latest_date)).all()
+    rows = session.scalars(
+        select(DriftMetric).where(DriftMetric.date == latest_date, DriftMetric.exchange == exchange)
+    ).all()
     share = next((r for r in rows if r.metric_name == "share_drifted"), None)
     features = [
         schemas.DriftFeatureOut(

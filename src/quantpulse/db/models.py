@@ -118,10 +118,19 @@ class ModelRun(Base):
 
 
 class DriftMetric(Base):
+    """Feature-distribution drift, measured **per market**.
+
+    Pooling the two markets halved the signal and hid its size: measured 2026-08-10, the
+    pooled share was 0.077 against 0.154 for either market alone, and the worst pooled
+    feature read psi 0.21 while XJSE's worst was 0.74. They also drift on different
+    features — NYSE on volatility, JSE on momentum — so one number describes neither.
+    """
+
     __tablename__ = "drift_metrics"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     date: Mapped[dt.date] = mapped_column(Date, index=True)
+    exchange: Mapped[str] = mapped_column(String(8), default="XNYS", index=True)
     feature_version: Mapped[str] = mapped_column(String(32))
     metric_name: Mapped[str] = mapped_column(String(64))
     value: Mapped[float] = mapped_column(Float)

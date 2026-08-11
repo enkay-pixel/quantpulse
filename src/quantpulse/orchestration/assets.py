@@ -262,18 +262,26 @@ def portfolio_equity() -> dg.MaterializeResult:
 
 @dg.asset(deps=[features], group_name="monitoring", kinds={"python"})
 def drift_report() -> dg.MaterializeResult:
-    """KS/PSI feature drift vs. reference history; feeds the retraining sensor."""
+    """KS/PSI feature drift vs. reference history, per market; feeds the retraining sensor.
+
+    Per market rather than pooled: a mixture of two markets' feature distributions is a
+    description of neither, and it halved the measured signal (see `monitoring.drift`).
+    """
+    from quantpulse.data.universe import active_tickers
     from quantpulse.monitoring.drift import run_drift_check
 
-    with get_session() as session:
-        report = run_drift_check(get_engine(), session)
-    return dg.MaterializeResult(
-        metadata={
-            "share_drifted": report.share_drifted,
-            "drifted": report.drifted,
-            "n_features": len(report.features),
-        }
-    )
+    metadata: dict[str, dg.MetadataValue] = {}
+    for exchange in sorted(EXCHANGES):
+        with get_session() as session:
+            if not active_tickers(session, exchange):
+                continue  # market not configured yet
+            report = run_drift_check(get_engine(), session, exchange=exchange)
+        metadata[f"{exchange}/share_drifted"] = dg.MetadataValue.float(report.share_drifted)
+        metadata[f"{exchange}/drifted"] = dg.MetadataValue.bool(report.drifted)
+        metadata[f"{exchange}/n_features"] = dg.MetadataValue.int(len(report.features))
+    if not metadata:
+        raise ValueError("No configured market has tickers — run `quantpulse sync-universe`")
+    return dg.MaterializeResult(metadata=metadata)
 
 
 @dg.asset(deps=[raw_prices], group_name="options", kinds={"python", "postgres"})

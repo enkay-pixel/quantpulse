@@ -103,33 +103,54 @@ training_schedule = dg.ScheduleDefinition(
     default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def drift_retrain_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
-    """Fire an off-cycle retrain when the latest drift check crosses the threshold."""
+    """Fire an off-cycle retrain when a market's latest drift check crosses the threshold.
+
+    Evaluated per market. The reading used to be pooled across both, which meant one
+    market's drift was diluted by the other's calm — and when it did fire, it retrained
+    both markets on evidence about neither. The cursor carries each market's last-fired
+    date so a drifting JSE cannot lock out a later NYSE trigger.
+    """
+    import json
+
     from sqlalchemy import select
 
     from quantpulse.db import DriftMetric, get_session
 
+    fired: dict[str, str] = json.loads(context.cursor) if context.cursor else {}
+    requests, skipped = [], []
     with get_session() as session:
-        latest = session.execute(
-            select(DriftMetric.date, DriftMetric.value, DriftMetric.drifted)
-            .where(DriftMetric.metric_name == "share_drifted")
-            .order_by(DriftMetric.date.desc(), DriftMetric.id.desc())
-            .limit(1)
-        ).first()
-
-    if latest is None or not latest.drifted:
-        return dg.SensorResult(skip_reason="no drift beyond threshold")
-    cursor_key = str(latest.date)
-    if context.cursor == cursor_key:
-        return dg.SensorResult(skip_reason=f"already retrained for drift on {cursor_key}")
-    return dg.SensorResult(
-        run_requests=[
-            dg.RunRequest(
-                run_key=f"drift-retrain-{cursor_key}",
-                tags={"trigger": "drift", "drift_share": str(latest.value)},
+        for exchange in sorted(EXCHANGES):
+            latest = session.execute(
+                select(DriftMetric.date, DriftMetric.value, DriftMetric.drifted)
+                .where(
+                    DriftMetric.metric_name == "share_drifted",
+                    DriftMetric.exchange == exchange,
+                )
+                .order_by(DriftMetric.date.desc(), DriftMetric.id.desc())
+                .limit(1)
+            ).first()
+            if latest is None or not latest.drifted:
+                skipped.append(exchange)
+                continue
+            day = str(latest.date)
+            if fired.get(exchange) == day:
+                skipped.append(f"{exchange} (already retrained for {day})")
+                continue
+            requests.append(
+                dg.RunRequest(
+                    run_key=f"drift-retrain-{exchange}-{day}",
+                    tags={
+                        "trigger": "drift",
+                        "exchange": exchange,
+                        "drift_share": str(latest.value),
+                    },
+                )
             )
-        ],
-        cursor=cursor_key,
-    )
+            fired[exchange] = day
+
+    if not requests:
+        return dg.SensorResult(skip_reason=f"no drift beyond threshold: {', '.join(skipped)}")
+    return dg.SensorResult(run_requests=requests, cursor=json.dumps(fired))
 
 
 @dg.run_failure_sensor(

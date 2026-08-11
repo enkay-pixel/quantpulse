@@ -44,7 +44,7 @@ export const api = {
   latestPredictions: (ex: string) =>
     getJson<Predictions>(`/predictions/latest?exchange=${ex}`),
   currentModel: (ex: string) => getJson<ModelInfo>(`/models/current?exchange=${ex}`),
-  latestDrift: () => getJson<DriftStatus>("/drift/latest"),
+  latestDrift: (ex: string) => getJson<DriftStatus>(`/drift/latest?exchange=${ex}`),
   exchanges: () => getJson<Exchange[]>("/exchanges"),
   // Market-scoped: the backend defaults to XNYS, but the dashboard is always explicit
   // so a switch can never silently fall back to another market's numbers.
