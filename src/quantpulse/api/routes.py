@@ -1,3 +1,31 @@
+"""Read-only HTTP surface over the platform's data, consumed by the React dashboard.
+
+Four things recur; knowing them makes the rest of the file predictable.
+
+**Two data sources.** Endpoints read either the ORM tables (`prices`, `predictions`,
+`option_quotes` — raw facts) or the dbt marts in the `analytics` schema (`fct_*` —
+derived, and the only place ratios are computed). Mart queries go through `_mart_rows`,
+which returns `None` rather than raising when the schema does not exist yet: a freshly
+bootstrapped database has tables but no marts until the first `dbt build`, and the
+dashboard should render an empty panel then, not a 500.
+
+**Everything is scoped to one market.** `ExchangeDep` resolves and validates the
+`?exchange=` parameter once. An endpoint that forgets it does not fail — it silently
+serves one market's data under another's heading, which is how `/freshness`,
+`/predictions/latest`, `/models/current` and `/portfolio/positions` each shipped a leak.
+The subtle form is an unscoped aggregate: `max(Price.date)` over the whole table returns
+whichever market ingested last, so scope every `max()` to the rows you are about to read.
+
+**Ratios come from the marts, never from here.** Sharpe, alpha and win rate are nulled at
+source below `min_days_for_ratios` (20), because a handful of days annualizes into a
+confident-looking number that is pure noise. Computing one in this layer would route
+around that guard.
+
+**Nothing here writes.** There are no POST/PUT/DELETE routes by design: the pipeline owns
+every mutation, and a serving layer that could edit the evidence would undermine the
+audit trail the project rests on.
+"""
+
 import datetime as dt
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, cast
@@ -231,7 +259,12 @@ def option_idea(ticker: str, session: SessionDep) -> schemas.OptionIdeaOut:
         breakeven=None,
     )
 
-    latest_pred_date = session.scalar(select(func.max(Prediction.date)))
+    # Per ticker, not global: this endpoint takes no exchange, so a global max() would be
+    # the other market's date whenever it ingests first, and every idea would report
+    # itself unavailable until NYSE caught up — on a US holiday, all day.
+    latest_pred_date = session.scalar(
+        select(func.max(Prediction.date)).where(Prediction.ticker == ticker)
+    )
     score = session.scalar(
         select(Prediction.score)
         .where(Prediction.ticker == ticker, Prediction.date == latest_pred_date)
@@ -580,14 +613,22 @@ def portfolio_positions(session: SessionDep, exchange: ExchangeDep) -> schemas.P
         return schemas.PositionsOut(date=None, model_version=None, rows=[])
     tickers = list(snapshot.positions.keys())
 
-    latest_price_date = session.scalar(select(func.max(Price.date)))
+    # Scoped to the names in this book, not the database. A global max() returns whichever
+    # market last ingested — with NYSE a session ahead of the JSE, every JSE row looked up
+    # its close on a date the JSE never traded and came back empty, so the positions table
+    # rendered twenty blank price and score columns while NYSE looked perfect.
+    latest_price_date = session.scalar(
+        select(func.max(Price.date)).where(Price.ticker.in_(tickers))
+    )
     closes = {
         p.ticker: p.close
         for p in session.scalars(
             select(Price).where(Price.date == latest_price_date, Price.ticker.in_(tickers))
         )
     }
-    latest_pred_date = session.scalar(select(func.max(Prediction.date)))
+    latest_pred_date = session.scalar(
+        select(func.max(Prediction.date)).where(Prediction.ticker.in_(tickers))
+    )
     scores = {
         p.ticker: p.score
         for p in session.scalars(

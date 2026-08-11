@@ -20,7 +20,7 @@ from quantpulse.api.app import create_app
 from quantpulse.api.deps import engine_dep, session_dep
 from quantpulse.data.ingest import BAR_COLUMNS, upsert_prices
 from quantpulse.data.universe import UniverseEntry, sync_universe
-from quantpulse.db import ModelRun, PortfolioSnapshot, Prediction
+from quantpulse.db import ModelRun, PortfolioSnapshot, Prediction, UniverseMember
 
 pytestmark = pytest.mark.integration
 
@@ -339,5 +339,56 @@ def test_a_demoted_later_version_falls_back_to_the_prior_champion(
     finally:
         with Session(engine) as session:
             session.query(ModelRun).filter(ModelRun.model_version == "2").delete()
+            session.commit()
+        engine.dispose()
+
+
+def test_positions_price_lookup_ignores_other_markets(
+    evidence_client: TestClient, test_db_url: str
+) -> None:
+    """A book's closes must be looked up on its own market's latest session.
+
+    The lookup used a global `max(Price.date)`, so whichever market ingested last set the
+    date for every market. With NYSE one session ahead of the JSE — the normal state, since
+    NYSE ingests after midnight SAST — every JSE row asked for a close on a day the JSE
+    never traded and got nothing back. The panel rendered twenty blank price and score
+    columns while NYSE looked perfect, and nothing errored.
+    """
+    from quantpulse.db import Price
+
+    engine = create_engine(test_db_url)
+    ahead = max(DATES) + dt.timedelta(days=3)
+    try:
+        with Session(engine) as session:
+            # A different market races ahead. Its ticker is not in the seeded book, so a
+            # correctly-scoped query cannot see it — only a global max() can.
+            # prices FKs to universe, so the member must land in its own committed
+            # transaction before anything references it.
+            sync_universe(session, [UniverseEntry("NPN.JO", "stock", exchange="XJSE")])
+            session.commit()
+        with Session(engine) as session:
+            session.add(
+                Price(
+                    ticker="NPN.JO",
+                    date=ahead,
+                    open=1.0,
+                    high=1.0,
+                    low=1.0,
+                    close=1.0,
+                    volume=1,
+                    source="yfinance",
+                )
+            )
+            session.commit()
+
+        body = evidence_client.get("/portfolio/positions").json()
+        assert body["rows"], "fixture must seed a book"
+        assert all(r["latest_close"] is not None for r in body["rows"]), (
+            "closes went blank because another market set the date"
+        )
+    finally:
+        with Session(engine) as session:
+            session.query(Price).filter(Price.ticker == "NPN.JO").delete()
+            session.query(UniverseMember).filter(UniverseMember.ticker == "NPN.JO").delete()
             session.commit()
         engine.dispose()

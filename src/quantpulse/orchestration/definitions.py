@@ -1,4 +1,16 @@
-"""Dagster Definitions: the single code location loaded by webserver and daemon."""
+"""Dagster Definitions: the single code location loaded by webserver and daemon.
+
+Read this file to learn what the platform does on a timer. It wires four things together
+and nothing else: **jobs** (which assets run together), **schedules** (when, in whose
+timezone), **sensors** (what reacts to state), and the `defs` object at the bottom that
+Dagster actually loads. Every sensor's real logic lives in `orchestration/catchup.py`, so
+it can be unit tested without a Dagster instance.
+
+**Why sensor bodies import inside themselves.** The daemon re-imports this module on every
+reload while evaluating sensors on a 30-second loop; it needs the schedule and sensor
+*definitions*, not the database or ML stack. Importing this module already costs ~4.75s,
+almost all of it Dagster itself. Same convention as `assets.py` and `cli.py`.
+"""
 
 import dagster as dg
 from quantpulse.data.calendar import EXCHANGES, get_exchange, is_trading_day, market_today
