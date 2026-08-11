@@ -141,7 +141,10 @@ def fetch_daily_bars(tickers: list[str], start: dt.date, end: dt.date) -> pd.Dat
         if fallback.empty:
             logger.warning("No data for %s from any source", ticker)
         else:
-            bars = pd.concat([bars, fallback], ignore_index=True)
+            # Assign rather than concat when the batch failed wholesale: concatenating
+            # onto an all-empty frame is deprecated in pandas and will stop preserving
+            # dtypes, which would silently change what a total-outage day ingests.
+            bars = fallback if bars.empty else pd.concat([bars, fallback], ignore_index=True)
 
     cleaned = clean_bars(bars)
     if cleaned.empty:
