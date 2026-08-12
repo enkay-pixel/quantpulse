@@ -84,8 +84,8 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
 - **Two markets.** NYSE: 50 tickers, 108,091 bars, 104,941 feature/prediction rows, 6,294
   book snapshots (3 books), 470,046 option quotes over 16 snapshot days. JSE: 29 Top-40
   tickers, 60,248 bars, 58,421 feature/prediction rows, 6,258 book snapshots, no options
-  (no free chain data). Both from 2018-01-02. Live track record: XNYS 15 days (+1.24%),
-  XJSE 11 days (+0.30%) — both under the 20-day floor, so ratios stay withheld.
+  (no free chain data). Both from 2018-01-02. Live track record: XNYS 16 days, XJSE 12 —
+  both under the 20-day floor, so ratios stay withheld.
 - **Champions** (registered `quantpulse-lgbm-<exchange>`):
   - XNYS v1 — promoted at holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the
     first scheduled retrain, was auto-promoted on a mismatched exam and demoted the same
@@ -269,6 +269,28 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     and the reason the next section exists: `run_drift_check` and `store_drift_report`
     had **no tests at all**, which is why 255 tests passed unchanged through a semantic
     rewrite. The bug was not missed by the tests; it was outside them.
+29. **The outage rescue gave up permanently (2026-08-11/12)**: a ~24-hour internet outage
+    failed four ingests per market. Everything then behaved as designed and the sessions
+    still had to be recovered by hand, because the design had a hole: `next_ingest_attempt`
+    counted **every run ever recorded** for a partition, so once a session burned its three
+    attempts it was locked out of automatic recovery *forever*. Connectivity returned hours
+    before anyone looked, and nothing retried. The catch-up sensor made outages survivable
+    but not recoverable — the retry ceiling was right, making it permanent was wrong.
+    Compounding it, the skip reason read `no missed trading days in the lookback window`
+    while two sessions sat unrecovered: `missing_trading_days` had reported them correctly
+    and the sensor dropped them on budget, then described the wrong cause. Fix: the budget
+    reads only *today's* runs while the attempt number still counts every run ever (they
+    answer different questions — a run_key is deduplicated forever, so numbering from today
+    alone would reissue yesterday's key and vanish); and the skip reason now names the
+    exhausted sessions and says it will retry tomorrow.
+    Two things the outage cost that no fix recovers: **08-11 option chains**, where three
+    repair runs reported SUCCESS having captured zero rows (the documented "wrote N rows is
+    not captured the universe" edge, with N = 0), and **STX40.JO's 08-11 bar**, absent at
+    the vendor — see the data dictionary note on why that is left as a gap.
+    Lesson: a rescue mechanism needs a test for *resuming*, not only for stopping. Both
+    halves of this were in code written five weeks earlier specifically to survive
+    outages, and the tests written alongside it covered the budget being spent but never
+    the budget being restored.
 
 ## Coverage tracks debugging history, not risk (2026-08-11)
 
