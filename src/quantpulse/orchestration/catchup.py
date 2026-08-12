@@ -154,18 +154,30 @@ def summarize_capture_runs(runs: Iterable[tuple[str, float | None]]) -> tuple[bo
     return in_flight, reached_feed
 
 
-def next_ingest_attempt(runs: list[tuple[str, float | None]]) -> int | None:
+def next_ingest_attempt(
+    runs: list[tuple[str, float | None]],
+    todays_runs: list[tuple[str, float | None]] | None = None,
+) -> int | None:
     """Attempt number for another catch-up ingest of a session, or None when one is in
-    flight or the session's budget is spent.
+    flight or **today's** budget for it is spent.
 
-    Only runs that reached the feed count against the budget, but *every* prior run —
-    cancelled-in-queue included — advances the attempt number, because the number suffixes
-    the Dagster run_key and a run_key is deduplicated **forever**: reusing one makes the
-    request silently vanish. The old fixed `catchup-{exchange}-{day}` key meant a single
-    premature or failed attempt stranded that session permanently — the opposite of what
-    a rescue sensor is for.
+    Two different questions, deliberately answered from two different lists:
+
+    `todays_runs` decides *whether* to retry. The budget must expire, or a session that
+    burns its attempts during an outage can never be recovered automatically even after the
+    cause is fixed. That happened on 2026-08-11: a 24-hour internet outage failed four
+    ingests per market, the budget counted every run ever recorded for the partition, and
+    when connectivity returned the sensor stood down permanently — both sessions had to be
+    backfilled by hand. Three attempts is a sane daily ceiling on a feed that is genuinely
+    down; a permanent one is just giving up.
+
+    `runs` — every attempt ever — decides *what to call it*. The number suffixes the
+    Dagster run_key and a run_key is deduplicated **forever**, so the counter has to stay
+    monotonic across days. Reusing yesterday's key makes today's request silently vanish,
+    which is the same class of bug as the original fixed key it replaced.
     """
-    in_flight, reached_feed = summarize_capture_runs(runs)
+    today = runs if todays_runs is None else todays_runs
+    in_flight, reached_feed = summarize_capture_runs(today)
     if in_flight or reached_feed >= MAX_INGEST_ATTEMPTS_PER_SESSION:
         return None
     return len(runs) + 1

@@ -201,29 +201,50 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     )
 
     requests: list[dg.RunRequest] = []
+    exhausted: list[str] = []
     for exchange in sorted(EXCHANGES):
         # Each market keeps its own budget: a long JSE gap must not crowd out NYSE.
         today = market_today(exchange)
         end = today if ingest_overdue(exchange=exchange) else today - dt.timedelta(days=1)
         recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), end, exchange)
+        day_start = dt.datetime.combine(today, dt.time.min, tzinfo=get_exchange(exchange).tz)
         for day in missing_trading_days(recent, exchange)[:MAX_CATCHUP_PER_TICK]:
             key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
             # Scheduled runs carry the same partition tag, so a failing 18:30 ingest
             # also consumes this budget rather than being retried on top of.
-            records = context.instance.get_run_records(
+            partition = dg.RunsFilter(
+                job_name=ingest_job.name, tags={"dagster/partition": str(key)}
+            )
+            history = context.instance.get_run_records(filters=partition)
+            todays = context.instance.get_run_records(
                 filters=dg.RunsFilter(
-                    job_name=ingest_job.name, tags={"dagster/partition": str(key)}
+                    job_name=ingest_job.name,
+                    tags={"dagster/partition": str(key)},
+                    created_after=day_start,
                 )
             )
             attempt = next_ingest_attempt(
-                [(r.dagster_run.status.value, r.start_time) for r in records]
+                [(r.dagster_run.status.value, r.start_time) for r in history],
+                [(r.dagster_run.status.value, r.start_time) for r in todays],
             )
             if attempt is None:
+                exhausted.append(f"{exchange} {day}")
                 continue
             requests.append(
                 dg.RunRequest(partition_key=key, run_key=f"catchup-{exchange}-{day}-{attempt}")
             )
     if not requests:
+        # Distinguish the two silences. "Nothing missing" and "missing, but I have given
+        # up on it today" look identical from outside and mean opposite things — the
+        # second is the one worth a human's attention, and reporting it as the first is
+        # how a 24-hour outage left two sessions stranded with the sensor claiming health.
+        if exhausted:
+            return dg.SensorResult(
+                skip_reason=(
+                    f"{len(exhausted)} session(s) still missing but out of attempts for "
+                    f"today, retrying tomorrow: {', '.join(exhausted[:4])}"
+                )
+            )
         return dg.SensorResult(skip_reason="no missed trading days in the lookback window")
     return dg.SensorResult(run_requests=requests)
 

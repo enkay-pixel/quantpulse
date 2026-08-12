@@ -79,3 +79,41 @@ def test_spent_budget_stands_down() -> None:
 def test_attempt_numbers_never_collide_with_history() -> None:
     """One premature success + one failure -> the next key must be the third."""
     assert next_ingest_attempt([SUCCEEDED, FAILED]) == 3
+
+
+# --- the budget must expire (2026-08-11) ---
+#
+# A 24-hour internet outage failed four ingests per market. The budget counted every run
+# ever recorded for the partition, so when connectivity returned the sensor stood down
+# permanently and both sessions had to be backfilled by hand. Three attempts is a ceiling
+# on a feed that is down *today*; a permanent one is giving up.
+
+
+def test_yesterdays_exhausted_budget_does_not_block_today() -> None:
+    """The exact 2026-08-11 case: four failed runs yesterday, none today."""
+    yesterday = [FAILED] * 4
+    assert next_ingest_attempt(yesterday, todays_runs=[]) == 5
+
+
+def test_todays_budget_still_stops_a_dead_feed() -> None:
+    """The protection the ceiling exists for is unchanged within a day."""
+    todays = [FAILED] * MAX_INGEST_ATTEMPTS_PER_SESSION
+    assert next_ingest_attempt(todays + [FAILED] * 4, todays_runs=todays) is None
+
+
+def test_the_attempt_number_counts_every_run_ever_not_just_today() -> None:
+    """Budget and run_key answer different questions. A run_key is deduplicated forever,
+    so numbering from today's runs alone would reissue yesterday's key and the request
+    would silently vanish — the same bug as the fixed key this replaced."""
+    history = [FAILED] * 4  # yesterday
+    assert next_ingest_attempt(history, todays_runs=[]) == 5  # not 1
+
+
+def test_an_in_flight_run_today_still_blocks() -> None:
+    assert next_ingest_attempt([FAILED] * 9, todays_runs=[STILL_QUEUED]) is None
+
+
+def test_omitting_todays_runs_falls_back_to_the_whole_history() -> None:
+    """Back-compatible default: callers that do not scope a window get the old behaviour
+    rather than an unbounded retry loop."""
+    assert next_ingest_attempt([FAILED] * MAX_INGEST_ATTEMPTS_PER_SESSION) is None

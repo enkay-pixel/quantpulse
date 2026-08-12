@@ -59,3 +59,36 @@ def test_today_is_not_expected_until_its_ingest_is_overdue(patched: dict[str, ob
     # the date has flipped but the session hasn't traded, and requesting it would burn
     # the rescue attempt on a day that does not exist yet.
     assert windows == {"XNYS": TODAY - dt.timedelta(days=1), "XJSE": TODAY - dt.timedelta(days=1)}
+
+
+def test_exhausted_sessions_are_reported_as_exhausted_not_as_healthy(
+    patched: dict[str, object],
+) -> None:
+    """Two silences that mean opposite things must not read the same.
+
+    On 2026-08-11 an outage burned every session's attempts; the sensor then reported "no
+    missed trading days in the lookback window" while two sessions sat unrecovered. The
+    message a human reads has to distinguish "nothing to do" from "I have given up".
+    """
+    mp = patched["monkeypatch"]
+    mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
+    mp.setattr(catchup, "next_ingest_attempt", lambda *a, **k: None)  # type: ignore[attr-defined]
+
+    result = _evaluate()
+    assert not (result.run_requests or [])
+    message = str(result.skip_reason)
+    assert "out of attempts" in message
+    assert "retrying tomorrow" in message
+    assert str(MISSED) in message, "name the sessions, so the gap is actionable"
+
+
+def test_nothing_missing_still_reads_as_nothing_missing(patched: dict[str, object]) -> None:
+    """The other branch must stay quiet and unalarming — a sensor that cries exhaustion
+    on a healthy day trains the reader to ignore it."""
+    mp = patched["monkeypatch"]
+    mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
+    mp.setattr(catchup, "missing_trading_days", lambda expected, exchange=None: [])  # type: ignore[attr-defined]
+
+    result = _evaluate()
+    assert "no missed trading days" in str(result.skip_reason)
+    assert "out of attempts" not in str(result.skip_reason)
