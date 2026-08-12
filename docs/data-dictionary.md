@@ -53,9 +53,29 @@ any sample size.
 | `fct_daily_returns` | (ticker, exchange, date) | Simple returns + 21-day rolling volatility/mean |
 | `fct_signal_performance` | (date, exchange, signal_quintile) | Next-day realized return per signal quintile (1 = strongest), ranked **within each market** — model-skill readout |
 | `fct_portfolio_daily` | (date, exchange) | Portfolio with cumulative return, running drawdown, rolling 63d Sharpe, and evidence `phase`, all partitioned per market. **Three phases**: `replay` (before the first promotion), `backfilled` (a day scored by a champion promoted *after* it — in-sample, so excluded from the live record), `live` (genuinely out-of-sample) |
-| `fct_portfolio_vs_benchmark` | (date, exchange) | Strategy equity vs that market's benchmark (SPY / STX40.JO) indexed to the portfolio's first date |
+| `fct_portfolio_vs_benchmark` | (date, exchange) | Strategy equity vs that market's benchmark (SPY / STX40.JO) indexed to the portfolio's first date. Joins the benchmark on date **inner**, so a day the vendor has no benchmark bar for is dropped rather than nulled — see the note below |
 | `fct_track_record` | (exchange, phase) | Per-phase performance summary — the `live` row is the honest out-of-sample record |
 | `dim_universe` | ticker | Members with exchange and price-coverage metadata |
 | `fct_alpha_beta` | (exchange, phase) | CAPM decomposition vs the market's benchmark: beta, annualized alpha, R², tracking error, information ratio (Postgres regression aggregates over excess returns) |
 | `fct_option_summary` | (ticker, snapshot_date) | ATM implied volatility and put/call open-interest ratio (NYSE) |
 | `fct_iv_surface` | (ticker, snapshot_date, expiry, option_type, moneyness_bucket) | Mean IV — the volatility smile/skew and term structure (NYSE) |
+
+### Why two marts can disagree about the live day count
+
+`fct_track_record` counts a day if the paper book has a row for it. `fct_alpha_beta` and
+`fct_portfolio_vs_benchmark` additionally need a **benchmark** bar for that date, and they
+inner-join to get it — so a day the vendor is missing the benchmark for disappears from
+those two while remaining in the track record. The counts then differ by one, with nothing
+on screen explaining it.
+
+Known instance: **STX40.JO has no bar for 2026-08-11**. The session traded — the other 28
+JSE names have data — and 08-07 and 08-12 are both present, so it is a one-instrument,
+one-day hole at the vendor, not an ingestion failure. Retried against both yfinance and
+Stooq; neither has it.
+
+It is left as a gap on purpose. Carrying the previous close forward or interpolating would
+fabricate the observation that the CAPM decomposition divides by, and a made-up denominator
+would quietly undermine the one number that exists to be an honest read. One absent day
+against 2,000+ is a rounding error in the regression; a fabricated one is a lie of unknown
+size. If the counts ever differ by more than a day or two, that is worth investigating as a
+vendor-reliability problem rather than patching at this layer.
