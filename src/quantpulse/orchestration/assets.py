@@ -493,3 +493,57 @@ def champion_model(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
     if not metadata:
         raise ValueError("No configured market has tickers — run `quantpulse sync-universe`")
     return dg.MaterializeResult(metadata=metadata)
+
+
+@dg.asset_check(asset=champion_model, blocking=False)
+def champion_registry_agrees() -> dg.AssetCheckResult:
+    """MLflow's `@champion` alias must name the same version the audit trail does.
+
+    Two systems record which model is champion, and they are updated separately. MLflow's
+    alias decides what `load_champion` deserializes and therefore what actually scores;
+    `model_runs` decides what the dashboard reports and what `fct_portfolio_daily` uses to
+    date the `backfilled` boundary. Nothing spans both writes: `train_evaluate_promote`
+    sets the alias first and commits the audit row after, so a failure between them leaves
+    MLflow promoted and Postgres silent — the dashboard would keep naming the old champion
+    while the new one wrote every prediction, and every number on screen would be attributed
+    to a model that did not produce it.
+
+    Reports, never repairs. Choosing which of two disagreeing records is right means
+    knowing whether the promotion was intended, and that is not a decision to automate on a
+    registry the scoring pipeline deserializes.
+    """
+    from quantpulse.data.universe import active_tickers
+    from quantpulse.ml import registry
+    from quantpulse.ml.promotion import audit_champion
+
+    settings = get_settings()
+    registry.configure(settings.mlflow_tracking_uri)
+
+    metadata: dict[str, dg.MetadataValue] = {}
+    disagreements = []
+    for exchange in sorted(EXCHANGES):
+        with get_session() as session:
+            if not active_tickers(session, exchange):
+                continue  # market not configured yet
+            audited = audit_champion(session, exchange)
+            # Read inside the session: the ORM expires attributes on commit, so touching
+            # this after the block raises DetachedInstanceError.
+            audit_version = audited.model_version if audited else None
+        try:
+            live = registry.get_champion(exchange=exchange)
+            alias_version = live.version if live else None
+        except Exception as exc:  # registry unreachable is itself worth reporting
+            metadata[exchange] = dg.MetadataValue.json({"error": f"{type(exc).__name__}: {exc}"})
+            disagreements.append(f"{exchange}: registry unreachable")
+            continue
+        agrees = str(audit_version) == str(alias_version)
+        metadata[exchange] = dg.MetadataValue.json(
+            {"audit_trail": audit_version, "mlflow_alias": alias_version, "agrees": agrees}
+        )
+        if not agrees:
+            disagreements.append(
+                f"{exchange}: audit says v{audit_version}, MLflow @champion is v{alias_version}"
+            )
+    if disagreements:
+        metadata["disagreements"] = dg.MetadataValue.text("; ".join(disagreements))
+    return dg.AssetCheckResult(passed=not disagreements, metadata=metadata)

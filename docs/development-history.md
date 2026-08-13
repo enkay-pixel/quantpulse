@@ -480,12 +480,40 @@ which also pins the floor as **per phase** rather than global — the failure be
 18, where a 3-day live phase served a Sharpe of −54.93. Finiteness is asserted too: JSON has
 no NaN or Infinity, and that only becomes reachable once a phase is allowed to publish.
 
-Six drills, six findings, none of them the thing being drilled: the drift injection found a
+### Drill 7: MLflow registry vs the Postgres audit trail (2026-08-13)
+
+Two systems record which model is champion, updated separately. MLflow's `@champion` alias
+decides what `load_champion` deserializes and therefore what actually scores; `model_runs`
+decides what the dashboard reports and how `fct_portfolio_daily` dates the `backfilled`
+boundary. Nothing spans both writes — `train_evaluate_promote` sets the alias first and
+commits the audit row after — so a failure in between leaves MLflow promoted and Postgres
+silent. The dashboard would keep naming the old champion while the new one wrote every
+prediction, and every number on screen would be attributed to a model that did not produce it.
+
+They currently agree (xnys v1, xjse v3, both matching the latest non-demoted promotion), and
+nothing was reconciling them. `champion_registry_agrees` now does, per market, non-blocking,
+reporting both answers. It reports and never repairs: deciding which of two disagreeing
+records is right means knowing whether the promotion was intended, and that is not a call to
+automate against a registry the scoring pipeline deserializes.
+
+The demotion-aware "who is champion according to the audit trail" query was extracted to
+`ml.promotion.audit_champion` and the API endpoint now calls it. Two copies would have been
+the very bug the check exists to find: the platform comparing two answers that were never
+independent, agreeing with itself while disagreeing with the model doing the scoring.
+
+Running it found a bug in the check itself — the ORM expires attributes on commit, so
+reading `model_version` after the session block raised `DetachedInstanceError`. Only surfaced
+by executing it against the real stack; a test holding a longer-lived session would have
+passed. Verified afterwards by pointing the live xjse alias at v5 and watching the check fail
+with `audit says v3, MLflow @champion is v5`, then restoring — production re-verified clean.
+
+Seven drills, seven findings, none of them the thing being drilled: the drift injection found a
 bug in the *job* rather than the sensor, the DST drill a gap in *tests* rather than code, the
 backfilled drill a bug in *scoring* rather than the mart, and the demotion drill a sort order
 in *staging* rather than demotion, and the dagster-dbt drill an absent *guard* rather than a
-broken mapping, and the ratio-floor drill a missing *half* of a contract rather than a
-wrong one. That is the argument for doing them — what a rehearsal
+broken mapping, the ratio-floor drill a missing *half* of a contract rather than a
+wrong one, and the registry drill an absent *reconciliation* rather than a mismatch.
+That is the argument for doing them — what a rehearsal
 turns up is rarely what you set out to check. It also locates the risk better than "recovery
 paths" did: all four sat at a **seam between two layers that were each correct alone**. A
 sensor that tagged and a job that ignored the tag. A function that handled DST and tests that
@@ -575,7 +603,7 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-478 checks total: 356 pytest (207 unit on synthetic data; 130 integration against a
+481 checks total: 359 pytest (207 unit on synthetic data; 133 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 19 Dagster definition/sensor tests), 59 Vitest

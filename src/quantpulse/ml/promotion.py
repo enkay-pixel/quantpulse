@@ -3,6 +3,12 @@
 import logging
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # heavy/circular at runtime; this module stays importable on its own
+    from sqlalchemy.orm import Session
+
+    from quantpulse.db import ModelRun
 
 logger = logging.getLogger(__name__)
 
@@ -110,3 +116,38 @@ def decide_promotion(
         f"candidate IC {cand_ic:.4f} beats champion {champ_ic:.4f} "
         f"+ margin {p.min_ic_improvement:.4f}",
     )
+
+
+def audit_champion(session: "Session", exchange: str) -> "ModelRun | None":
+    """The champion according to the **audit trail**, independent of MLflow.
+
+    `model_runs` is append-only, so a promotion that was later reversed is still in it. A
+    demotion withdraws *its own version's* promotion, and the champion falls back to the
+    most recent promotion with no later demotion; when every promotion is withdrawn (the
+    first-champion rollback, incident 17) the market has no champion.
+
+    Extracted so the API and the `champion_registry_agrees` asset check ask the question
+    exactly once. Two copies of this query is the shape of bug the check exists to find:
+    the platform would compare two answers that were never really independent, and agree
+    with itself while disagreeing with the model that is actually scoring.
+    """
+    from sqlalchemy import exists, select
+    from sqlalchemy.orm import aliased
+
+    from quantpulse.db import ModelRun
+
+    demoted = aliased(ModelRun)
+    return session.scalars(
+        select(ModelRun)
+        .where(
+            ModelRun.decision == "promoted",
+            ModelRun.exchange == exchange,
+            ~exists().where(
+                demoted.exchange == ModelRun.exchange,
+                demoted.run_type == "demotion",
+                demoted.model_version == ModelRun.model_version,
+                demoted.id > ModelRun.id,
+            ),
+        )
+        .order_by(ModelRun.id.desc())
+    ).first()

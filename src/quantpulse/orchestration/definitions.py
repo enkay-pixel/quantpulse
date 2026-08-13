@@ -354,6 +354,7 @@ defs = dg.Definitions(
         qp_assets.benchmark_freshness,
         qp_assets.option_snapshot_quality,
         qp_assets.predictions_are_current,
+        qp_assets.champion_registry_agrees,
         qp_assets.resource_headroom,
     ],
     jobs=[ingest_job, process_job, training_job],

@@ -31,9 +31,9 @@ from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Engine, exists, func, select, text
+from sqlalchemy import Engine, func, select, text
 from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from quantpulse.api import schemas
 from quantpulse.api.deps import engine_dep, session_dep
@@ -678,25 +678,11 @@ def current_model(session: SessionDep, exchange: ExchangeDep) -> schemas.ModelIn
     kind of mix-up nobody notices until a decision rests on it. A market whose candidate
     was rejected correctly reports no champion.
     """
-    # The audit trail is append-only, so a promotion that was later reversed is still in
-    # it. A demotion withdraws *its own version's* promotion — the champion falls back to
-    # the most recent promotion whose version has no later demotion. Only when every
-    # promotion is withdrawn (the first-champion rollback case) is there no champion.
-    demoted = aliased(ModelRun)
-    run = session.scalars(
-        select(ModelRun)
-        .where(
-            ModelRun.decision == "promoted",
-            ModelRun.exchange == exchange,
-            ~exists().where(
-                demoted.exchange == ModelRun.exchange,
-                demoted.run_type == "demotion",
-                demoted.model_version == ModelRun.model_version,
-                demoted.id > ModelRun.id,
-            ),
-        )
-        .order_by(ModelRun.id.desc())
-    ).first()
+    # Demotion-aware, and shared with the `champion_registry_agrees` asset check so the two
+    # cannot drift into agreeing with each other while disagreeing with MLflow.
+    from quantpulse.ml.promotion import audit_champion
+
+    run = audit_champion(session, exchange)
     if run is None:
         return schemas.ModelInfo(
             model_version=None, decision=None, trained_at=None, metrics={}, mlflow_run_id=None

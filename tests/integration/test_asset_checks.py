@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from quantpulse.data.ingest import BAR_COLUMNS, upsert_prices
 from quantpulse.data.universe import UniverseEntry, sync_universe
-from quantpulse.db import OptionQuote
+from quantpulse.db import ModelRun, OptionQuote
 from quantpulse.orchestration import assets
 
 pytestmark = pytest.mark.integration
@@ -197,3 +197,81 @@ def test_drift_report_measures_each_configured_market(db_engine: Engine) -> None
     keys = set(result.metadata or {})
     assert "XNYS/share_drifted" in keys
     assert "XJSE/share_drifted" in keys
+
+
+# --- MLflow registry vs the Postgres audit trail (2026-08-13) ---
+#
+# Two systems record which model is champion and they are written separately. The alias
+# decides what actually scores; model_runs decides what the dashboard reports and how
+# fct_portfolio_daily dates the backfilled boundary. train_evaluate_promote sets the alias
+# first and commits the audit row after, and nothing spans both — so a failure in between
+# leaves the two disagreeing, with every number on screen attributed to a model that did
+# not produce it.
+
+
+def _promoted(session: Session, exchange: str, version: str, run_type: str = "train") -> None:
+    session.add(
+        ModelRun(
+            run_type=run_type,
+            exchange=exchange,
+            mlflow_run_id=f"run-{exchange}-{version}",
+            model_version=version,
+            metrics={"holdout_ic": 0.02},
+            decision="promoted" if run_type == "train" else "rejected",
+        )
+    )
+
+
+def _stub_registry(monkeypatch: pytest.MonkeyPatch, alias: dict[str, str | None]) -> None:
+    from types import SimpleNamespace
+
+    from quantpulse.ml import registry
+
+    monkeypatch.setattr(registry, "configure", lambda uri: None)
+    monkeypatch.setattr(
+        registry,
+        "get_champion",
+        lambda exchange=None, **_: (
+            SimpleNamespace(version=alias[exchange]) if alias.get(exchange) else None
+        ),
+    )
+
+
+def test_registry_check_passes_when_alias_matches_the_audit_trail(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with Session(db_engine) as session:
+        sync_universe(session, [UniverseEntry("AAA", "stock", "XNYS")])
+        _promoted(session, "XNYS", "1")
+        session.commit()
+    _stub_registry(monkeypatch, {"XNYS": "1", "XJSE": None})
+    assert assets.champion_registry_agrees().passed
+
+
+def test_registry_check_catches_an_alias_that_drifted(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The failure mode with no owner: MLflow promoted, Postgres silent."""
+    with Session(db_engine) as session:
+        sync_universe(session, [UniverseEntry("AAA", "stock", "XNYS")])
+        _promoted(session, "XNYS", "1")
+        session.commit()
+    _stub_registry(monkeypatch, {"XNYS": "4", "XJSE": None})
+    result = assets.champion_registry_agrees()
+    assert not result.passed
+    assert "audit says v1" in str(result.metadata["disagreements"].value)
+
+
+def test_registry_check_follows_a_demotion(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A withdrawn promotion must not be the answer either side compares against —
+    the audit champion falls back to the last promotion with no later demotion."""
+    with Session(db_engine) as session:
+        sync_universe(session, [UniverseEntry("AAA", "stock", "XNYS")])
+        _promoted(session, "XNYS", "1")
+        _promoted(session, "XNYS", "2")
+        _promoted(session, "XNYS", "2", run_type="demotion")
+        session.commit()
+    _stub_registry(monkeypatch, {"XNYS": "1", "XJSE": None})
+    assert assets.champion_registry_agrees().passed, "v2 was demoted; v1 is the champion"
