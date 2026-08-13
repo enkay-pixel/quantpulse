@@ -143,3 +143,57 @@ def test_every_schedule_declares_an_exchange_timezone() -> None:
         assert schedule.execution_timezone != "UTC", (
             f"{schedule.name} is pinned to UTC and will drift against its market at DST"
         )
+
+
+def test_every_dbt_source_resolves_to_an_asset_something_produces() -> None:
+    """The dagster-dbt seam: a dbt source's `meta.dagster.asset_key` must name a real asset.
+
+    If a Python asset is renamed and `transform/models/staging/sources.yml` is not, nothing
+    errors. dagster-dbt simply invents an external asset with the stale key, the dbt models
+    depend on that phantom instead of the real producer, and the ordering guarantee inside
+    `process_job` is gone — marts would build from whatever was in Postgres last time. No
+    failure, no warning, just quietly stale evidence.
+
+    `market/universe` is exempt by name: it is Alembic/CLI-managed and deliberately has no
+    Dagster producer. Anything else appearing there is a broken mapping.
+    """
+    from quantpulse.orchestration.transform_assets import transform_dbt_assets
+
+    # Sourced by dbt, produced outside Dagster: the universe is seeded by
+    # `quantpulse sync-universe` from configs/universe.yaml, so it has no asset to point at.
+    UNMANAGED = {"market/universe"}
+
+    dbt_keys = {spec.key.to_user_string() for spec in transform_dbt_assets.specs}
+    produced = set()
+    for asset in defs.assets or []:
+        if asset is transform_dbt_assets:
+            continue
+        produced |= {key.to_user_string() for key in getattr(asset, "keys", ())}
+
+    orphans: dict[str, list[str]] = {}
+    for spec in transform_dbt_assets.specs:
+        upstream = {dep.asset_key.to_user_string() for dep in spec.deps}
+        missing = sorted(upstream - dbt_keys - produced - UNMANAGED)
+        if missing:
+            orphans[spec.key.to_user_string()] = missing
+    assert not orphans, f"dbt sources point at assets nothing produces: {orphans}"
+
+
+def test_the_ingestion_chain_is_actually_wired_into_dbt() -> None:
+    """Assert the specific edges, not just the absence of orphans.
+
+    A sources.yml that lost every `meta.dagster` block would pass the check above — each
+    source would become its own external asset with no missing producer — while the whole
+    transform layer quietly detached from the pipeline that feeds it.
+    """
+    from quantpulse.orchestration.transform_assets import transform_dbt_assets
+
+    upstream = {
+        spec.key.to_user_string(): {dep.asset_key.to_user_string() for dep in spec.deps}
+        for spec in transform_dbt_assets.specs
+    }
+    assert "raw_prices" in upstream["stg_prices"]
+    assert "predictions" in upstream["stg_predictions"]
+    assert "portfolio_equity" in upstream["stg_portfolio_snapshots"]
+    assert "champion_model" in upstream["stg_model_runs"]
+    assert "option_chains" in upstream["stg_option_quotes"]
