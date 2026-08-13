@@ -112,17 +112,31 @@ gzcat ~/quantpulse-backups/market-YYYY-MM-DD.sql.gz | docker exec -i quantpulse-
 
 ## Host agents (launchd)
 
-Four scheduled jobs on the dev machine. Each keeps only its *schedule* in
+Five scheduled jobs on the dev machine. Each keeps only its *schedule* in
 `~/Library/LaunchAgents/com.quantpulse.*.plist`; the logic lives in `scripts/` or the
 Makefile, so changing behaviour is a code change with a diff. All log to
 `~/Library/Logs/quantpulse-*.log`.
 
+(Other `com.quantpulse.*` agents exist on this machine — `stack-check`, `secret-scan`,
+`wake-digest` and friends — but their scripts live in `~/.claude/scripts/` and belong to the
+separate agent fleet, not this repo. The ones below are the ones a fresh clone can restore.)
+
 | Agent | When | Does |
 |---|---|---|
 | `backup` | 07:00 daily | Dumps `market`, keeps 14 |
+| `jse-close` | 19:47 weekdays | Checks today's JSE session landed and no benchmark bar is missing, after the 19:30 ingest |
 | `readiness` | 21:45 weekdays | Warns if the stack is down or on battery, 15 min before the option window |
 | `power` | every 2h | Warns only when sleep is disabled **and** on battery — the combination that runs the machine flat |
 | `prune-cache` | Sun 03:00 | Reclaims Docker build cache, keeps the uv wheel cache |
+
+`jse-close` exists for the failure the others cannot see. A session that never ingests is
+loud; a session that ingests *almost* completely is silent — STX40.JO alone went missing on
+2026-08-11, which is 1/29th of coverage and trips no threshold, while the CAPM marts
+inner-join it and lost the whole day. Nobody noticed for two days. It reports rather than
+repairs: the catch-up sensor already retries a missing benchmark on its own, and re-fetching
+from a script is how a misdated bar gets written (see data-dictionary.md). It also stays
+quiet before 19:30, since until the schedule has had its turn an absent session is not a
+missed one — the same `ingest_overdue` distinction the sensor draws.
 
 The checks notify but never act: bringing the stack up automatically would override a
 deliberate `make down` before travel. Disable any of them with
