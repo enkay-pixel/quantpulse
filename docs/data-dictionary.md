@@ -68,14 +68,28 @@ inner-join to get it — so a day the vendor is missing the benchmark for disapp
 those two while remaining in the track record. The counts then differ by one, with nothing
 on screen explaining it.
 
-Known instance: **STX40.JO has no bar for 2026-08-11**. The session traded — the other 28
-JSE names have data — and 08-07 and 08-12 are both present, so it is a one-instrument,
-one-day hole at the vendor, not an ingestion failure. Retried against both yfinance and
-Stooq; neither has it.
+**Usually the cause is a bar that has not arrived yet, not one that is missing.** JSE bars
+in particular can land a day or more late: STX40.JO had no 2026-08-11 bar when the session
+was first ingested *or* when it was retried the next morning against both yfinance and
+Stooq — the gap looked permanent, and was written up here as one. Two days later the bar was
+simply there (close 10857), and a plain re-fetch closed the gap. Two lessons, both paid for:
 
-It is left as a gap on purpose. Carrying the previous close forward or interpolating would
-fabricate the observation that the CAPM decomposition divides by, and a made-up denominator
-would quietly undermine the one number that exists to be an honest read. One absent day
-against 2,000+ is a rounding error in the regression; a fabricated one is a lie of unknown
-size. If the counts ever differ by more than a day or two, that is worth investigating as a
-vendor-reliability problem rather than patching at this layer.
+- **A benchmark gap is not evidence of a hole at the vendor.** Before concluding anything,
+  re-fetch on a later day. An absent bar and a not-yet-published bar are indistinguishable
+  at the moment you look, and the second one is far more common.
+- **Query a window, not a day.** yfinance is unreliable at the edges of a one-day range:
+  `2026-08-12 -> 2026-08-13` returned nothing for STX40.JO while `2026-08-05 -> 2026-08-13`
+  returned the row. The ingest path already asks for inclusive ranges, but any manual
+  diagnosis with a single-day window can manufacture the very gap it is investigating.
+
+Expect the newest row to be provisional. The most recent session often comes back with a
+real open and a **NaN close** until the vendor finalizes it — 08-12 looked exactly like that
+while 08-11 was complete. `data/cleaning.py` drops it rather than storing half a bar, so the
+day reappears on the next run.
+
+Whatever the cause, the gap is left as a gap. Carrying the previous close forward or
+interpolating would fabricate the observation the CAPM decomposition divides by, and a
+made-up denominator quietly undermines the one number that exists to be an honest read. One
+absent day against 2,000+ is a rounding error in the regression; a fabricated one is a lie
+of unknown size. A gap that persists for more than a few sessions *after* a re-fetch is the
+one worth investigating as a vendor-reliability problem — not patching at this layer.

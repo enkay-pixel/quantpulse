@@ -195,6 +195,7 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
 
     from quantpulse.data.calendar import trading_days
     from quantpulse.orchestration.catchup import (
+        exchange_day_start_utc,
         ingest_overdue,
         missing_trading_days,
         next_ingest_attempt,
@@ -207,7 +208,7 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
         today = market_today(exchange)
         end = today if ingest_overdue(exchange=exchange) else today - dt.timedelta(days=1)
         recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), end, exchange)
-        day_start = dt.datetime.combine(today, dt.time.min, tzinfo=get_exchange(exchange).tz)
+        day_start = exchange_day_start_utc(today, exchange)
         for day in missing_trading_days(recent, exchange)[:MAX_CATCHUP_PER_TICK]:
             key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
             # Scheduled runs carry the same partition tag, so a failing 18:30 ingest
@@ -281,10 +282,9 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     queue a run that fails on arrival, burning the retry budget and firing a failure
     alert; skipping here is the difference between "not yet" and "broken".
     """
-    import datetime as dt
-
-    from quantpulse.data.calendar import get_exchange, market_today
+    from quantpulse.data.calendar import market_today
     from quantpulse.orchestration.catchup import (
+        exchange_day_start_utc,
         is_post_close,
         option_snapshot_incomplete,
         summarize_capture_runs,
@@ -306,9 +306,10 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     # increments hopefully: a run cancelled before it ever left the queue never reached the
     # vendor, so it must not count. (A cursor counted requests, which is how three
     # cancelled pre-market runs locked the sensor out for a whole evening.)
-    day_start = dt.datetime.combine(today, dt.time.min, tzinfo=get_exchange().tz)
     records = context.instance.get_run_records(
-        filters=dg.RunsFilter(job_name=OPTION_CAPTURE_JOB, created_after=day_start)
+        filters=dg.RunsFilter(
+            job_name=OPTION_CAPTURE_JOB, created_after=exchange_day_start_utc(today)
+        )
     )
     in_flight, reached_feed = summarize_capture_runs(
         [(r.dagster_run.status.value, r.start_time) for r in records]

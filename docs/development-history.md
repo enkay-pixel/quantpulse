@@ -283,14 +283,41 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     answer different questions — a run_key is deduplicated forever, so numbering from today
     alone would reissue yesterday's key and vanish); and the skip reason now names the
     exhausted sessions and says it will retry tomorrow.
-    Two things the outage cost that no fix recovers: **08-11 option chains**, where three
+    One thing the outage cost that no fix recovers: **08-11 option chains**, where three
     repair runs reported SUCCESS having captured zero rows (the documented "wrote N rows is
-    not captured the universe" edge, with N = 0), and **STX40.JO's 08-11 bar**, absent at
-    the vendor — see the data dictionary note on why that is left as a gap.
+    not captured the universe" edge, with N = 0). **STX40.JO's 08-11 bar** was written up
+    here as a second permanent loss and was not one — it arrived at the vendor two days
+    late and a plain re-fetch on 08-13 filled it, closing the benchmark gap. That
+    correction is the more useful record: an absent bar and an unpublished bar look
+    identical at the moment you look, so "the vendor does not have it" needs a re-fetch on
+    a later day before it is a finding. See the data dictionary note.
     Lesson: a rescue mechanism needs a test for *resuming*, not only for stopping. Both
     halves of this were in code written five weeks earlier specifically to survive
     outages, and the tests written alongside it covered the budget being spent but never
     the budget being restored.
+30. **The daily budget was counted over the wrong day (2026-08-12/13)**: the very next
+    outage exposed the other half of incident 29. With the budget correctly scoped to
+    "today", *which hours count as today* was still wrong: the boundary was built as an
+    aware exchange-local midnight, and `dg.RunsFilter(created_after=...)` compares
+    **wall-clock fields** against the naive-UTC `create_timestamp` column, discarding
+    `tzinfo` entirely. So `2026-08-13 00:00+02:00` was read as `00:00 UTC` — 02:00 SAST,
+    two hours into the day. Measured on the live instance for `2026-08-12|XJSE`: the same
+    filter matched **3 runs when spelled `+02:00` and 10 when converted to UTC**. The
+    sensor therefore saw 3 of its 3 attempts and kept firing; it had made 14 runs against
+    a ceiling of 3, and would have continued indefinitely. Direction of the error is
+    per-market and opposite: XJSE (UTC+2) opened its window 2h late so the budget never
+    filled, XNYS (UTC−4) opened it 4h early so yesterday's late runs counted against
+    today — the strict direction, and it applies to `option_snapshot_repair_sensor` too,
+    which had carried the same construction since 2026-07-24 on captures that **cannot be
+    refetched**. Fix: one `catchup.exchange_day_start_utc(day, exchange)` used by both
+    sensors, converting with `.astimezone(dt.UTC)` so the wall clock Dagster reads is
+    already the right instant.
+    Lesson: the tests that would have caught this had to assert the **naive wall-clock**,
+    not the instant. A natural `assert start == datetime(..., tzinfo=SAST)` passes with or
+    without the conversion — the two values *are* the same instant — so it proves nothing
+    about the only thing that mattered. Verified by reverting the fix: that assertion
+    stayed green while the two wall-clock assertions failed. When a library ignores part
+    of a value, test the part it reads.
 
 ## Coverage tracks debugging history, not risk (2026-08-11)
 

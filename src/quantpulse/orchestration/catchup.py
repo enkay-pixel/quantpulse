@@ -154,6 +154,29 @@ def summarize_capture_runs(runs: Iterable[tuple[str, float | None]]) -> tuple[bo
     return in_flight, reached_feed
 
 
+def exchange_day_start_utc(day: dt.date, exchange: str = DEFAULT_EXCHANGE) -> dt.datetime:
+    """Midnight in the exchange's timezone, expressed in UTC, for `RunsFilter`.
+
+    Dagster's `created_after` compares **wall-clock fields** against the naive-UTC
+    `create_timestamp` column and ignores `tzinfo` entirely, so handing it an aware local
+    datetime silently moves the boundary by the UTC offset — in the wrong direction, and
+    differently per market. Measured on the live instance for `2026-08-12|XJSE`:
+
+        created_after=2026-08-13 00:00+02:00  ->  3 runs   (boundary lands at 02:00 SAST)
+        created_after=2026-08-12 22:00+00:00  -> 10 runs   (correct)
+
+    Under-counting made the JSE catch-up budget far too generous — 10 attempts in a night
+    against a ceiling of 3. For XNYS the same mistake goes the other way: 00:00 EDT read as
+    00:00 UTC starts the window at 20:00 the previous evening, so yesterday's late option
+    captures count against today's budget and can block a capture that cannot be refetched.
+
+    Converting first makes the wall-clock fields the ones Dagster is actually comparing.
+    """
+    return dt.datetime.combine(day, dt.time.min, tzinfo=get_exchange(exchange).tz).astimezone(
+        dt.UTC
+    )
+
+
 def next_ingest_attempt(
     runs: list[tuple[str, float | None]],
     todays_runs: list[tuple[str, float | None]] | None = None,

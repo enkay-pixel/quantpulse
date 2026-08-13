@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from quantpulse.orchestration.catchup import (
     MAX_INGEST_ATTEMPTS_PER_SESSION,
+    exchange_day_start_utc,
     ingest_overdue,
     next_ingest_attempt,
 )
@@ -117,3 +118,41 @@ def test_omitting_todays_runs_falls_back_to_the_whole_history() -> None:
     """Back-compatible default: callers that do not scope a window get the old behaviour
     rather than an unbounded retry loop."""
     assert next_ingest_attempt([FAILED] * MAX_INGEST_ATTEMPTS_PER_SESSION) is None
+
+
+# --- the "today" boundary must be UTC (2026-08-12) ---
+#
+# The budget above is only as good as the window it counts over. Dagster's
+# RunsFilter(created_after=...) compares wall-clock fields against the naive-UTC
+# create_timestamp column and IGNORES tzinfo, so an aware local datetime silently moves the
+# boundary by the offset. Measured live: 00:00+02:00 matched 3 runs where 22:00Z matched 10,
+# so the JSE catch-up made 10 attempts against a ceiling of 3.
+
+
+def test_boundary_is_expressed_in_utc() -> None:
+    """What Dagster compares is the wall clock, so the wall clock has to already be UTC."""
+    start = exchange_day_start_utc(dt.date(2026, 8, 13), "XJSE")
+    assert start.utcoffset() == dt.timedelta(0)
+    # The naive value Dagster actually reads, not merely an equivalent instant.
+    assert start.replace(tzinfo=None) == dt.datetime(2026, 8, 12, 22, 0)
+
+
+def test_boundary_is_still_the_exchange_midnight() -> None:
+    """Converting must not move the instant — only how it is spelled."""
+    for exchange, tz in (("XJSE", SAST), ("XNYS", ET)):
+        day = dt.date(2026, 8, 13)
+        assert exchange_day_start_utc(day, exchange) == dt.datetime.combine(
+            day, dt.time.min, tzinfo=tz
+        )
+
+
+def test_each_market_gets_its_own_midnight_and_they_differ() -> None:
+    """The skew ran opposite ways per market — JSE's window opened 2h late (budget too
+    loose), NYSE's 4h early (too strict, and on option captures that cannot be refetched).
+    A single shared boundary would be wrong for at least one of them."""
+    day = dt.date(2026, 8, 13)
+    jse = exchange_day_start_utc(day, "XJSE").replace(tzinfo=None)
+    nyse = exchange_day_start_utc(day, "XNYS").replace(tzinfo=None)
+    assert jse == dt.datetime(2026, 8, 12, 22, 0)  # SAST is UTC+2
+    assert nyse == dt.datetime(2026, 8, 13, 4, 0)  # EDT is UTC-4
+    assert jse < nyse

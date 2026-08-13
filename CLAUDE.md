@@ -148,6 +148,19 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   history and suffix the attempt number; only runs with a `start_time` spend budget
   (`catchup.next_ingest_attempt` / `summarize_capture_runs`). Also: the exchange date
   flips at midnight, so "today" is not a *missed* session until `catchup.ingest_overdue`.
+- **`dg.RunsFilter(created_after=...)` ignores `tzinfo`** — it compares wall-clock fields
+  against the naive-UTC `create_timestamp` column, so an aware local datetime silently
+  shifts the boundary by the offset (incident 30: the same filter matched 3 runs as
+  `+02:00` and 10 as UTC, and the catch-up sensor made 14 attempts against a ceiling of 3).
+  Build day boundaries with `catchup.exchange_day_start_utc()`, never
+  `datetime.combine(day, time.min, tzinfo=ex.tz)`. Testing this needs an assertion on the
+  **naive wall-clock**; comparing instants passes either way, because they *are* the same
+  instant — that is precisely why it shipped.
+- **A vendor gap is a "not yet", not a "never", until you re-fetch on a later day.** JSE
+  bars can arrive 2+ days late (STX40.JO's 08-11 close showed up on 08-13 after two failed
+  retries and was already written up as permanent), and the newest session often returns a
+  real open with a **NaN close** until finalized. Also query a *range*: yfinance returned
+  nothing for a one-day window that a week-long window covered fine.
 - **Never `dt.date.today()`** — containers run UTC. Use `calendar.market_today()` (exchange
   time). Under EDT the 19:00 ET jobs are 23:00 UTC and the two agree; under EST they are
   00:00 UTC and naive UTC stamps rows with *tomorrow*, shifting options history by a day at
