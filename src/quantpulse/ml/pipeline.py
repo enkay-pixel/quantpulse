@@ -174,6 +174,24 @@ def last_scored_date(engine: Engine, exchange: str) -> dt.date | None:
         ).scalar()
 
 
+def champion_promoted_on(engine: Engine, exchange: str, version: str) -> dt.date | None:
+    """When this model version was promoted, or None if no promotion is recorded.
+
+    The same date `fct_portfolio_daily` uses to decide `backfilled` vs `live`, so the two
+    layers agree on what counts as out-of-sample. Reads the *first* promotion: a version
+    demoted and later re-promoted is out-of-sample from when it first took over.
+    """
+    with engine.connect() as conn:
+        return conn.execute(
+            text(
+                "SELECT min(created_at)::date FROM model_runs "
+                "WHERE model_version = :v AND decision = 'promoted' "
+                "AND (exchange = :ex OR exchange IS NULL)"
+            ),
+            {"v": str(version), "ex": exchange},
+        ).scalar()
+
+
 def scoring_window_start(engine: Engine, exchange: str, latest_feature_date: dt.date) -> dt.date:
     """Where scoring starts looking for gaps: far enough back to cover the whole outage.
 
@@ -238,9 +256,27 @@ def score_latest(
     latest_date = features["date"].max()
     window_start = scoring_window_start(engine, exchange, latest_date)
     recent = features[features["date"] >= window_start]
-    pending = (set(recent["date"]) - dates_with_predictions(engine, exchange, window_start)) | {
-        latest_date
-    }
+    pending = set(recent["date"]) - dates_with_predictions(engine, exchange, window_start)
+    # The newest date is normally re-scored so a freshly promoted champion's view of today
+    # lands at once — but only when the champion already existed on that date. If features
+    # are stale relative to a promotion (the process job runs Mon-Fri while the retrain runs
+    # Saturday, so any Monday market holiday leaves the newest feature date on Friday),
+    # re-scoring would hand an already-live day to a model trained on it. The marts take the
+    # newest model version per date, so that day would silently flip from `live` to
+    # `backfilled` and leave the out-of-sample record. Unscored dates still fill in below
+    # and are labelled `backfilled` honestly; this only protects days already scored.
+    promoted_on = champion_promoted_on(engine, exchange, champion.version)
+    if promoted_on is None or latest_date >= promoted_on:
+        pending |= {latest_date}
+    elif latest_date not in pending:
+        logger.info(
+            "%s: leaving %s with the model that scored it — champion v%s was only promoted "
+            "on %s, so re-scoring would reclassify a live day as backfilled",
+            exchange,
+            latest_date,
+            champion.version,
+            promoted_on,
+        )
     to_score = recent[recent["date"].isin(pending)].copy()
     to_score["score"] = np.asarray(booster.predict(to_score[list(FEATURE_COLUMNS)]))
 

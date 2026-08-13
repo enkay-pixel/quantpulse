@@ -236,3 +236,77 @@ def test_a_fresh_database_falls_back_to_the_floor(
     assert pipeline.last_scored_date(seeded, "XNYS") is None
     start = pipeline.scoring_window_start(seeded, "XNYS", DATES[3])
     assert start == DATES[3] - dt.timedelta(days=2)
+
+
+# --- a promotion must not retroactively reclassify a day already scored (2026-08-13) ---
+#
+# `test_the_newest_date_is_always_rescored` above re-scores with the *same* champion, which
+# is the ordinary case and is fine. The dangerous one is a champion promoted *after* the
+# newest feature date: re-scoring then attributes an already-live day to a model that did
+# not exist on it, and `fct_portfolio_daily` labels that 'backfilled' — so the day silently
+# leaves the live track record, the one number this project asks to be judged on.
+#
+# Reachable on a fixed schedule, not just in theory: the retrain runs Saturday and the
+# process job runs Mon-Fri regardless of whether the market traded. Any Monday US holiday
+# following a Saturday promotion leaves the newest feature date on Friday, before the new
+# champion existed. Labor Day 2026-09-07 is the next one.
+
+
+def _promote(engine: Engine, version: str, on: dt.date) -> None:
+    from quantpulse.db import ModelRun
+
+    with Session(engine) as session:
+        session.add(
+            ModelRun(
+                run_type="train",
+                mlflow_run_id=f"run{version}",
+                model_version=version,
+                metrics={"holdout_ic": 0.03},
+                decision="promoted",
+                exchange="XNYS",
+                created_at=dt.datetime.combine(on, dt.time(9)),
+            )
+        )
+        session.commit()
+
+
+def test_a_day_predating_the_champion_is_not_rescored_by_it(seeded: Engine) -> None:
+    """The newest date keeps the champion that scored it out-of-sample.
+
+    Champion 7 is promoted the day *after* the last feature date, so re-scoring that date
+    with it would file an in-sample prediction as live evidence — and invisibly, since the
+    marts take the newest model version per date.
+    """
+    with Session(seeded) as session:
+        for ticker in TICKERS:
+            session.execute(
+                text(
+                    "INSERT INTO predictions (ticker, date, model_version, score, created_at) "
+                    "VALUES (:t, :d, '1', 0.5, now())"
+                ),
+                {"t": ticker, "d": DATES[3]},
+            )
+        session.commit()
+    _promote(seeded, "1", DATES[0])
+    _promote(seeded, "7", DATES[3] + dt.timedelta(days=1))  # promoted AFTER the newest date
+
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+
+    assert _scored(seeded)[DATES[3]] == {"1"}, (
+        "a champion promoted after this date must not claim it — that converts a live day "
+        "into a backfilled one and shortens the out-of-sample record"
+    )
+
+
+def test_the_newest_date_is_still_rescored_by_a_champion_that_predates_it(
+    seeded: Engine,
+) -> None:
+    """The documented exception has to survive the guard: in ordinary operation the
+    champion was promoted before today, and today must pick up its view immediately."""
+    _promote(seeded, "7", DATES[0])
+    with Session(seeded) as session:
+        pipeline.score_latest(seeded, session, exchange="XNYS")
+        session.commit()
+    assert "7" in _scored(seeded)[DATES[3]]

@@ -382,10 +382,38 @@ does not exist or happens twice. Nothing sits there now; the point is that movin
 becomes a deliberate decision rather than a discovery in November, and for the option
 capture a skipped evening is permanent.
 
-Two drills, two findings, neither of them the thing being drilled: the drift injection found
-a bug in the *job* rather than the sensor, and the DST drill found a gap in *tests* rather
-than code. That is the argument for doing them — what a rehearsal turns up is rarely what
-you set out to check.
+### Drill 3: the backfilled phase (2026-08-13)
+
+`fct_portfolio_daily` has never produced a single `backfilled` row — 4,188 rows, all
+`replay` or `live`. The mart's labelling was already covered by four tests against a real
+dbt build. The gap was upstream, in the scoring that creates the condition, and the drill
+found a way for the phase to fire when it should not.
+
+`score_latest` always re-scores the newest feature date, deliberately, so a freshly promoted
+champion's view of today lands immediately. That is right when the champion existed on that
+date. It is wrong when it did not: the marts take the newest model version per date, so
+re-scoring hands an already-`live` day to a model trained on it, and the day flips to
+`backfilled` and **leaves the out-of-sample record**. The live track record is the one number
+this project asks to be judged on, and it would have shortened silently.
+
+Not hypothetical, and not rare. The retrain runs Saturday; the process job runs Mon-Fri
+regardless of whether the market traded. Any Monday US market holiday following a Saturday
+promotion leaves the newest feature date on Friday, before the new champion existed. The next
+one is **Labor Day, 2026-09-07** — about three weeks out.
+
+Fixed by giving the scoring layer the same notion of "promoted on" the mart uses
+(`champion_promoted_on`), and forcing the newest-date re-score only when the champion
+predates that date. Genuinely unscored dates still fill in and are still labelled
+`backfilled` honestly — the guard protects days that were already scored, nothing else.
+Verified inert against production: both champions predate the last scored date, so current
+behaviour is unchanged.
+
+Three drills, three findings, none of them the thing being drilled: the drift injection
+found a bug in the *job* rather than the sensor, the DST drill found a gap in *tests* rather
+than code, and the backfilled drill found a bug in *scoring* rather than the mart. That is
+the argument for doing them — what a rehearsal turns up is rarely what you set out to check.
+It also says something about where these bugs live: all three sat at a seam between two
+layers that each looked correct alone.
 
 Injection runs against the disposable `market_test` database, never the live one. Writing a
 fabricated drift reading into `market` would risk the daemon picking it up on its next tick
@@ -469,7 +497,7 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-468 checks total: 346 pytest (207 unit on synthetic data; 122 integration against a
+470 checks total: 348 pytest (207 unit on synthetic data; 124 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 17 Dagster definition/sensor tests), 59 Vitest
