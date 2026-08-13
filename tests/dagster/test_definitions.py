@@ -87,3 +87,26 @@ def test_each_market_ingests_in_its_own_timezone() -> None:
     assert by_name["daily_ingest_xnys"].execution_timezone == "America/New_York"
     assert by_name["daily_ingest_xjse"].execution_timezone == "Africa/Johannesburg"
     assert by_name["daily_ingest_xnys"].cron_schedule != by_name["daily_ingest_xjse"].cron_schedule
+
+
+def test_every_asset_check_defined_is_registered() -> None:
+    """A check that exists but is not in `defs` never runs, and reads as passing.
+
+    Registration here is a hand-maintained list, so adding `@dg.asset_check` to assets.py
+    is only half the job — the other half is silent when skipped, which is the same failure
+    class as the guards this suite exists to prove. Enumerate the module instead of
+    restating names, so a new check is registered or this fails.
+    """
+    from quantpulse.orchestration import assets as qp_assets
+
+    def check_names(obj: dg.AssetChecksDefinition) -> set[str]:
+        return {spec.name for spec in obj.check_specs}
+
+    defined: set[str] = set()
+    for name in dir(qp_assets):
+        attr = getattr(qp_assets, name)
+        if isinstance(attr, dg.AssetChecksDefinition):
+            defined |= check_names(attr)
+    registered = {n for c in defs.asset_checks or [] for n in check_names(c)}
+    assert defined, "sanity: the module should expose asset checks to enumerate"
+    assert defined <= registered, f"defined but never registered: {sorted(defined - registered)}"

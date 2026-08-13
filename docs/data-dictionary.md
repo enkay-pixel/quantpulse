@@ -68,6 +68,17 @@ inner-join to get it — so a day the vendor is missing the benchmark for disapp
 those two while remaining in the track record. The counts then differ by one, with nothing
 on screen explaining it.
 
+The `benchmark_freshness` asset check now catches this at ingest rather than leaving it to
+be noticed by hand-comparing day counts. It reports any session a market ingested that its
+benchmark lacks, over a 30-session window, per market. It exists as a *separate* check
+because both existing guards are blind to it by design: the catch-up sensor's coverage
+floor is a share of the universe (28 of 29 JSE names clears 0.8 comfortably and never
+retries), and `recent_prices_quality` judges every ticker against one 0.95 completeness
+ratio, which scores a single absent day 0.967. Both are right to shrug at one missing
+ticker — the benchmark is simply not one ticker among fifty. Non-blocking: a stale
+benchmark thins the alpha numbers, it does not corrupt them, and it must never stop an
+ingest.
+
 **Usually the cause is a bar that has not arrived yet, not one that is missing.** JSE bars
 in particular can land a day or more late: STX40.JO had no 2026-08-11 bar when the session
 was first ingested *or* when it was retried the next morning against both yfinance and

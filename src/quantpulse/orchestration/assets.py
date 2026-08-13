@@ -25,6 +25,11 @@ from quantpulse.data.calendar import (
 )
 from quantpulse.db import get_engine, get_session
 
+#: Trailing sessions the benchmark freshness check judges. Long enough that a late-arriving
+#: bar (JSE bars can land 2+ days after the session) still gets reported while it is
+#: recoverable, short enough that one historical hole does not alarm forever.
+BENCHMARK_LOOKBACK_SESSIONS = 30
+
 daily_partitions = dg.DailyPartitionsDefinition(
     # The date dimension stays on NY time for continuity with existing keys. It only
     # decides when a calendar date becomes current, and every supported market closes
@@ -119,6 +124,69 @@ def recent_prices_quality() -> dg.AssetCheckResult:
         for r in results:
             metadata[f"{exchange}/{r.name}"] = dg.MetadataValue.json(
                 {"passed": bool(r.passed), **r.details}
+            )
+    return dg.AssetCheckResult(passed=not any_failed, metadata=metadata)
+
+
+@dg.asset_check(asset=raw_prices, blocking=False)
+def benchmark_freshness() -> dg.AssetCheckResult:
+    """Every session a market ingested must also have a bar for that market's benchmark.
+
+    Separate from `recent_prices_quality` because a benchmark hole is invisible there: the
+    catch-up sensor's coverage floor is a *share* of the universe, so 28 of 29 JSE names
+    clears 0.8 comfortably and never retries, and the per-ticker completeness ratio gives a
+    single absent day 0.967 against a 0.95 threshold. Both correctly ignore one missing
+    ticker. But when that ticker is the benchmark, the inner joins in `fct_alpha_beta` and
+    `fct_portfolio_vs_benchmark` drop the entire day from the CAPM decomposition, so the
+    gap only shows up as two marts quietly disagreeing about the live day count.
+
+    Found the slow way: STX40.JO went missing for 2026-08-11, nothing flagged it, and it was
+    noticed days later by hand-comparing day counts. Non-blocking on purpose — a stale
+    benchmark makes the alpha numbers thinner, not wrong, and must not stop the ingest.
+    """
+    from sqlalchemy import text
+
+    from quantpulse.data.calendar import get_exchange
+    from quantpulse.data.quality import benchmark_gaps
+
+    metadata: dict[str, dg.MetadataValue] = {}
+    any_failed = False
+    with get_engine().connect() as conn:
+        for exchange in sorted(EXCHANGES):
+            benchmark = get_exchange(exchange).benchmark
+            end = last_trading_day(exchange=exchange)
+            window_start = end - dt.timedelta(days=45)
+            # Sessions this market actually has data for — not the calendar. A day nobody
+            # ingested is an outage the catch-up sensor owns; flagging it here as well
+            # would fire two alarms for one cause.
+            sessions = [
+                row.date
+                for row in conn.execute(
+                    text(
+                        "SELECT p.date FROM prices p "
+                        "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex "
+                        "WHERE p.date >= :start GROUP BY p.date ORDER BY p.date"
+                    ),
+                    {"start": window_start, "ex": exchange},
+                ).all()
+            ][-BENCHMARK_LOOKBACK_SESSIONS:]
+            if not sessions:
+                continue  # market not ingesting yet; nothing to judge
+            bars = conn.execute(
+                text("SELECT date FROM prices WHERE ticker = :t AND date >= :start"),
+                {"t": benchmark, "start": window_start},
+            ).all()
+            in_universe = (
+                conn.execute(
+                    text("SELECT count(*) FROM universe WHERE ticker = :t AND active"),
+                    {"t": benchmark},
+                ).scalar_one()
+                > 0
+            )
+            result = benchmark_gaps(benchmark, sessions, [r.date for r in bars], in_universe)
+            any_failed = any_failed or not result.passed
+            metadata[exchange] = dg.MetadataValue.json(
+                {"passed": bool(result.passed), **result.details}
             )
     return dg.AssetCheckResult(passed=not any_failed, metadata=metadata)
 

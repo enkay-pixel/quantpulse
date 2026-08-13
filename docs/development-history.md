@@ -406,10 +406,10 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-428 checks total: 306 pytest (182 unit on synthetic data; 114 integration against a
+445 checks total: 323 pytest (196 unit on synthetic data; 114 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
-use a throwaway sqlite backend; 10 Dagster definition/sensor tests), 59 Vitest
+use a throwaway sqlite backend; 13 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
@@ -421,6 +421,16 @@ breaking the code it guards and watching it fail — the practice caught a "pass
 that was only passing because `tail` had cropped its verdict, and a sabotage that appeared
 to prove tests blind when the replacement string had simply never matched. Assert the
 anchor applied before trusting the result.
+
+**And the fixture has to be able to tell the difference.** Verifying `benchmark_gaps`
+(2026-08-13) by swapping its set difference for the 0.95 ratio it exists to replace left
+all five new tests green — the sabotage applied, but every fixture used a five-session
+window where one absent day is 0.2 and fails any threshold. The bug only exists at
+realistic sizes: 1 missing in 30 is 0.033, which slips under 0.05. A test written at a
+size the bug cannot occur at is not a weak test, it is a decoration. Size the fixture to
+the failure, then break the code to prove it. The same shape appeared hours earlier in
+incident 30, where the natural instant-comparison assertion passed with and without the
+timezone fix.
 
 ## Owner preferences (established in-session)
 

@@ -1,6 +1,7 @@
 """Data-quality checks over bar frames. Reused by the CLI and Dagster asset checks."""
 
 import datetime as dt
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -77,6 +78,49 @@ def run_quality_checks(
     results.append(CheckResult("no_extreme_moves", extreme == 0, {"extreme_rows": extreme}))
 
     return results
+
+
+def benchmark_gaps(
+    benchmark: str,
+    market_sessions: Iterable[dt.date],
+    benchmark_dates: Iterable[dt.date],
+    in_universe: bool = True,
+) -> CheckResult:
+    """Flag sessions the market ingested but its benchmark is missing.
+
+    The benchmark needs its own check because `completeness` above cannot see this. That
+    one judges every ticker against the same 0.95 ratio, so one absent day in thirty scores
+    0.967 and passes — and the benchmark is not one ticker among fifty. `fct_alpha_beta`
+    and `fct_portfolio_vs_benchmark` join it **inner**, so each missing bar silently deletes
+    a whole day from the CAPM decomposition while the track record keeps it. The two marts
+    then disagree about the live day count with nothing on screen explaining why (see the
+    data dictionary). Hence zero tolerance: any gap is worth naming, immediately.
+
+    Compared against sessions the market *actually ingested*, not the exchange calendar. A
+    day nobody has data for is an outage, already the catch-up sensor's job; reporting it
+    here too would just double the noise on a day that is already loud.
+    """
+    if not in_universe:
+        # Not a data gap but a config error, and a permanent one: nothing ingests a ticker
+        # outside the universe, so the marts would quietly never gain another row.
+        return CheckResult(
+            "benchmark_freshness",
+            False,
+            {"benchmark": benchmark, "reason": "benchmark is not an active universe member"},
+        )
+    have = set(benchmark_dates)
+    sessions = sorted(market_sessions)
+    missing = [day for day in sessions if day not in have]
+    return CheckResult(
+        "benchmark_freshness",
+        not missing,
+        {
+            "benchmark": benchmark,
+            "sessions_checked": len(sessions),
+            "missing_days": [str(day) for day in missing],
+            "last_bar": str(max(have)) if have else None,
+        },
+    )
 
 
 def failed_checks(results: list[CheckResult]) -> list[CheckResult]:
