@@ -453,18 +453,32 @@ def resource_headroom() -> dg.AssetCheckResult:
 
 
 @dg.asset(group_name="training", kinds={"python", "mlflow"}, op_tags={"compute": "heavy"})
-def champion_model() -> dg.MaterializeResult:
+def champion_model(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
     """Train a challenger per market, evaluate on holdout backtest, promote if it wins.
 
     One champion per exchange: different sessions, currencies and dynamics, and pooling
     them would muddle attribution for no gain in data we are short of.
+
+    Scoped by the run's `exchange` tag when one is set. The drift sensor measures per
+    market and fires per market, but this loop ran every market regardless, so a JSE drift
+    reading also retrained the NYSE — the precise failure incident 28 named ("it retrained
+    both markets on evidence about neither"). The measurement was fixed then and the action
+    was not, and nothing caught it because the sensor's firing branch has never run in
+    production. An untagged run (the Saturday schedule) still covers every market.
     """
     from quantpulse.data.universe import active_tickers
     from quantpulse.ml.pipeline import train_evaluate_promote
 
     settings = get_settings()
     metadata: dict[str, dg.MetadataValue] = {}
-    for exchange in sorted(EXCHANGES):
+    targeted = context.run.tags.get("exchange")
+    if targeted and targeted not in EXCHANGES:
+        # Fail rather than silently widening to every market: a typo'd or renamed code
+        # would otherwise read as a routine full retrain and cost two Optuna budgets.
+        raise ValueError(f"run tagged for unknown exchange {targeted!r}")
+    selected = [targeted] if targeted else sorted(EXCHANGES)
+    context.log.info("Retraining %s", selected)
+    for exchange in selected:
         with get_session() as session:
             if not active_tickers(session, exchange):
                 continue  # market not configured yet

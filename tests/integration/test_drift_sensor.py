@@ -214,3 +214,78 @@ def test_capture_sensor_will_not_run_two_captures_at_once(monkeypatch: pytest.Mo
         )
     assert not (result.run_requests or [])
     assert "in flight" in str(result.skip_reason)
+
+
+# --- fault injection: what actually happens after the sensor fires (2026-08-13) ---
+#
+# Everything above tests the sensor's *decision*. Nothing tested the consequence, and this
+# whole path has never executed in production — 23 drift readings, zero above threshold, so
+# the firing branch has never run outside a test. That is exactly the profile of the
+# catch-up sensor before it produced four separate incidents: careful logic, rarely
+# exercised, and wrong in a way nobody could see.
+#
+# Injecting the failure the sensor exists to detect, and following it through to the job,
+# is how the gap below was found.
+
+
+def _train_calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record which exchanges a retrain actually touches, without training anything."""
+    from quantpulse.orchestration import assets as qp_assets
+
+    seen: list[str] = []
+
+    def fake_train(engine, session, tracking_uri, exchange):  # type: ignore[no-untyped-def]
+        seen.append(exchange)
+        return {"decision": "rejected"}
+
+    monkeypatch.setattr(qp_assets, "EXCHANGES", {"XNYS": None, "XJSE": None})
+    import quantpulse.ml.pipeline as pipeline
+
+    monkeypatch.setattr(pipeline, "train_evaluate_promote", fake_train)
+    monkeypatch.setattr(
+        "quantpulse.data.universe.active_tickers", lambda session, exchange: ["AAA"]
+    )
+    return seen
+
+
+def test_a_drift_triggered_retrain_only_trains_the_market_that_drifted(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sensor tags the run with the drifting market; the job has to honour it.
+
+    Otherwise the per-market rewrite is undone at the point of action: one market's drift
+    retrains both, which is the exact failure incident 28 was about ("it retrained both
+    markets on evidence about neither"). The measurement was fixed and the action was not.
+    A spurious retrain is not harmless — it burns an Optuna budget per market and files a
+    model_runs row for a market whose evidence never triggered anything.
+    """
+    from quantpulse.orchestration.assets import champion_model
+
+    seen = _train_calls(monkeypatch)
+    # Materialized rather than invoked directly, so the tags travel the real path: a run is
+    # created, tagged, and the asset reads them back off it.
+    assert dg.materialize([champion_model], tags={"trigger": "drift", "exchange": "XJSE"}).success
+    assert seen == ["XJSE"], f"drift on XJSE must not retrain {set(seen) - {'XJSE'}}"
+
+
+def test_the_weekly_retrain_still_covers_every_market(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The scheduled Saturday run carries no exchange tag and must stay all-markets —
+    targeting must narrow a drift-triggered run, never the routine one."""
+    from quantpulse.orchestration.assets import champion_model
+
+    seen = _train_calls(monkeypatch)
+    assert dg.materialize([champion_model]).success
+    assert sorted(seen) == ["XJSE", "XNYS"]
+
+
+def test_the_sensor_tags_the_run_with_the_market_the_job_reads(db_engine: Engine) -> None:
+    """The two halves have to agree on the key. A rename on either side would silently
+    revert this to retraining everything, with no test failing in between."""
+    with Session(db_engine) as session:
+        _record(session, "XJSE", 0.9, True, TODAY)
+        session.commit()
+    (request,) = _evaluate().run_requests or []
+    assert request.tags["exchange"] == "XJSE"
+    assert request.tags["trigger"] == "drift"

@@ -329,6 +329,41 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     stayed green while the two wall-clock assertions failed. When a library ignores part
     of a value, test the part it reads.
 
+## Fault injection: exercising a path that had never run (2026-08-13)
+
+Prompted by "what else needs to fail hard before this is ready to present?". Counting the
+incident log answers it more usefully than guessing: **six of the last eight incidents were
+in recovery or observability paths** (22, 23, 25, 26, 29, 30) — code that only executes once
+something else has gone wrong. That is not bad luck. The happy path runs every weekday and
+is corrected constantly because someone is looking at its output; a recovery path runs
+monthly, so an error there survives until an outage flushes it out. Two outages in three
+days is why 2026-08-11→13 produced so many findings at once.
+
+So the remaining risk is concentrated in paths that have *not yet run*, which is a finite
+list. The largest was the drift retrain sensor: **23 drift readings, zero above threshold**,
+so its firing branch had never executed outside a test. Same profile as the catch-up sensor
+before that produced four separate incidents.
+
+Injecting the failure it exists to detect — a drifted reading, followed through to the job
+it triggers — immediately found a real one. The sensor measures per market, fires per
+market, and tags the run with the drifting exchange; `champion_model` then ignored the tag
+and looped over **every** market. So a JSE drift reading would also retrain the NYSE: the
+precise failure incident 28 is named after ("it retrained both markets on evidence about
+neither"). Incident 28 fixed the measurement and left the action, and nothing caught it
+because the branch had never run. Fixed by scoping the loop to the run's `exchange` tag,
+with an untagged run (the Saturday schedule) still covering every market, and an unknown
+code raising rather than silently widening back to all markets.
+
+The lesson is about *discovery method*, not this bug. Every finding this week came from
+reality forcing it, which is reactive. The remaining unexercised paths are nameable — the
+November DST transition, the `backfilled` phase under a long outage, demotion (run once) —
+and each can be triggered deliberately, on a chosen afternoon, instead of at 2am mid-outage.
+
+Injection runs against the disposable `market_test` database, never the live one. Writing a
+fabricated drift reading into `market` would risk the daemon picking it up on its next tick
+and filing a genuine `model_runs` row triggered by invented evidence — corrupting the audit
+trail this project exists to keep honest.
+
 ## Coverage tracks debugging history, not risk (2026-08-11)
 
 Prompted by "I don't trust that this is the only issue since you happened upon it by
@@ -406,7 +441,7 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-460 checks total: 338 pytest (204 unit on synthetic data; 119 integration against a
+463 checks total: 341 pytest (204 unit on synthetic data; 122 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 15 Dagster definition/sensor tests), 59 Vitest
