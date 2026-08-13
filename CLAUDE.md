@@ -157,10 +157,15 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   **naive wall-clock**; comparing instants passes either way, because they *are* the same
   instant — that is precisely why it shipped.
 - **A vendor gap is a "not yet", not a "never", until you re-fetch on a later day.** JSE
-  bars can arrive 2+ days late (STX40.JO's 08-11 close showed up on 08-13 after two failed
-  retries and was already written up as permanent), and the newest session often returns a
-  real open with a **NaN close** until finalized. Also query a *range*: yfinance returned
-  nothing for a one-day window that a week-long window covered fine.
+  bars can arrive 2+ days late — STX40.JO's 08-11 close showed up on 08-13 after two failed
+  retries and had already been written up as a permanent hole. Re-fetch before concluding.
+- **yfinance can stamp the last row of a window with the wrong date**, but only for a ticker
+  that is genuinely missing that session: the in-progress bar slides into the empty slot. So
+  backfilling a gap while the market is still trading can write *today's* price under
+  *yesterday's* date. The `dropna(subset=["close"])` calls in `data/ingest.py` are what stop
+  it (the live bar has no close yet) — load-bearing, never fillna them. Don't backfill a
+  window ending on a session still trading, and diagnose with multi-day ranges: a one-day
+  window returned nothing for a ticker a week-long window covered fine.
 - **Never `dt.date.today()`** — containers run UTC. Use `calendar.market_today()` (exchange
   time). Under EDT the 19:00 ET jobs are 23:00 UTC and the two agree; under EST they are
   00:00 UTC and naive UTC stamps rows with *tomorrow*, shifting options history by a day at

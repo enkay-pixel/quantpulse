@@ -82,10 +82,26 @@ simply there (close 10857), and a plain re-fetch closed the gap. Two lessons, bo
   returned the row. The ingest path already asks for inclusive ranges, but any manual
   diagnosis with a single-day window can manufacture the very gap it is investigating.
 
-Expect the newest row to be provisional. The most recent session often comes back with a
-real open and a **NaN close** until the vendor finalizes it — 08-12 looked exactly like that
-while 08-11 was complete. `data/cleaning.py` drops it rather than storing half a bar, so the
-day reappears on the next run.
+**The last row of a yfinance window can carry the wrong date.** When a ticker is genuinely
+missing a session, the in-progress bar can slide into the empty slot and be stamped with the
+missing date. Reproduced on STX40.JO, which has no 08-12 bar:
+
+| query | last row | open | close |
+|---|---|---|---|
+| `2026-08-10 -> 2026-08-13` | **2026-08-12** | 10755 | NaN |
+| `2026-08-10 -> 2026-08-14` | **2026-08-13** | 10755 | 10630 |
+
+Same bar, two different dates — the later window reveals it as 08-13's live session. Had the
+close been populated at fetch time, backfilling 08-12 would have written **today's price
+under yesterday's date**: silent corruption, in the benchmark, in the column the CAPM marts
+divide by. What prevented it is the `dropna(subset=["close"])` in `data/ingest.py` — the
+in-progress bar had no close yet. That drop is load-bearing, not hygiene; don't "tidy" it
+into a fillna. Tickers *without* a gap are unaffected (ABG/NPN/SOL returned identical 08-12
+closes in both windows), which is what makes this easy to miss: it only bites the instrument
+already having a bad day.
+
+Practical rule: **do not backfill a window whose end falls on a session still trading.**
+Wait for the close or extend the range, and prefer a multi-day window when diagnosing.
 
 Whatever the cause, the gap is left as a gap. Carrying the previous close forward or
 interpolating would fabricate the observation the CAPM decomposition divides by, and a

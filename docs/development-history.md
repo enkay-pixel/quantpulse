@@ -290,7 +290,17 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     late and a plain re-fetch on 08-13 filled it, closing the benchmark gap. That
     correction is the more useful record: an absent bar and an unpublished bar look
     identical at the moment you look, so "the vendor does not have it" needs a re-fetch on
-    a later day before it is a finding. See the data dictionary note.
+    a later day before it is a finding.
+    Chasing that gap turned up a live corruption path: for a ticker genuinely missing a
+    session, yfinance slides the **in-progress** bar into the empty slot and stamps it with
+    the missing date. The same STX40.JO query returned one bar dated 08-12 with a NaN close
+    when the window ended 08-13, and the identical bar dated 08-13 with close 10630 when it
+    ended 08-14 — so a backfill of 08-12 run after the JSE close would have written today's
+    price as yesterday's, in the benchmark the CAPM marts divide by. Only the
+    `dropna(subset=["close"])` in `data/ingest.py` stopped it, because the live bar had no
+    close yet. Tickers without a gap were unaffected (ABG/NPN/SOL matched across both
+    windows), which is what makes it easy to miss — it bites only the instrument already
+    having a bad day. See the data dictionary note.
     Lesson: a rescue mechanism needs a test for *resuming*, not only for stopping. Both
     halves of this were in code written five weeks earlier specifically to survive
     outages, and the tests written alongside it covered the budget being spent but never
