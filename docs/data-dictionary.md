@@ -79,6 +79,16 @@ ticker — the benchmark is simply not one ticker among fifty. Non-blocking: a s
 benchmark thins the alpha numbers, it does not corrupt them, and it must never stop an
 ingest.
 
+The catch-up sensor then *acts* on it. `catchup.benchmark_missing_days` makes an absent
+benchmark its own reason to re-ingest a session, alongside thin coverage; the two reasons
+are deduplicated so a day that is both spends one attempt, not two. It is bounded twice
+over, because unlike coverage this trigger cannot fix itself — a re-ingest only helps if
+the vendor has since published. The per-session daily budget caps attempts at three, and
+`BENCHMARK_RETRY_SESSIONS` keeps only the newest five ingested sessions eligible, so a bar
+that never arrives stops being chased after about a week instead of being re-fetched for
+the full 30-day lookback. The asset check goes on reporting it over the longer window:
+reporting forever is cheap, retrying forever is not.
+
 **Usually the cause is a bar that has not arrived yet, not one that is missing.** JSE bars
 in particular can land a day or more late: STX40.JO had no 2026-08-11 bar when the session
 was first ingested *or* when it was retried the next morning against both yfinance and

@@ -92,3 +92,44 @@ def test_nothing_missing_still_reads_as_nothing_missing(patched: dict[str, objec
     result = _evaluate()
     assert "no missed trading days" in str(result.skip_reason)
     assert "out of attempts" not in str(result.skip_reason)
+
+
+def test_a_benchmark_only_gap_is_requested(patched: dict[str, object]) -> None:
+    """Coverage is fine, the benchmark bar is not — the session must still be re-ingested.
+
+    This is the wiring the STX40.JO incident needed and did not have: nothing retried an
+    otherwise-complete day, so the gap sat until someone compared mart day counts by hand.
+    """
+    mp = patched["monkeypatch"]
+    mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
+    mp.setattr(catchup, "missing_trading_days", lambda expected, exchange=None: [])  # type: ignore[attr-defined]
+    mp.setattr(  # type: ignore[attr-defined]
+        catchup,
+        "benchmark_missing_days",
+        lambda expected, exchange=None: [MISSED] if exchange == "XNYS" else [],
+    )
+
+    result = _evaluate()
+    (request,) = result.run_requests or []
+    assert request.partition_key == f"{MISSED}|XNYS"
+
+
+def test_a_session_missing_both_coverage_and_benchmark_is_requested_once(
+    patched: dict[str, object],
+) -> None:
+    """One session, one run, one attempt spent. Requesting it twice would double the rate
+    the daily budget burns for what is a single underlying cause — and the second request
+    would be deduplicated by run_key anyway, silently."""
+    mp = patched["monkeypatch"]
+    mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
+    mp.setattr(  # type: ignore[attr-defined]
+        catchup, "missing_trading_days", lambda expected, exchange=None: [MISSED]
+    )
+    mp.setattr(  # type: ignore[attr-defined]
+        catchup, "benchmark_missing_days", lambda expected, exchange=None: [MISSED]
+    )
+
+    result = _evaluate()
+    keys = [r.partition_key for r in result.run_requests or []]
+    assert keys.count(f"{MISSED}|XNYS") == 1
+    assert len(keys) == len(set(keys)), "no session may be requested twice in one tick"

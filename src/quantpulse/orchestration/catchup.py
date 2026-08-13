@@ -39,6 +39,12 @@ INGEST_MINUTE = 30
 # already loud via the run-failure sensor. Same shape as MAX_OPTION_REPAIRS_PER_DAY.
 MAX_INGEST_ATTEMPTS_PER_SESSION = 3
 
+# How many of the newest ingested sessions stay eligible for a benchmark-only re-ingest.
+# Bounds the cost when a bar is never published: eligibility expires instead of retrying
+# for the whole lookback. Five sessions is ~a week of chances, against the one late arrival
+# actually measured (STX40.JO's 2026-08-11 bar landed two days later).
+BENCHMARK_RETRY_SESSIONS = 5
+
 
 def ingest_overdue(now: dt.datetime | None = None, exchange: str = DEFAULT_EXCHANGE) -> bool:
     """Has today's *scheduled* ingest time already passed, in exchange time?
@@ -93,6 +99,75 @@ def missing_trading_days(
     missing = [day for day in sorted(expected) if counts.get(day, 0) < threshold]
     if missing:
         logger.info("Catch-up: %d session(s) below coverage: %s", len(missing), missing[:5])
+    return missing
+
+
+def benchmark_gaps_to_retry(
+    ingested: Iterable[dt.date],
+    benchmark_dates: Iterable[dt.date],
+    limit: int = BENCHMARK_RETRY_SESSIONS,
+) -> list[dt.date]:
+    """Which recently-ingested sessions are missing their benchmark bar, oldest first.
+
+    Split from the query below so the window arithmetic — the part with the off-by-one
+    risk — is unit-testable without a database.
+
+    Only the newest `limit` **ingested** sessions are eligible, and that bound is the whole
+    design. `missing_trading_days` is self-limiting because a re-ingest that works fixes
+    the coverage that triggered it; this trigger is not, since the vendor may simply never
+    publish the bar. Without a window, one permanently-absent bar would re-ingest a session
+    three times a day for the entire 30-day lookback. Eligibility instead expires after a
+    few sessions, and `benchmark_freshness` keeps reporting the gap over its longer window
+    — reporting forever is cheap, retrying forever is not.
+    """
+    have = set(benchmark_dates)
+    recent = sorted(set(ingested))[-limit:] if limit > 0 else []
+    return [day for day in recent if day not in have]
+
+
+def benchmark_missing_days(
+    expected: list[dt.date], exchange: str = DEFAULT_EXCHANGE
+) -> list[dt.date]:
+    """Sessions worth re-ingesting solely because the market's benchmark bar is absent.
+
+    Coverage cannot see this: a benchmark is one ticker, so losing it costs 1/29 of a JSE
+    session and `missing_trading_days` rightly calls that day complete. But the benchmark
+    is the denominator of `fct_alpha_beta` and `fct_portfolio_vs_benchmark`, which
+    inner-join it, so its absence deletes the whole day from those marts (2026-08-11, found
+    days later by hand-comparing day counts against `fct_track_record`).
+
+    Considers only sessions the market actually ingested. A day with no data at all is
+    already `missing_trading_days`' to request, and asking twice for one session would just
+    burn its retry budget at double rate.
+
+    Safe to retry because the ingest job is partitioned by single date: for a ticker with a
+    genuine hole, `start=D, end=D` returns nothing rather than the neighbouring bar. It is
+    the *multi-day* window that can slide an in-progress bar into the empty slot, and the
+    `dropna(subset=["close"])` in `data/ingest.py` is the backstop if it ever does.
+    """
+    if not expected:
+        return []
+    benchmark = get_exchange(exchange).benchmark
+    start, end = min(expected), max(expected)
+    with get_engine().connect() as conn:
+        ingested = conn.execute(
+            text(
+                "SELECT p.date FROM prices p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex "
+                "WHERE p.date >= :start AND p.date <= :end GROUP BY p.date"
+            ),
+            {"start": start, "end": end, "ex": exchange},
+        ).all()
+        covered = conn.execute(
+            text("SELECT date FROM prices WHERE ticker = :t AND date >= :start AND date <= :end"),
+            {"t": benchmark, "start": start, "end": end},
+        ).all()
+    expected_set = set(expected)
+    missing = benchmark_gaps_to_retry(
+        [r.date for r in ingested if r.date in expected_set], [r.date for r in covered]
+    )
+    if missing:
+        logger.info("Catch-up: %s missing its benchmark %s on %s", exchange, benchmark, missing[:5])
     return missing
 
 

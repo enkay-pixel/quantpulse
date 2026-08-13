@@ -195,6 +195,7 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
 
     from quantpulse.data.calendar import trading_days
     from quantpulse.orchestration.catchup import (
+        benchmark_missing_days,
         exchange_day_start_utc,
         ingest_overdue,
         missing_trading_days,
@@ -209,7 +210,13 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
         end = today if ingest_overdue(exchange=exchange) else today - dt.timedelta(days=1)
         recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), end, exchange)
         day_start = exchange_day_start_utc(today, exchange)
-        for day in missing_trading_days(recent, exchange)[:MAX_CATCHUP_PER_TICK]:
+        # Two reasons to re-ingest a session, deduplicated into one queue so a day that is
+        # both thin AND missing its benchmark is requested once and spends one attempt.
+        # Coverage first: it is the older, broader signal, and a session it flags is
+        # missing the benchmark's bar too.
+        due = missing_trading_days(recent, exchange)
+        due += [day for day in benchmark_missing_days(recent, exchange) if day not in set(due)]
+        for day in sorted(due)[:MAX_CATCHUP_PER_TICK]:
             key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
             # Scheduled runs carry the same partition tag, so a failing 18:30 ingest
             # also consumes this budget rather than being retried on top of.

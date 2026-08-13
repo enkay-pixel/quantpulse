@@ -148,6 +148,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   history and suffix the attempt number; only runs with a `start_time` spend budget
   (`catchup.next_ingest_attempt` / `summarize_capture_runs`). Also: the exchange date
   flips at midnight, so "today" is not a *missed* session until `catchup.ingest_overdue`.
+- A session is re-ingested for **two** reasons — thin coverage *or* an absent benchmark
+  (`catchup.benchmark_missing_days`), deduplicated so a day that is both spends one attempt.
+  The benchmark trigger needs its own bound (`BENCHMARK_RETRY_SESSIONS`) because it cannot
+  fix itself the way coverage can: if the vendor never publishes the bar, retrying changes
+  nothing, so eligibility expires after five sessions while `benchmark_freshness` keeps
+  reporting it. Any future "re-run until X appears" trigger needs the same treatment.
 - **`dg.RunsFilter(created_after=...)` ignores `tzinfo`** — it compares wall-clock fields
   against the naive-UTC `create_timestamp` column, so an aware local datetime silently
   shifts the boundary by the offset (incident 30: the same filter matched 3 runs as

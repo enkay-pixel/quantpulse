@@ -406,10 +406,10 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-445 checks total: 323 pytest (196 unit on synthetic data; 114 integration against a
+460 checks total: 338 pytest (204 unit on synthetic data; 119 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
-use a throwaway sqlite backend; 13 Dagster definition/sensor tests), 59 Vitest
+use a throwaway sqlite backend; 15 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
