@@ -31,6 +31,12 @@ def patched(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     monkeypatch.setattr(
         catchup, "missing_trading_days", lambda expected, exchange=None: list(expected)
     )
+    # Both of the sensor's "which sessions need re-ingesting" sources must be stubbed, or
+    # this suite reaches for a database it is not supposed to need. Missing this one is how
+    # the benchmark trigger shipped green locally — the query silently hit the developer's
+    # live `market` DB and only failed in CI, where no `prices` table exists. The root
+    # conftest now points this suite at a dead address, so forgetting a stub fails here.
+    monkeypatch.setattr(catchup, "benchmark_missing_days", lambda expected, exchange=None: [])
     return {"windows": windows, "monkeypatch": monkeypatch}
 
 

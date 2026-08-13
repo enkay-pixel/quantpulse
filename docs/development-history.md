@@ -422,6 +422,17 @@ that was only passing because `tail` had cropped its verdict, and a sabotage tha
 to prove tests blind when the replacement string had simply never matched. Assert the
 anchor applied before trusting the result.
 
+**A local pass can mean the test found production.** The benchmark re-ingest trigger
+(2026-08-13) added a second, unstubbed query to the catch-up sensor. The Dagster suite is
+meant to run without a database and stubs `missing_trading_days`; nothing stubbed the new
+call, so it opened a connection — and found the developer's *live* `market` database on
+localhost:5432. Every local run was green. CI caught it only because its Postgres has no
+`prices` table. A suite that is supposed to be hermetic has to be *made* hermetic, so
+`tests/conftest.py` now points every non-integration test at a dead address; a stray query
+fails instantly, by name, on the laptop. Verified by removing the stub again and watching
+it fail with no special invocation. The near-miss is the point: "passes locally, fails in
+CI" is usually read as a CI problem, and this time the local pass was the wrong answer.
+
 **And the fixture has to be able to tell the difference.** Verifying `benchmark_gaps`
 (2026-08-13) by swapping its set difference for the 0.95 ratio it exists to replace left
 all five new tests green — the sabotage applied, but every fixture used a five-session

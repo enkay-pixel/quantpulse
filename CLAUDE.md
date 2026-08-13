@@ -134,6 +134,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `max(Price.date)` over the whole table returns whichever market ingested last, which
   blanked the JSE positions panel for weeks (incident 27). Scope every `max()` to the rows
   you are about to read.
+- **Unit and Dagster tests must never touch a database** — `tests/conftest.py` points them
+  at a dead address so a stray query fails instantly instead of silently reading the live
+  `market` DB on localhost and passing. If a sensor gains a new DB-backed call, stub it in
+  the suite's fixture. This is why "passes locally, fails in CI" happened on 2026-08-13, and
+  there the local pass was the wrong answer, not CI.
 - **A green test run is not evidence.** Every serious bug in the incident log shipped with
   CI green and was found by reading data. Verify a new test by breaking the code it guards
   and watching it fail — and assert your sabotage actually applied, because a
