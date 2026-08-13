@@ -456,11 +456,36 @@ becomes its own external asset, none missing a producer) while the entire transf
 detached from the pipeline. Verified by renaming `raw_prices` to `daily_bars` in sources.yml,
 which is exactly the mistake being guarded, and watching both fail.
 
-Five drills, five findings, none of them the thing being drilled: the drift injection found a
+### Drill 6: the API/mart ratio contract (2026-08-13)
+
+Drilled for its timing: XNYS was 3 sessions from the 20-day floor, and the first moment the
+platform can publish an *earned* ratio is a poor moment to find out the path was never
+exercised.
+
+Every test of this contract checked only the suppressing half. Below `min_days_for_ratios`
+the marts null Sharpe, volatility, win rate, beta, alpha and information ratio, and the API
+passes the nulls through; `test_small_samples_never_publish_a_ratio` pins exactly that. No
+test asserted the opposite — that a phase with enough days actually *publishes*. The
+asymmetry is dangerous because its failure mode is invisible: ratios nulled forever look
+identical to a young track record, which is what the project genuinely had for weeks.
+
+Demonstrated rather than argued. Raising the floor from 20 to 200 — suppressing every ratio
+for roughly ten months — left **all 19 existing API and mart tests green**. The new suite
+fails three.
+
+The path itself turned out to be correct: a 30-day live phase publishes finite numbers on
+both `/track-record` and `/portfolio/alpha-beta`. So this drill bought coverage, not a fix.
+The fixture puts both phases on opposite sides of the floor in one build (10 replay, 30 live),
+which also pins the floor as **per phase** rather than global — the failure behind incident
+18, where a 3-day live phase served a Sharpe of −54.93. Finiteness is asserted too: JSON has
+no NaN or Infinity, and that only becomes reachable once a phase is allowed to publish.
+
+Six drills, six findings, none of them the thing being drilled: the drift injection found a
 bug in the *job* rather than the sensor, the DST drill a gap in *tests* rather than code, the
 backfilled drill a bug in *scoring* rather than the mart, and the demotion drill a sort order
 in *staging* rather than demotion, and the dagster-dbt drill an absent *guard* rather than a
-broken mapping. That is the argument for doing them — what a rehearsal
+broken mapping, and the ratio-floor drill a missing *half* of a contract rather than a
+wrong one. That is the argument for doing them — what a rehearsal
 turns up is rarely what you set out to check. It also locates the risk better than "recovery
 paths" did: all four sat at a **seam between two layers that were each correct alone**. A
 sensor that tagged and a job that ignored the tag. A function that handled DST and tests that
@@ -550,7 +575,7 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-474 checks total: 352 pytest (207 unit on synthetic data; 126 integration against a
+478 checks total: 356 pytest (207 unit on synthetic data; 130 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 19 Dagster definition/sensor tests), 59 Vitest
