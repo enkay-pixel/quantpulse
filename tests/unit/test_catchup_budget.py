@@ -156,3 +156,43 @@ def test_each_market_gets_its_own_midnight_and_they_differ() -> None:
     assert jse == dt.datetime(2026, 8, 12, 22, 0)  # SAST is UTC+2
     assert nyse == dt.datetime(2026, 8, 13, 4, 0)  # EDT is UTC-4
     assert jse < nyse
+
+
+# --- the boundary has to follow DST, not a fixed offset (2026-08-13) ---
+#
+# Every test above dates from August, when New York is UTC-4. A fixed-offset implementation
+# is indistinguishable from a correct one in EDT, so all of them pass against hardcoded
+# offsets — verified by trying it. The bug would appear on 2026-11-02, the first session
+# after the clocks go back, when the catch-up budget would count over a window shifted an
+# hour and the sensor would misjudge which runs were "today".
+
+WINTER = dt.date(2026, 11, 2)  # first XNYS session under EST
+SUMMER = dt.date(2026, 8, 13)  # EDT
+
+
+def test_the_boundary_follows_dst_rather_than_a_fixed_offset() -> None:
+    """Midnight ET is 04:00Z in summer and 05:00Z in winter. Pinning both sides is the
+    only way this file can tell a tz lookup from an arithmetic shortcut."""
+    assert exchange_day_start_utc(SUMMER, "XNYS").replace(tzinfo=None) == dt.datetime(
+        2026, 8, 13, 4, 0
+    )
+    assert exchange_day_start_utc(WINTER, "XNYS").replace(tzinfo=None) == dt.datetime(
+        2026, 11, 2, 5, 0
+    )
+
+
+def test_the_jse_boundary_does_not_move_across_the_us_transition() -> None:
+    """South Africa has never observed DST, so SAST is UTC+2 year round. A shared 'shift
+    the clocks' fudge applied to both markets would break this one."""
+    for day in (SUMMER, WINTER):
+        start = exchange_day_start_utc(day, "XJSE").replace(tzinfo=None)
+        assert start == dt.datetime.combine(day - dt.timedelta(days=1), dt.time(22, 0))
+
+
+def test_the_gap_between_the_two_markets_changes_with_us_dst() -> None:
+    """The markets are 6 hours apart in the northern summer and 7 in winter. Anything
+    that assumes a constant inter-market offset is wrong for half the year."""
+    summer_gap = exchange_day_start_utc(SUMMER, "XNYS") - exchange_day_start_utc(SUMMER, "XJSE")
+    winter_gap = exchange_day_start_utc(WINTER, "XNYS") - exchange_day_start_utc(WINTER, "XJSE")
+    assert summer_gap == dt.timedelta(hours=6)
+    assert winter_gap == dt.timedelta(hours=7)

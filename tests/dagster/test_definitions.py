@@ -110,3 +110,36 @@ def test_every_asset_check_defined_is_registered() -> None:
     registered = {n for c in defs.asset_checks or [] for n in check_names(c)}
     assert defined, "sanity: the module should expose asset checks to enumerate"
     assert defined <= registered, f"defined but never registered: {sorted(defined - registered)}"
+
+
+def test_no_schedule_fires_inside_a_dst_transition_window() -> None:
+    """Keep every schedule out of the hour the clocks move.
+
+    Between 01:00 and 03:00 local, a DST-observing zone has one time that does not exist
+    (spring forward) and one that happens twice (fall back). A cron there either skips a
+    day or fires two runs for the same session — and for the option capture, whose data
+    cannot be refetched, a skipped evening is a permanent hole.
+
+    Nothing currently sits in that window; this exists so moving one there is a decision
+    someone makes deliberately rather than discovers in November. The JSE is exempt in
+    fact (South Africa has never observed DST) but not by assertion — it would only take
+    one new market in a zone that does.
+    """
+    for schedule in defs.schedules or []:
+        minute, hour, *_ = schedule.cron_schedule.split()
+        assert hour.isdigit(), f"{schedule.name}: non-literal hour {hour!r} needs a DST review"
+        assert not 1 <= int(hour) < 3, (
+            f"{schedule.name} fires at {hour}:{minute} {schedule.execution_timezone}, "
+            "inside the DST transition window"
+        )
+
+
+def test_every_schedule_declares_an_exchange_timezone() -> None:
+    """The timezone is what makes Dagster's cron DST-aware. Without it a schedule runs on
+    the container's UTC clock and drifts an hour against its own market twice a year —
+    silently, since the run still happens, just against the wrong session."""
+    for schedule in defs.schedules or []:
+        assert schedule.execution_timezone, f"{schedule.name} has no execution_timezone"
+        assert schedule.execution_timezone != "UTC", (
+            f"{schedule.name} is pinned to UTC and will drift against its market at DST"
+        )

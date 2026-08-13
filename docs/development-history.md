@@ -356,8 +356,36 @@ code raising rather than silently widening back to all markets.
 
 The lesson is about *discovery method*, not this bug. Every finding this week came from
 reality forcing it, which is reactive. The remaining unexercised paths are nameable — the
-November DST transition, the `backfilled` phase under a long outage, demotion (run once) —
-and each can be triggered deliberately, on a chosen afternoon, instead of at 2am mid-outage.
+`backfilled` phase under a long outage, demotion (run once) — and each can be triggered
+deliberately, on a chosen afternoon, instead of at 2am mid-outage.
+
+### Drill 2: the DST transition (2026-08-13)
+
+US clocks change on 2026-03-08 and 2026-11-01; South Africa never changes. Every
+DST-sensitive path was exercised against both sides. The **code** turned out to be right
+everywhere — `market_today` already had five tests including a fixed-offset guard,
+`is_post_close` and `ingest_overdue` work in local time so EST looks identical to EDT, the
+schedules carry `execution_timezone` so Dagster handles the cron, and Python's `fold`
+resolves the repeated 01:30 hour while the nonexistent 02:30 normalises without raising.
+
+The **tests** were not. `exchange_day_start_utc`, written the same morning, passed every one
+of its 17 tests when its tz lookup was replaced with hardcoded `{"XNYS": 4, "XJSE": -2}`
+offsets — correct in August, an hour wrong from November. Every fixture was dated 2026-08-13,
+and in EDT a fixed offset is indistinguishable from a correct one. The catch-up budget would
+then have counted over a window shifted by an hour on the first EST session, which is the
+same class of bug as incident 30 and would have been just as invisible. Pinned both sides,
+plus the JSE staying at 22:00Z and the inter-market gap moving 6h→7h — a constant-offset
+assumption fails all three.
+
+Also added a guard that no schedule fires between 01:00 and 03:00 local, where a time either
+does not exist or happens twice. Nothing sits there now; the point is that moving one there
+becomes a deliberate decision rather than a discovery in November, and for the option
+capture a skipped evening is permanent.
+
+Two drills, two findings, neither of them the thing being drilled: the drift injection found
+a bug in the *job* rather than the sensor, and the DST drill found a gap in *tests* rather
+than code. That is the argument for doing them — what a rehearsal turns up is rarely what
+you set out to check.
 
 Injection runs against the disposable `market_test` database, never the live one. Writing a
 fabricated drift reading into `market` would risk the daemon picking it up on its next tick
@@ -441,10 +469,10 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-463 checks total: 341 pytest (204 unit on synthetic data; 122 integration against a
+468 checks total: 346 pytest (207 unit on synthetic data; 122 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
-use a throwaway sqlite backend; 15 Dagster definition/sensor tests), 59 Vitest
+use a throwaway sqlite backend; 17 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
