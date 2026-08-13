@@ -1,6 +1,6 @@
 # Roadmap & project state
 
-**Updated 2026-08-11.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-08-13.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 
@@ -33,8 +33,8 @@ give investment advice, and the disclaimer stays.
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 306 Python tests (182 unit + 114 integration against a disposable
-database that runs a real `dbt build` + 10 Dagster), 59 Vitest, 63 dbt tests (59 data +
+**Quality gates:** 338 Python tests (204 unit + 119 integration against a disposable
+database that runs a real `dbt build` + 15 Dagster), 59 Vitest, 63 dbt tests (59 data +
 4 unit), 84% line coverage, plus mypy / ruff / eslint / tsc, shellcheck, markdownlint,
 `alembic check` for model/migration drift, and compose validation — all enforced in CI.
 
@@ -42,21 +42,28 @@ Read that with the caveat the log earns: every serious bug found so far shipped 
 fully green. The tests catch regressions in what has already gone wrong; the bugs that
 matter have been found by reading the data and asking whether it makes sense.
 
-## Current state (2026-08-11)
+## Current state (2026-08-13)
 
 Two markets, each with its own champion, books and evidence. **Every performance figure
 below is in-sample replay** — the live phase begins at each champion's promotion and is the
-only number worth judging. Live so far: XNYS 15 days (+1.24%), XJSE 11 days (+0.30%); both
+only number worth judging. Live so far: XNYS 17 days (+0.58%), XJSE 13 days (−0.34%); both
 still under the 20-day floor, so the marts correctly withhold every ratio. Books trail
 prices by one session by construction.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
 | Universe | 50 tickers | 29 (Top 40 with usable history) |
-| Price bars (from 2018) | 108,091 | 60,248 |
+| Price bars (from 2018) | 108,190 | 60,305 |
 | Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
 | Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
-| Options | 470,046 quotes, 16 snapshot days | none (no free JSE chain data) |
+| Options | 470,046 quotes, 16 snapshot days (last 2026-08-10) | none (no free JSE chain data) |
+
+Both markets lost their **2026-08-11 and 08-12 option snapshots** to a two-day connectivity
+outage, and those are gone for good — chains are live-only, so a missed day is a permanent
+hole. The price sessions were recoverable and were recovered. One gap remains open:
+**STX40.JO has no 08-12 bar**, so the JSE's benchmark-joined marts will sit one session
+behind the track record until the vendor publishes it (its 08-11 bar arrived two days
+late). The catch-up sensor now retries this on its own — see the operating notes.
 
 Those champion Sharpes are the numbers each model was *promoted* on, and they are not
 comparable across models — see the retrain log below for why. Both were measured under the
@@ -237,7 +244,21 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
   safe to interrupt and simply re-run. The repair sensor is gated to post-close so it never
   fills a partial day with pre-market junk.
 - Missed days are safe: ingestion is idempotent and partitioned by `(date, exchange)` —
-  re-materialize the affected partitions in the Dagster UI.
+  re-materialize the affected partitions in the Dagster UI. The catch-up sensor requests
+  them automatically for two reasons: thin coverage, or an **absent benchmark bar** even on
+  an otherwise-complete session (the benchmark is one ticker, so it never moves the coverage
+  ratio, but the CAPM marts inner-join it and lose the whole day). Each session gets three
+  attempts per day, and the budget **resets daily** — an outage that burns its attempts
+  recovers by itself once connectivity returns. Benchmark-only retries additionally expire
+  after five sessions, since retrying cannot help if the vendor never publishes.
+- **Option snapshots do not survive an outage.** Chains are live-only, so a day the stack
+  was down post-close is a permanent hole — unlike price bars, there is nothing to re-fetch.
+  This is the one part of the pipeline where downtime costs data outright (08-11 and 08-12
+  were lost this way).
+- A vendor gap is usually a *late* bar, not a missing one: re-fetch on a later day before
+  concluding anything. And do not backfill a window whose end falls on a session still
+  trading — for a ticker with a genuine hole, the in-progress bar can slide into the empty
+  slot under the wrong date (see data-dictionary.md).
 - Dates are exchange dates, never the container's UTC date: use `calendar.market_today()`.
 - **Base images**: node 26 is in; python stays on 3.12 (3.14 breaks dbt-common's
   dataclass introspection under PEP 649 — verified by building, recorded in
@@ -248,7 +269,11 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
 ## Next
 
 1. **Let it run.** The live track record and the options history only accrue with time;
-   no code substitutes for weeks of scheduled runs. Highest value, zero effort.
+   no code substitutes for weeks of scheduled runs. Highest value, zero effort. **XNYS is
+   3 sessions from the 20-day floor** (17 live days), at which point the marts start
+   publishing its Sharpe, information ratio, beta and win rate instead of nulling them —
+   the first ratios this platform will have earned rather than replayed. XJSE follows about
+   a week later. Read them as a first reading on a small sample, not a verdict.
 2. **Let the JSE live phase judge the champion (now v3).** Its live record accrues since
    the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
    signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans

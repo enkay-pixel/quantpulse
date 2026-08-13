@@ -137,7 +137,19 @@ local-first platform actually hits:
 - `missed_partition_catchup_sensor` — per market, compares expected sessions on that
   market's calendar against actual price coverage (`orchestration/catchup.py`) and
   re-requests any day below 80% coverage, bounded per tick per market. Schedules only fire
-  while the stack is up, and this runs on a laptop that sleeps.
+  while the stack is up, and this runs on a laptop that sleeps. A session is also
+  re-requested when its **benchmark** bar is absent, which coverage cannot detect (one
+  ticker never moves the ratio) but which deletes the whole day from the CAPM marts. Each
+  session gets three attempts per day and the budget resets daily, so an outage that
+  exhausts it recovers on its own; benchmark-only retries additionally expire after five
+  sessions, because retrying cannot help if the vendor never publishes the bar.
+- `benchmark_freshness` (asset check) — reports any session a market ingested whose
+  benchmark lacks a bar, over a 30-session window. Separate from `recent_prices_quality`
+  because that judges every ticker against one completeness ratio, where a single absent
+  day scores 0.967 against a 0.95 threshold. Correct for an ordinary ticker; wrong for the
+  one `fct_alpha_beta` and `fct_portfolio_vs_benchmark` inner-join, where each gap silently
+  costs a day of the out-of-sample record. Non-blocking — a stale benchmark thins the alpha
+  numbers rather than corrupting them.
 - `predictions_are_current` (asset check) — fails when a configured market's predictions
   fall > 4 days behind its features, i.e. scoring is silently writing nothing (no champion,
   or a renamed registry). Nothing else surfaces "the numbers just stopped moving".
