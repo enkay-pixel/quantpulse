@@ -408,12 +408,41 @@ predates that date. Genuinely unscored dates still fill in and are still labelle
 Verified inert against production: both champions predate the last scored date, so current
 behaviour is unchanged.
 
-Three drills, three findings, none of them the thing being drilled: the drift injection
-found a bug in the *job* rather than the sensor, the DST drill found a gap in *tests* rather
-than code, and the backfilled drill found a bug in *scoring* rather than the mart. That is
-the argument for doing them — what a rehearsal turns up is rarely what you set out to check.
-It also says something about where these bugs live: all three sat at a seam between two
-layers that each looked correct alone.
+### Drill 4: demotion (2026-08-13)
+
+The demotion path itself came out clean, which is worth recording as plainly as a bug. Both
+demotions on record — XJSE v1 (incident 17) and XNYS v2 (incident 24) — were promoted and
+withdrawn the same day, and in both a legitimate promotion shares that date, so
+`first_live_date` is not set by a withdrawn one. The API already resolves the champion by
+falling back to the most recent promotion with no later demotion. The marts deliberately
+ignore demotions, and that is defensible: a model that *was* champion produced genuinely
+out-of-sample predictions on the days it served, and demotion is forward-looking. The one
+structural fragility — a first-ever promotion demoted with no replacement — is self-limiting,
+because a market with no champion produces no predictions and therefore no live days.
+
+What the drill did find was next door. `stg_predictions` deduplicates to one score per
+(ticker, date) by keeping the newest `model_version`, and `model_version` is varchar (MLflow's
+type), sorted as **text**. `'9' > '10'` is true in a string sort, and any single-digit version
+from 2 up beats `'10'`. So from version 10 onward the dedupe would have selected an *older*
+model, and the paper book, track record and alpha decomposition would all have been
+attributed to a champion that had already been replaced — silently, since nothing fails.
+
+XJSE was at version 5 and retrains add one per market per week: roughly five weeks of runway,
+landing around late September 2026. Nothing had gone wrong yet because no date currently
+carries two versions — which is precisely why it needed a test rather than a sighting. Fixed
+with a cast, which also raises on a non-numeric version instead of mis-ordering it: the right
+way round for the column that decides which model the evidence came from.
+
+Four drills, four findings, none of them the thing being drilled: the drift injection found a
+bug in the *job* rather than the sensor, the DST drill a gap in *tests* rather than code, the
+backfilled drill a bug in *scoring* rather than the mart, and the demotion drill a sort order
+in *staging* rather than demotion. That is the argument for doing them — what a rehearsal
+turns up is rarely what you set out to check. It also locates the risk better than "recovery
+paths" did: all four sat at a **seam between two layers that were each correct alone**. A
+sensor that tagged and a job that ignored the tag. A function that handled DST and tests that
+did not. A mart that labelled phases correctly and scoring that fed it the wrong attribution.
+A varchar column written by MLflow and read by SQL that assumed numbers. Wherever two
+components hand something to each other is where the next drill should look.
 
 Injection runs against the disposable `market_test` database, never the live one. Writing a
 fabricated drift reading into `market` would risk the daemon picking it up on its next tick
@@ -497,7 +526,7 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-470 checks total: 348 pytest (207 unit on synthetic data; 124 integration against a
+472 checks total: 350 pytest (207 unit on synthetic data; 126 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 17 Dagster definition/sensor tests), 59 Vitest
