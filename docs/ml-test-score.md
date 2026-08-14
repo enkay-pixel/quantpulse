@@ -72,7 +72,7 @@ comparable scrutiny onto the modelling.
 |---|---|---|---|
 | 1 | Training is reproducible | 0.5 | `seed=42` through LightGBM and Optuna; but the panel grows with each backfill, so the same code on a later day draws a different holdout (incident 24). Deterministic given fixed data, not stable over time |
 | 2 | Model specs unit tested | 1 | Promotion gate, CV, metrics and training config all covered |
-| 3 | Full pipeline integration tested | 1 | 133 integration tests against a disposable DB running a real `dbt build` |
+| 3 | Full pipeline integration tested | 1 | 140 integration tests against a disposable DB running a real `dbt build` |
 | 4 | Model quality validated before serving | 1 | The promotion gate — IC margin from measured seed noise, IC ≥ 0, drawdown floor, Sharpe veto, first-champion floor, incumbent re-scored on the candidate's exact holdout. The project's strongest single component |
 | 5 | Debuggable on single examples | 0.5 | `/predictions/latest` and the positions endpoint allow inspecting a ticker-date; no dedicated debug path |
 | 6 | Canary before serving | **0** | Promotion is an atomic alias switch to 100%. Mitigated by this being a paper book — nothing real is at risk |

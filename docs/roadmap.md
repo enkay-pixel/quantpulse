@@ -1,6 +1,6 @@
 # Roadmap & project state
 
-**Updated 2026-08-13.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-08-14.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 
@@ -33,37 +33,41 @@ give investment advice, and the disclaimer stays.
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 338 Python tests (204 unit + 119 integration against a disposable
-database that runs a real `dbt build` + 15 Dagster), 59 Vitest, 63 dbt tests (59 data +
-4 unit), 84% line coverage, plus mypy / ruff / eslint / tsc, shellcheck, markdownlint,
+**Quality gates:** 391 Python tests (232 unit + 140 integration against a disposable
+database that runs a real `dbt build` + 19 Dagster), 59 Vitest, 63 dbt tests (59 data +
+4 unit), plus mypy / ruff / eslint / tsc, shellcheck, markdownlint,
 `alembic check` for model/migration drift, and compose validation — all enforced in CI.
 
 Read that with the caveat the log earns: every serious bug found so far shipped with CI
 fully green. The tests catch regressions in what has already gone wrong; the bugs that
 matter have been found by reading the data and asking whether it makes sense.
 
-## Current state (2026-08-13)
+## Current state (2026-08-14)
 
 Two markets, each with its own champion, books and evidence. **Every performance figure
 below is in-sample replay** — the live phase begins at each champion's promotion and is the
-only number worth judging. Live so far: XNYS 17 days (+0.58%), XJSE 13 days (−0.34%); both
+only number worth judging. Live so far: XNYS 18 days (+1.00%), XJSE 14 days (−0.49%); both
 still under the 20-day floor, so the marts correctly withhold every ratio. Books trail
 prices by one session by construction.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
 | Universe | 50 tickers | 29 (Top 40 with usable history) |
-| Price bars (from 2018) | 108,190 | 60,305 |
+| Price bars (from 2018) | 108,240 | 60,334 |
 | Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
 | Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
 | Options | 470,046 quotes, 16 snapshot days (last 2026-08-10) | none (no free JSE chain data) |
 
-Both markets lost their **2026-08-11 and 08-12 option snapshots** to a two-day connectivity
-outage, and those are gone for good — chains are live-only, so a missed day is a permanent
-hole. The price sessions were recoverable and were recovered. One gap remains open:
-**STX40.JO has no 08-12 bar**, so the JSE's benchmark-joined marts will sit one session
-behind the track record until the vendor publishes it (its 08-11 bar arrived two days
-late). The catch-up sensor now retries this on its own — see the operating notes.
+A connectivity outage cost **three consecutive option snapshot days (08-11 to 08-13)**, and
+those are gone for good — chains are live-only, so a missed day is a permanent hole. Every
+price session was recoverable and has been recovered, including a full XNYS day that failed
+20 ingest attempts overnight and landed first try once the connection returned.
+
+One gap stays open: **STX40.JO has no 08-13 bar.** Its 08-12 bar arrived two days late and
+was backfilled, but 08-13 looks different — the vendor has already published 08-14 while
+leaving 08-13 empty, so it is skipped rather than pending. Until it appears the JSE's
+benchmark-joined marts sit a session behind the track record. The catch-up sensor retries
+it unaided; nothing needs doing by hand.
 
 Those champion Sharpes are the numbers each model was *promoted* on, and they are not
 comparable across models — see the retrain log below for why. Both were measured under the
@@ -293,8 +297,11 @@ measuring momentum rather than the model. Detail in [ml-test-score.md](ml-test-s
    the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
    signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
    toward the latter — and only accumulated live days distinguish them.
-3. **Screenshots** predate the market switcher — regenerate with headless Chrome against a
-   running stack, now per market:
+3. **Screenshots** carry data through 23 Jul 2026. They are structurally current — market
+   switcher, all three tabs, the alpha/beta panel — but every evidence panel still reads
+   "in-sample replay", because the live phase had not accrued. The moment worth
+   regenerating on is XNYS crossing the 20-day floor, when the live decomposition appears
+   for the first time. Recipe, per market:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
    --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,1230
    --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000 "http://localhost:8080/?market=XNYS#overview"`

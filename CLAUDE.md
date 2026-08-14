@@ -241,7 +241,8 @@ can't attribute its own results. Measured: daily 7.8%/0.73 Sharpe vs horizon
 - Backlog: rename dbt `tests:`→`data_tests:` when tooling nags; Databricks Free Edition
   companion project (same pipeline as PySpark/Delta); richer features/models only after
   live evidence accumulates; options history analytics once ~20+ snapshots exist.
-  Screenshots are current as of 2026-07-22 — regenerate via headless Chrome, recipe in
+  Screenshots carry data through 2026-07-23 and are structurally current (switcher, all
+  tabs); regenerate once XNYS crosses the 20-day floor — recipe in
   docs/roadmap.md "Next".
 - **Declined, don't re-propose**: a local LLM Q&A layer over the data
   ([ADR 0004](docs/adr/0004-no-llm-question-answering-layer.md)). The `verdict()` functions

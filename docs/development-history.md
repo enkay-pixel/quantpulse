@@ -79,13 +79,12 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
   and ≈36% during market hours, versus ≈2.1% pre-market. Snapshots must run when the
   market has been trading.
 
-## Current model & data snapshot (as of 2026-08-11)
+## Current model & data snapshot (as of 2026-08-14)
 
-- **Two markets.** NYSE: 50 tickers, 108,091 bars, 104,941 feature/prediction rows, 6,294
-  book snapshots (3 books), 470,046 option quotes over 16 snapshot days. JSE: 29 Top-40
-  tickers, 60,248 bars, 58,421 feature/prediction rows, 6,258 book snapshots, no options
-  (no free chain data). Both from 2018-01-02. Live track record: XNYS 16 days, XJSE 12 —
-  both under the 20-day floor, so ratios stay withheld.
+- **Two markets.** NYSE: 50 tickers, 108,240 bars, 105,090 feature rows, 470,046 option
+  quotes over 16 snapshot days. JSE: 29 Top-40 tickers, 60,334 bars, 58,507 feature rows,
+  no options (no free chain data). Both from 2018-01-02. Live track record: XNYS 18 days
+  (+1.00%), XJSE 14 (−0.49%) — both under the 20-day floor, so ratios stay withheld.
 - **Champions** (registered `quantpulse-lgbm-<exchange>`):
   - XNYS v1 — promoted at holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the
     first scheduled retrain, was auto-promoted on a mismatched exam and demoted the same
@@ -105,12 +104,17 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
   week's error; instead it was rejected silently and correctly.
 - **Books** (in-sample replay, daily/horizon/long-only): XNYS 7.7%·0.73 / 14.3%·1.30 /
   34.6%·1.16; XJSE 21.8%·1.94 / 34.8%·2.94 / 41.9%·1.41. All carry survivorship + in-sample
-  bias; the live phase is the number to judge.
+  bias; the live phase is the number to judge. Read the JSE figures with the baseline result
+  in mind — a fit-free momentum rule beats that market's champion on the same holdout, so
+  they may be measuring momentum rather than the model.
 - Promotion policy (`ml/promotion.py`): the comparison runs on **IC**, not Sharpe.
   Candidate needs holdout IC ≥ champion + a per-market margin (2 sd of the measured seed
   re-roll: 0.006 XNYS, 0.008 XJSE), IC ≥ 0, drawdown better than −35%; Sharpe survives
   only as a wide veto (`max_sharpe_regression` 0.50) checked **after** IC decides, so it
-  can overrule a promotion but never make one. A **first** champion must also clear
+  can overrule a promotion but never make one. Since 2026-08-14 the candidate must also beat
+  a **standing competitor** — a fit-free momentum rule on the same holdout — by the same
+  margin, so beating only the incumbent is no longer sufficient. A **first** champion must
+  also clear
   `min_first_sharpe` (0.0); NaN never promotes. The gate backtests at the market's own
   quantile width, and **re-scores the incumbent on the candidate's exact holdout** at
   decision time — stored metrics are never consulted (incident 24).
@@ -526,6 +530,48 @@ fabricated drift reading into `market` would risk the daemon picking it up on it
 and filing a genuine `model_runs` row triggered by invented evidence — corrupting the audit
 trail this project exists to keep honest.
 
+## Audited against a published rubric, and what it found (2026-08-14)
+
+Prompted by the observation that seven fault-injection drills had all rediscovered
+documented failure patterns. Scoring against an external rubric says what to look for
+instead of waiting to be surprised, and produces a citable claim. Full itemisation in
+[ml-test-score.md](ml-test-score.md); the score is **2.5**, set by Model Development at 2.5
+against Monitoring 6.0 and Infrastructure 5.0. The shape is the finding: the pipeline
+around the model has had far more adversarial attention than the model itself.
+
+Two gaps were closed the same day.
+
+**A simpler-model baseline** (`ml/baselines.py`, `quantpulse baseline`). Nothing had ever
+compared the champion against a simple rule, so the promotion gate could pass a lineage of
+models that all lost to one. Every competitor sits the same exam through
+`pipeline.score_holdout`. The result matters: on the JSE, plain 63-day momentum beat the
+champion on every metric (IC 0.117 against 0.068, Sharpe 2.28 against 1.84, half the
+drawdown) with zero parameters and no fitting. On the NYSE the champion won decisively
+(IC 0.191 against momentum's 0.016). Read the JSE replay numbers accordingly — they may be
+measuring momentum rather than the model. Two by-products: a pure noise control scored
+Sharpe +0.47 on XNYS at IC −0.0015, which is direct support for gating on IC rather than
+Sharpe; and momentum and reversal scored oppositely on both markets, so the backtest
+responds to signal direction rather than flattering anything ranked.
+
+Momentum is now a **standing competitor in the promotion gate**: no candidate is promoted
+without beating it by the per-market IC margin, first champions included, and the gate fails
+closed if the baseline cannot be scored. It governs promotion, not incumbency, so a champion
+already installed can still lose to momentum until something replaces it.
+
+**A rollback path** (`quantpulse demote`, with `--dry-run`). Previously no code performed a
+demotion; the rows in `model_runs` had been written by hand. The ordering is the design:
+resolve the fallback, write the audit row, move the alias, commit last, so a registry
+failure leaves the audit trail untouched.
+
+## Comments carry rules, docs carry history (2026-08-14)
+
+Comments and docstrings across the codebase had grown into a narrative of how each rule came
+to exist — incident numbers, dates, measured values, which ticker broke on which morning.
+That serves the author, not the next reader, who carries none of the context that makes it
+readable. Roughly 40 files were pruned: the rule and the reason stay, stated plainly and
+generally; the anecdote moves here. Fixture dates and design rationale stayed. This file,
+the data dictionary and the runbook are the places that can afford context.
+
 ## Coverage tracks debugging history, not risk (2026-08-11)
 
 Prompted by "I don't trust that this is the only issue since you happened upon it by
@@ -603,14 +649,14 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-481 checks total: 359 pytest (207 unit on synthetic data; 133 integration against a
+513 checks total: 391 pytest (232 unit on synthetic data; 140 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
 use a throwaway sqlite backend; 19 Dagster definition/sensor tests), 59 Vitest
 (components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
 unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
-drift, and compose validation — all enforced in CI. Line coverage 84%.
+drift, and compose validation — all enforced in CI. Line coverage 83%.
 
 **Green is not evidence.** Every serious bug in the log above shipped with fully green CI
 and was found by reading data, not by a failing test. So a new test is verified by

@@ -54,8 +54,14 @@ Switching to XJSE re-scopes everything: **beta is measured against STX40.JO** (n
 comparing a JSE book to the S&P would measure the rand, not the strategy), the Options tab
 is gone (no free JSE chain data), and the numbers are the JSE champion's. Its in-sample
 replay looks strong (alpha +16%, IR 0.42, all three books positive), but the panel says
-plainly these are in-sample — the JSE champion's holdout Sharpe is ~1.5 on 29 names,
-which only live days will confirm.
+plainly these are in-sample.
+
+There is a sharper caveat than that. `quantpulse baseline` scores every champion against
+simple rules on the same holdout, and on the JSE **a plain 63-day momentum rule beats the
+champion on every metric** — higher IC, higher Sharpe, half the drawdown, with no parameters
+and no fitting. So these JSE figures may be measuring momentum rather than the model. On the
+NYSE the champion wins decisively against the same baselines. That comparison is now a gate:
+no model is promoted on either market without beating the rule first.
 
 </details>
 
