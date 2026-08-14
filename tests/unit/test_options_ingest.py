@@ -81,10 +81,9 @@ def test_empty_when_no_strikes_in_band() -> None:
 
 # --- The post-close gate ------------------------------------------------------------
 #
-# It lives in snapshot_option_chains() so that every caller inherits it. It used to be
-# enforced only by the repair sensor, which left `quantpulse options-snapshot` (and a
-# manual materialize from the Dagster UI) free to capture pre-market chains and, via the
-# (snapshot_date, ticker, ...) upsert key, overwrite good post-close rows.
+# It lives in snapshot_option_chains() so that every caller inherits it. Enforced only in a
+# caller, it would leave the CLI and a manual materialize free to capture pre-market chains
+# and overwrite good post-close rows through the (snapshot_date, ticker, ...) upsert key.
 
 
 class _EscapedTheGate(BaseException):

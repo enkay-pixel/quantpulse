@@ -4,12 +4,11 @@ Failures are recorded in Postgres (`pipeline_alerts`) and surfaced by the API, s
 dashboard can show "something broke" without any paid notification service. On macOS a
 desktop notification is also attempted best-effort (no-op inside containers).
 
-**Why Postgres and not a file.** This used to append to JSONL under `DAGSTER_HOME`. The
-Dagster daemon writes alerts and the API serves them from a *different container*, and
-that path is neither a shared volume nor persistent — it lives in the daemon's writable
-layer, so the API could never read it and `compose up` erased it. Real failures were
-recorded perfectly and still surfaced as an empty `/alerts`. The database is the one
-durable thing both containers already share.
+**Why Postgres and not a file.** The Dagster daemon writes alerts and the API serves them
+from a different container. A path under `DAGSTER_HOME` is neither shared nor persistent —
+it lives in the daemon's writable layer, so the API cannot read it and `compose up` erases
+it. Alerts written there are recorded correctly and still surface as an empty `/alerts`.
+The database is the one durable thing both containers already share.
 
 Recording an alert must never take down the run that is already failing, so every
 database error here is swallowed and logged.

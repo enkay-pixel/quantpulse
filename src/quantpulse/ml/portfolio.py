@@ -1,9 +1,9 @@
 """Simulated paper books built from stored predictions.
 
 Positions form from score quantiles and earn each day's realized return. Several books run
-over the same predictions, per exchange, as **variations from one baseline** — each
-differing from it in exactly one dimension, so the gap between a variation and the baseline
-is attributable to that dimension and nothing else:
+over the same predictions, per exchange, as variations from one baseline. Each differs from
+the baseline in exactly one dimension, so the gap between them is attributable to that
+dimension:
 
 - ``daily`` (baseline) — re-forms every day, betting the signal on tomorrow.
 - ``horizon``   — varies ``rebalance_days`` (1 → 21), the horizon the model is trained to
@@ -11,9 +11,9 @@ is attributable to that dimension and nothing else:
 - ``long_only`` — varies ``short_enabled``. Isolates what the short leg contributes, and is
   the only construction executable where scrip lending is thin or dear (e.g. the JSE).
 
-Keeping all of them is the point: one book cannot tell you why it performed as it did.
-Note that two *variations* are not comparable to each other — they differ in two things.
-Compare each to the baseline.
+All of them are kept because one book cannot tell you why it performed as it did. Two
+variations are not comparable to each other — they differ in two things. Compare each to
+the baseline.
 
 Capital convention matches `ml.backtest`: gross exposure 1.0 in every book. Long/short
 splits it `SIDE_WEIGHT` per side and nets to zero market exposure; long-only puts all of it

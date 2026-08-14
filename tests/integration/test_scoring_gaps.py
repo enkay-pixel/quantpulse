@@ -243,7 +243,7 @@ def test_a_fresh_database_falls_back_to_the_floor(
 # is the ordinary case and is fine. The dangerous one is a champion promoted *after* the
 # newest feature date: re-scoring then attributes an already-live day to a model that did
 # not exist on it, and `fct_portfolio_daily` labels that 'backfilled' — so the day silently
-# leaves the live track record, the one number this project asks to be judged on.
+# leaves the live track record.
 #
 # Reachable on a fixed schedule, not just in theory: the retrain runs Saturday and the
 # process job runs Mon-Fri regardless of whether the market traded. Any Monday US holiday

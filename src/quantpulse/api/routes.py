@@ -10,11 +10,10 @@ bootstrapped database has tables but no marts until the first `dbt build`, and t
 dashboard should render an empty panel then, not a 500.
 
 **Everything is scoped to one market.** `ExchangeDep` resolves and validates the
-`?exchange=` parameter once. An endpoint that forgets it does not fail — it silently
-serves one market's data under another's heading, which is how `/freshness`,
-`/predictions/latest`, `/models/current` and `/portfolio/positions` each shipped a leak.
-The subtle form is an unscoped aggregate: `max(Price.date)` over the whole table returns
-whichever market ingested last, so scope every `max()` to the rows you are about to read.
+`?exchange=` parameter once. An endpoint that forgets it does not fail — it silently serves
+one market's data under another's heading. The subtle form is an unscoped aggregate:
+`max(Price.date)` over the whole table returns whichever market ingested last, so scope
+every `max()` to the rows you are about to read.
 
 **Ratios come from the marts, never from here.** Sharpe, alpha and win rate are nulled at
 source below `min_days_for_ratios` (20), because a handful of days annualizes into a

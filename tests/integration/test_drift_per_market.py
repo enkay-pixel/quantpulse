@@ -6,8 +6,8 @@ the worst single-market one. The markets also drift on different features, so th
 number averaged two unrelated things. The same mistake as pooling cross-sectional ranks,
 repeated in a place nobody revisited after fixing it there.
 
-Nothing caught it because `run_drift_check` and `store_drift_report` had no tests at all —
-only the pure PSI helpers did. These cover the part that was broken.
+The pure PSI helpers were tested; `run_drift_check` and `store_drift_report` were not.
+These cover that gap.
 """
 
 import datetime as dt

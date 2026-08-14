@@ -64,10 +64,9 @@ def breakeven_cost(rows: list[SensitivityRow], borrow_rate: float = 0.0) -> floa
 
     - a cost inside the grid — the sweep bracketed the breakeven;
     - ``None`` — never profitable, so there is no edge to erode;
-    - ``inf`` — still profitable at the most punitive cost tested, meaning the sweep
-      never found the breakeven at all. Returning the grid ceiling here (the previous
-      behaviour) silently reported "the last thing we tried" as if it were a measured
-      limit, which understates the result and reads as a finding it isn't.
+    - ``inf`` — still profitable at the most punitive cost tested, meaning the sweep never
+      bracketed the breakeven. Returning the grid ceiling instead would report the last
+      thing tried as if it were a measured limit.
     """
     at_borrow = [r for r in rows if r.borrow_rate == borrow_rate]
     viable = [r.round_trip_cost for r in at_borrow if r.annual_return > 0]

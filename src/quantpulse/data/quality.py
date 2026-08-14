@@ -88,17 +88,15 @@ def benchmark_gaps(
 ) -> CheckResult:
     """Flag sessions the market ingested but its benchmark is missing.
 
-    The benchmark needs its own check because `completeness` above cannot see this. That
-    one judges every ticker against the same 0.95 ratio, so one absent day in thirty scores
-    0.967 and passes — and the benchmark is not one ticker among fifty. `fct_alpha_beta`
-    and `fct_portfolio_vs_benchmark` join it **inner**, so each missing bar silently deletes
-    a whole day from the CAPM decomposition while the track record keeps it. The two marts
-    then disagree about the live day count with nothing on screen explaining why (see the
-    data dictionary). Hence zero tolerance: any gap is worth naming, immediately.
+    `completeness` above cannot see this: it judges every ticker against the same ratio, so
+    a single absent day passes comfortably. That is right for one ticker among many and
+    wrong for the benchmark, which `fct_alpha_beta` and `fct_portfolio_vs_benchmark` join
+    inner — each missing bar drops a whole day from the CAPM decomposition while the track
+    record keeps it, leaving the two marts disagreeing about the live day count. Hence zero
+    tolerance here.
 
-    Compared against sessions the market *actually ingested*, not the exchange calendar. A
-    day nobody has data for is an outage, already the catch-up sensor's job; reporting it
-    here too would just double the noise on a day that is already loud.
+    Compared against sessions the market actually ingested, not the exchange calendar. A day
+    nobody has data for is an outage and already the catch-up sensor's to report.
     """
     if not in_universe:
         # Not a data gap but a config error, and a permanent one: nothing ingests a ticker

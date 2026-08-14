@@ -1,21 +1,17 @@
 """Simpler-model baselines: does the LightGBM layer earn its place?
 
-The ML Test Score audit (docs/ml-test-score.md) scored *"a simpler model is not better"* at
-zero, because nothing here had ever been compared against one. That is the first question a
-reviewer asks of any ML system, and until it is answered the modelling is unjustified rather
-than justified — the promotion gate only ever compared a challenger against the previous
-champion, so a whole lineage of models could be beating each other while losing to a rule
-that fits on one line.
+Comparing a challenger only against the previous champion cannot show that the modelling
+earns its place: a lineage of models can beat each other while all of them lose to a rule
+that fits on one line. These are the simple competitors that question is settled against.
 
-Every competitor sits **the same exam**: the same holdout frame, cut the same way, scored by
-`pipeline.score_holdout` at the market's own quantile width. A model compared on a
-different window is not compared at all.
+Every competitor sits the same exam — the same holdout frame, cut the same way, scored by
+`pipeline.score_holdout` at the market's own quantile width. A model compared on a different
+window is not compared at all.
 
-The comparison is deliberately unfair in one direction, and it has to be read that way: the
-baselines are fitted on this run's training window, while the champion was fitted weeks ago
-on a shorter panel and is merely *scored* here. The gate lives with the same asymmetry. It
-means a baseline win is suggestive rather than damning, but a baseline **loss** is strong
-evidence for the model, since the baseline had the fresher fit and still lost.
+The comparison is uneven in one direction and should be read that way: the baselines are
+fitted on this run's training window, while the champion was fitted earlier and is only
+scored here. A baseline win is therefore suggestive; a baseline loss is strong evidence for
+the model, since the baseline had the fresher fit and still lost.
 """
 
 import logging

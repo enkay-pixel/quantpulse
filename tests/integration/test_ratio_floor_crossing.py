@@ -144,8 +144,8 @@ def _phases(client: TestClient, path: str) -> dict[str, dict]:
 
 
 def test_a_phase_over_the_floor_actually_publishes_its_ratios(crossed: TestClient) -> None:
-    """The half nothing tested. Without this, ratios nulled forever look like a young
-    track record and no test disagrees."""
+    """Ratios nulled forever look identical to a young track record, so the publishing
+    half of the contract needs its own assertion."""
     live = _phases(crossed, "/track-record")["live"]
     assert live["n_days"] == 30
     for field in RATIOS:

@@ -1,15 +1,12 @@
 """Keep the non-integration suites honestly free of a database.
 
-Unit and Dagster tests are supposed to run on synthetic data and stubs. Nothing enforced
-that, and the failure mode is nasty: a test that quietly opens a connection finds the
-developer's *live* `market` database sitting on localhost:5432 and passes, then fails in CI
-where no such table exists. That is exactly how a sensor gained a second, unstubbed query
-and shipped: every local run was green, and CI caught it only because its Postgres has no
-`prices` table.
+Unit and Dagster tests run on synthetic data and stubs. Without enforcement a test that
+quietly opens a connection finds the developer's live `market` database on localhost and
+passes, then fails in CI where that database does not exist.
 
-So point these suites at a dead address. A stray query now fails immediately and locally,
-with a connection error naming the test, instead of silently reading production. Tests
-marked `integration` are exempt: a real database is the whole point of those.
+Pointing these suites at a dead address makes a stray query fail immediately and locally,
+with a connection error naming the test, rather than silently reading production. Tests
+marked `integration` are exempt, since a real database is what they are for.
 """
 
 from collections.abc import Iterator

@@ -4,7 +4,7 @@ The scenario is an outage. The machine is off for a stretch; on return the catch
 backfills the prices and scoring fills the missing days — but if a retrain promoted a new
 champion in the meantime, those days get scored by a model that was *trained on them*.
 Nothing about the dates reveals it: they sit inside the live window, look out-of-sample,
-and flatter the only record this project asks to be judged on.
+and flatter the out-of-sample record.
 
 `fct_portfolio_daily` therefore compares each day against the promotion date of the model
 that actually scored it, and labels the mismatch 'backfilled'. Built against a real dbt

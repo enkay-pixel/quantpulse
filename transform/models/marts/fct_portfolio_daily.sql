@@ -1,7 +1,7 @@
 -- Paper portfolio enriched with cumulative return, running drawdown, rolling
 -- risk-adjusted performance, and the honest evidence boundary.
 --
--- Three phases, and the distinction between the last two is the whole point:
+-- Three phases; the distinction between the last two is what makes the record honest:
 --   replay     — before that market's first champion promotion. In-sample by construction.
 --   backfilled — after it, but scored by a champion promoted *later than the day itself*.
 --                Also in-sample: that model was trained on data including this date.

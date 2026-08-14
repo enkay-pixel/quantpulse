@@ -71,11 +71,10 @@ def test_extreme_move_detected() -> None:
 
 # --- benchmark freshness ---
 #
-# A benchmark bar went missing and nothing flagged it. Both existing guards were
-# working as designed: the catch-up coverage floor is a share of the universe (28/29 = 0.97
-# against 0.8), and per-ticker completeness scores one absent day in thirty at 0.967 against
-# 0.95. One missing ticker *should* be ignored — unless it is the one the CAPM marts
-# inner-join, which silently drops the whole day from fct_alpha_beta.
+# A missing benchmark bar passes both existing guards, correctly: the catch-up coverage
+# floor is a share of the universe, and per-ticker completeness scores one absent day in
+# thirty well above its threshold. One missing ticker should be ignored — unless it is the
+# one the CAPM marts inner-join, which drops the whole day from fct_alpha_beta.
 
 SESSIONS = [dt.date(2026, 8, d) for d in (5, 6, 7, 11, 12)]
 

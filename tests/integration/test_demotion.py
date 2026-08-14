@@ -1,13 +1,8 @@
 """Rolling back a promotion, and the ordering that keeps the two records together.
 
-For a long time no code performed a demotion: the rows that exist were inserted by hand.
-Undoing a bad promotion meant editing MLflow *and* Postgres with nothing tying them
-together, on a system whose value proposition is an honest audit trail.
-
-Bad promotions are not hypothetical here; they have happened.
-
-The tests that matter are the failure ones. Anyone can make the happy path work; what
-decides whether this is safe is what the database looks like when the registry refuses.
+Rolling back means changing two records that no transaction spans: MLflow's champion alias
+and the Postgres audit trail. The tests that matter are the failure ones — what the database
+looks like when the registry refuses decides whether this is safe.
 """
 
 import pytest

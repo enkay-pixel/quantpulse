@@ -26,17 +26,17 @@ DRAWDOWN = "holdout_max_drawdown"
 class PromotionPolicy:
     """What it takes to replace a champion.
 
-    The comparison runs on **information coefficient**, not Sharpe. That is a measurement
-    decision rather than a modelling one: refitting an identical specification with only
-    the RNG changed moves holdout Sharpe by sd 0.12 (XNYS) and 0.24 (XJSE), and scoring one
-    fixed model across six-month windows moves it by sd ~2.0 — while IC moves by 0.003 and
-    0.004. The old gate compared Sharpe with a 0.05 margin, five to ten times *below* its
-    own noise floor, so decisions inside that band were coin flips wearing a number.
+    The comparison runs on information coefficient, not Sharpe. That is a measurement
+    decision rather than a modelling one: on this data, refitting the same specification
+    with only the seed changed moves holdout Sharpe by far more than any sensible promotion
+    margin, and scoring one fixed model across different windows moves it further still,
+    while IC barely moves. A Sharpe margin narrow enough to be useful sits below its own
+    noise, so decisions inside it are coin flips wearing a number.
 
-    Sharpe is kept as a **veto, not a comparison**. A model can rank better while building
-    a worse book, and `max_sharpe_regression` catches that — but the tolerance is wide on
-    purpose. Sharpe cannot support a fine comparison, so it is only allowed to object when
-    the drop is far larger than the noise that produced it.
+    Sharpe is kept as a veto, not a comparison. A model can rank better while building a
+    worse book, and `max_sharpe_regression` catches that — but the tolerance is wide on
+    purpose, because Sharpe can only be trusted to object when the drop is far larger than
+    the noise that produced it.
     """
 
     #: Per-market IC margin (2 sd of the seed re-roll) lives on the Exchange registry;
@@ -205,19 +205,16 @@ def demote_champion(
 ) -> DemotionResult:
     """Withdraw a promotion and move the `@champion` alias to whatever stands behind it.
 
-    Without this, undoing a bad promotion means editing MLflow *and* Postgres by hand with
-    nothing tying them together. Bad promotions are not hypothetical.
+    The ordering matters. MLflow's alias and the Postgres audit trail are two writable
+    records with no transaction between them, so: resolve the target first, write the audit
+    row, move the alias, and commit last. If the registry refuses, the transaction rolls
+    back and nothing moved. The one unprotected window is a commit failing after the alias
+    moved, which leaves the alias ahead of the audit trail; `champion_registry_agrees`
+    reports that disagreement.
 
-    **Ordering is the whole design.** These are two writable records with no transaction
-    between them, so the sequence is: work out the target first, open a Postgres
-    transaction and write the audit row, move the alias, and only then commit. If MLflow
-    fails the transaction is rolled back and nothing moved. The one unprotected window is a
-    commit failing *after* the alias moved, which leaves the alias ahead of the audit trail
-    — `champion_registry_agrees` exists to catch exactly that, and the error says so.
-
-    Writing the audit row before choosing the fallback would be wrong in a subtler way:
-    `audit_champion` is defined as the most recent promotion with no later demotion, so the
-    new row must already be visible to it. Hence the flush before re-resolving.
+    The fallback is resolved after flushing the new row. `audit_champion` means "the most
+    recent promotion with no later demotion", so the row has to be visible to it — resolve
+    first and it returns the version being demoted.
     """
     from quantpulse.db import ModelRun
     from quantpulse.ml import registry

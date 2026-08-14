@@ -75,7 +75,7 @@ def _quote(day: dt.date, ticker: str) -> OptionQuote:
 
 
 def test_missing_option_snapshot_is_a_gap_not_skipped(seeded: Engine) -> None:
-    """The whole point of surviving stack up/down: if the 19:00 schedule never fired
+    """Surviving stack up/down means that if the schedule never fired
     (stack down), a *missing* today-snapshot must still trigger capture post-close — not
     be deferred to a schedule that already came and went."""
     day = DAYS[0]

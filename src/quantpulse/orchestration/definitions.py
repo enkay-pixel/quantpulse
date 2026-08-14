@@ -105,10 +105,9 @@ training_schedule = dg.ScheduleDefinition(
 def drift_retrain_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     """Fire an off-cycle retrain when a market's latest drift check crosses the threshold.
 
-    Evaluated per market. The reading used to be pooled across both, which meant one
-    market's drift was diluted by the other's calm — and when it did fire, it retrained
-    both markets on evidence about neither. The cursor carries each market's last-fired
-    date so a drifting JSE cannot lock out a later NYSE trigger.
+    Evaluated per market: a pooled reading dilutes one market's drift with the other's
+    calm, and firing on it retrains both on evidence about neither. The cursor carries each
+    market's last-fired date so one drifting market cannot lock out the other's trigger.
     """
     import json
 
@@ -268,26 +267,18 @@ OPTION_CAPTURE_JOB = "option_resnapshot_job"
 def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     """Ensure today's option snapshot exists, whenever the stack is up post-close.
 
-    This is what makes the options history survive stack up/down. The 19:00 schedule fires
-    once; if the machine is off at that minute, that snapshot would be lost forever, because
-    chains are live-only. So this sensor captures **today's** snapshot whenever it is
-    missing *or* thin and the market has closed — including immediately after `make up`.
-    Only *today* is salvageable: re-running tomorrow snapshots tomorrow's chains, not
-    yesterday's. The one unrecoverable case left is being powered off for the entire
-    post-close evening of a trading day.
+    Option chains are live-only, so a snapshot missed at its scheduled minute is lost for
+    good. This captures today's snapshot whenever it is missing or thin and the market has
+    closed, including right after the stack comes up. Only today is recoverable: re-running
+    tomorrow captures tomorrow's chains.
 
-    A snapshot is ~500 network calls over ~10 minutes and commits per ticker (idempotent
-    upsert), so a partial run is safe to re-run. Bounded by a per-day cursor so a genuinely
-    unavailable feed cannot spin the run queue all evening.
+    A snapshot is several hundred network calls and commits per ticker, so a partial run is
+    safe to re-run. A per-day budget stops an unavailable feed filling the run queue.
 
-    Gated to post-close: capturing pre-market fills tickers with stale IV (≈2.1% against
-    ≈33% post-close), which would leave one snapshot_date holding two incompatible
-    qualities of data — worse than the clean partial it started as.
-
-    `snapshot_option_chains()` now enforces that gate itself, so this one is no longer
-    what protects the data — but keep it. Without it every pre-market sensor tick would
-    queue a run that fails on arrival, burning the retry budget and firing a failure
-    alert; skipping here is the difference between "not yet" and "broken".
+    Gated to post-close because pre-market implied volatility is stale, and one
+    snapshot_date holding both qualities of data is worse than a clean partial. The capture
+    enforces that gate itself; skipping here as well keeps pre-market ticks from queueing
+    runs that would fail on arrival and spend the retry budget.
     """
     from quantpulse.data.calendar import market_today
     from quantpulse.orchestration.catchup import (

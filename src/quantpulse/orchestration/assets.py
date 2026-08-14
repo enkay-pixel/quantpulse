@@ -1,9 +1,9 @@
 """Dagster assets wrapping the quantpulse library. Assets stay thin: all logic
 lives in importable, unit-tested modules.
 
-That thinness is the point. An asset body should read as "fetch the inputs, call the
-library, report metadata" — anything else cannot be tested without standing up Dagster,
-and Dagster is the one part of this stack a unit test should never need.
+An asset body should read as "fetch the inputs, call the library, report metadata".
+Anything more cannot be tested without standing up Dagster, which a unit test should never
+need.
 
 **Why the imports sit inside the asset bodies.** Dagster imports this module to build the
 asset graph — on every daemon reload, in the webserver, and in each run process — but the

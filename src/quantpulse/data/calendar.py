@@ -1,7 +1,7 @@
 """Exchange registry and trading-calendar helpers.
 
-Every market fact that used to be a hardcoded NYSE constant — calendar, timezone, close
-hour, currency, benchmark, whether free option chains exist — lives on an `Exchange` here.
+Every market fact — calendar, timezone, close hour, currency, benchmark, whether free
+option chains exist — lives on an `Exchange` here rather than as a constant somewhere.
 Callers pass an exchange code; the default keeps single-market behaviour identical.
 """
 

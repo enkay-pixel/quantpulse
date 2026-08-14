@@ -248,11 +248,10 @@ def score_latest(
 ) -> int:
     """Score one market's unscored recent feature dates with its champion; upsert.
 
-    Not just the newest date. A session ingested late — rescued by the catch-up sensor
-    after that night's process run — is never the maximum at any later scoring time, so it
-    would never be scored at all: features exist, predictions do not, and the paper book
-    carries a permanent hole that silently shortens the live track record — the one number
-    this project asks to be judged on.
+    Not just the newest date. A session ingested late, after that night's process run, is
+    never the maximum at any later scoring time, so it would never be scored at all:
+    features exist, predictions do not, and the paper book carries a permanent hole that
+    shortens the live track record without anything failing.
 
     Only dates with **no predictions from any champion** are filled in. Re-scoring a date
     some earlier champion already scored would rewrite the live record with a model that

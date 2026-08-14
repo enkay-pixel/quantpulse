@@ -5,14 +5,11 @@ Every command is a `_verb()` function doing argument plumbing only; the work liv
 tested. If a command grows logic worth testing, that logic belongs in a module and the
 command keeps calling it.
 
-**Why the imports sit inside the functions.** Not a circular-import workaround and not an
-oversight — it is the one thing that keeps this CLI usable. Importing lightgbm, mlflow and
-pandas costs ~4.1s; `quantpulse --help` returns in ~0.24s because nothing here pulls them
-in until a command that actually needs them runs. `init-db`, `sync-universe` and `quality`
-never touch the ML stack at all, and paying four seconds to print a usage string is the
-kind of friction that stops people using their own tooling. The same convention appears in
-`orchestration/assets.py` and `orchestration/definitions.py` for a related reason: Dagster
-re-imports its code location on every daemon reload.
+**Why the imports sit inside the functions.** Importing lightgbm, mlflow and pandas costs
+several seconds. Keeping those imports inside the commands that need them means
+`quantpulse --help` and the commands that never touch the ML stack stay fast. The same
+convention appears in `orchestration/assets.py` and `orchestration/definitions.py`, where
+Dagster re-imports the code location on every daemon reload.
 """
 
 import argparse

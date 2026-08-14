@@ -1,13 +1,12 @@
 """`snapshot_option_chains`: the only writer of data no vendor will sell back.
 
-It was the least-covered function on any live path (32%), which is the wrong place for
-that to be true. Option chains are live-only — a day not captured is gone permanently, and
-a day captured *badly* overwrites a good one, because the upsert is keyed on
+Option chains are live-only: a day not captured is gone permanently, and a day captured
+badly overwrites a good one, because the upsert is keyed on
 `(snapshot_date, ticker, expiry, strike, option_type)`.
 
-Its failure mode is the quiet kind this project keeps meeting: it commits per ticker and
-returns a row count, so a partial snapshot returns successfully — under a third of the
-universe captured, and nothing raised.
+The failure mode is quiet. It commits per ticker and returns a row count, so a partial
+snapshot returns successfully with a fraction of the universe captured and nothing
+raised.
 
 The vendor is stubbed throughout. A test that hit Yahoo would measure Yahoo.
 """

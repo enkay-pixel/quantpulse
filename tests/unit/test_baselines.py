@@ -61,8 +61,8 @@ def test_no_baseline_reads_the_holdout_target() -> None:
 
 
 def test_momentum_is_exactly_the_momentum_feature() -> None:
-    """Zero parameters and zero fitting is the whole point — if this ever becomes a
-    transformation of the column, it stops being the literature's rule."""
+    """Zero parameters and zero fitting: if this becomes a transformation of the column it
+    stops being the plain rule it is meant to represent."""
     np.testing.assert_array_equal(
         _momentum(TRAIN, HOLDOUT, COLS), HOLDOUT["mom_63_cs_rank"].to_numpy(float)
     )

@@ -201,10 +201,9 @@ class PipelineAlert(Base):
     """Pipeline failures, recorded by the Dagster run-failure sensor.
 
     In Postgres rather than a file: the daemon writes these and the API serves them from a
-    different container, and a file under DAGSTER_HOME is visible to neither the other
-    container nor the next `compose up` (it lives in a writable layer, not a volume). That
-    is exactly how two real ingest failures were recorded correctly and still showed up as
-    an empty `/alerts` — the surfacing half of the alerting was silently dead.
+    different container. A file under DAGSTER_HOME is visible to neither the other container
+    nor the next `compose up`, since it lives in a writable layer rather than a volume, so
+    alerts written there are recorded correctly and never surface.
     """
 
     __tablename__ = "pipeline_alerts"

@@ -1,9 +1,7 @@
 """The retrain sensor reads drift per market and remembers per market.
 
-Written after the fact: the per-market rewrite shipped with no test at all, which is the
-same asymmetry that produced the bug it fixed — the calculation got tests, the thing
-consuming the calculation did not. A sensor that silently stops firing looks exactly like
-a system with no drift.
+A sensor that silently stops firing looks exactly like a system with no drift, so the
+consumer of the drift calculation needs tests of its own and not just the calculation.
 """
 
 import datetime as dt
@@ -218,14 +216,10 @@ def test_capture_sensor_will_not_run_two_captures_at_once(monkeypatch: pytest.Mo
 
 # --- fault injection: what actually happens after the sensor fires ---
 #
-# Everything above tests the sensor's *decision*. Nothing tested the consequence, and this
-# whole path has never executed in production — 23 drift readings, zero above threshold, so
-# the firing branch has never run outside a test. That is exactly the profile of the
-# catch-up sensor before it produced several separate bugs: careful logic, rarely
-# exercised, and wrong in a way nobody could see.
-#
-# Injecting the failure the sensor exists to detect, and following it through to the job,
-# is how the gap below was found.
+# Everything above tests the sensor's decision; this covers the consequence. The firing
+# branch rarely executes in practice, which is the profile of careful logic that is wrong
+# in a way nobody sees. Injecting the failure the sensor exists to detect, and following it
+# through to the job it triggers, exercises the rest of the path.
 
 
 def _train_calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:

@@ -71,8 +71,8 @@ def test_rotating_book_pays_full_turnover() -> None:
 
 
 def test_turnover_responds_to_churn_not_just_quantile_width() -> None:
-    """Regression: turnover used to be a constant of the quantile width, so a held book
-    and a churning book were charged identically."""
+    """Turnover must measure churn. Derived from the quantile width alone it would charge a
+    held book and a churning book identically."""
     held = run_backtest(make_panel(prescient=True))
     frozen = run_backtest(
         pd.DataFrame(
