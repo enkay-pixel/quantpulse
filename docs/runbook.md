@@ -142,6 +142,29 @@ The checks notify but never act: bringing the stack up automatically would overr
 deliberate `make down` before travel. Disable any of them with
 `launchctl bootout gui/$(id -u)/com.quantpulse.<name>`.
 
+## Rolling back a promotion
+
+```bash
+quantpulse demote --exchange XJSE --reason "loses to the momentum baseline" --dry-run
+quantpulse demote --exchange XJSE --reason "loses to the momentum baseline"
+```
+
+Withdraws a version's promotion and moves `@champion` to the newest promotion with no later
+demotion; if there is none, the alias is cleared and that market stands down rather than
+serving a model judged unfit. `--reason` is required and lands in the audit row — a demotion
+with no recorded cause makes the next incident harder to read. Always dry-run first: it
+resolves the fallback and prints the plan without touching either record.
+
+Two writable records are involved (MLflow's alias, Postgres' audit trail) and no transaction
+spans them, so the order is deliberate: the audit row is written, the alias is moved, and only
+then is the transaction committed. A registry failure rolls the row back and nothing moved.
+The one unprotected window is a commit failing *after* the alias moved; that logs CRITICAL,
+and `champion_registry_agrees` reports the disagreement until it is reconciled.
+
+Demotion is manual on purpose. Deciding a champion should be withdrawn needs a judgement the
+pipeline cannot make — the promotion gate prevents a bad model being *installed*, not a model
+that has since been shown up.
+
 ## Reclaiming Docker build cache
 
 ```bash

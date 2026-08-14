@@ -78,6 +78,19 @@ def promote(
     logger.info("%s model version %s promoted to @%s", exchange, version, CHAMPION_ALIAS)
 
 
+def clear_champion(client: MlflowClient | None = None, exchange: str = DEFAULT_EXCHANGE) -> None:
+    """Remove the `@champion` alias entirely — the market is left with no champion.
+
+    The end state of a rollback with nothing to fall back to (every promotion withdrawn).
+    `load_champion` then returns None and scoring stands down for that market, which is the
+    correct outcome: no predictions at all beats predictions from a model that was judged
+    unfit, because only one of those two is visible on the dashboard as a gap.
+    """
+    client = client or MlflowClient()
+    client.delete_registered_model_alias(model_name(exchange), CHAMPION_ALIAS)
+    logger.info("%s @%s alias cleared — market has no champion", exchange, CHAMPION_ALIAS)
+
+
 def load_champion(exchange: str = DEFAULT_EXCHANGE) -> tuple[lgb.Booster, ModelVersion] | None:
     """Load this market's champion booster, or None if it has no champion yet."""
     champion = get_champion(exchange=exchange)

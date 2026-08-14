@@ -24,12 +24,17 @@ instead of waiting to be surprised, and produces a claim that can be cited.
 |---|---|---|
 | Features and Data | 5.0 | Strong — schema, quality gates, tested feature code |
 | **Model Development** | **2.5** | **Weakest. Sets the final score.** |
-| ML Infrastructure | 4.0 | Strong gate and integration testing; no rollback, no canary |
+| ML Infrastructure | 5.0 | Strong gate, integration testing and rollback; no canary |
 | Monitoring | 6.0 | Strongest — this is where the incident log's lessons went |
 
 **ML Test Score = 2.5** (the minimum), which the rubric reads as *basic productionisation* —
-a first pass complete, with real gaps remaining. Was 2.0 at the first scoring; closing the
-baseline gap moved Model Development from 2.0 to 2.5.
+a first pass complete, with real gaps remaining. Was 2.0 at the first scoring; the baseline
+gate moved Model Development to 2.5 and the rollback path moved Infrastructure to 5.0.
+
+Note what the second of those did to the headline: **nothing**. Infrastructure went from 4.0
+to 5.0 and the score did not move, because Model Development is the binding constraint. That
+is the rubric working as designed — it refuses to let strength in one dimension pay for
+weakness in another, and it says plainly where the next effort belongs.
 
 The shape is the finding. Monitoring at 6.0 against model development at 2.5 says the
 **pipeline around the model has had far more adversarial attention than the model itself**.
@@ -61,7 +66,7 @@ comparable scrutiny onto the modelling.
 | 6 | Quality sufficient on important slices | 0.5 | Per-market slices are first-class (own champion, own IC margin, own quantile width); no within-market slices by liquidity, size or volatility regime |
 | 7 | Inclusion / fairness | **0** | No protected classes in market data. The honest analogue — does the signal work across liquidity and size tiers, or only in the largest names? — is unmeasured |
 
-## ML Infrastructure — 4.0
+## ML Infrastructure — 5.0
 
 | # | Test | Score | Evidence |
 |---|---|---|---|
@@ -71,7 +76,7 @@ comparable scrutiny onto the modelling.
 | 4 | Model quality validated before serving | 1 | The promotion gate — IC margin from measured seed noise, IC ≥ 0, drawdown floor, Sharpe veto, first-champion floor, incumbent re-scored on the candidate's exact holdout. The project's strongest single component |
 | 5 | Debuggable on single examples | 0.5 | `/predictions/latest` and the positions endpoint allow inspecting a ticker-date; no dedicated debug path |
 | 6 | Canary before serving | **0** | Promotion is an atomic alias switch to 100%. Mitigated by this being a paper book — nothing real is at risk |
-| 7 | Quick and safe rollback | **0** | **No code performs a demotion.** The two demotion rows in `model_runs` were inserted by hand during incidents 17 and 24. Undoing a bad promotion means hand-editing MLflow *and* Postgres, with no tested procedure |
+| 7 | Quick and safe rollback | 1 | `quantpulse demote --exchange X --reason "…"` (2026-08-14), with `--dry-run`. Writes the audit row and moves the alias in an order that leaves the trail untouched if the registry refuses; falls back to the newest promotion with no later demotion, or clears the alias when there is none |
 
 ## Monitoring — 6.0
 
@@ -142,18 +147,16 @@ the right next step is repeating this across several windows before concluding h
    the gate (2026-08-14).** No candidate is promoted on either market without beating a
    fit-free momentum rule by the per-market IC margin, first champions included. What
    remains is the *existing* XJSE champion, which loses to momentum and which the gate
-   cannot touch: it governs promotion, not incumbency. Removing it needs the rollback path
-   in Infra 7, which is why that is now the top gap.
-2. **No rollback path** (Infra 7). Bad promotions are not hypothetical — two have happened.
-   Recovery is currently hand-editing two systems that can disagree. A `quantpulse demote`
-   that writes the audit row and moves the alias, with a test, closes it.
-3. **Model staleness unmeasured** (Model 4). The weekly retrain cadence is arbitrary. One
+   cannot touch: it governs promotion, not incumbency. Withdrawing it is now a single
+   command (`quantpulse demote`, built the same day) — but whether to pull it is a judgement
+   call, not something the pipeline should make.
+2. **Model staleness unmeasured** (Model 4). The weekly retrain cadence is arbitrary. One
    experiment — score a frozen champion forward and watch IC decay — turns it into a
    measurement.
-4. **No feature ablation** (Data 2). Thirteen features, none justified individually.
-5. **Offline/online correlation** (Model 2). Cannot be closed by work, only by time; it is
+3. **No feature ablation** (Data 2). Thirteen features, none justified individually.
+4. **Offline/online correlation** (Model 2). Cannot be closed by work, only by time; it is
    what the live track record accrues toward.
-6. **No canary** (Infra 6). Genuinely low priority while the book is paper.
+5. **No canary** (Infra 6). Genuinely low priority while the book is paper.
 
 ## What the rubric does not cover
 

@@ -172,6 +172,37 @@ def _options_snapshot(force: bool = False) -> None:
     logger.info("Wrote %d option quotes", n)
 
 
+def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> None:
+    """Withdraw a promotion and fall back to whatever stands behind it.
+
+    Deliberately manual. Choosing to undo a promotion needs a human judgement about why,
+    which is why `--reason` is required and lands in the audit row: a demotion with no
+    recorded cause is the kind of history that makes the next incident harder to read.
+    """
+    from quantpulse.config import get_settings
+    from quantpulse.db import get_session
+    from quantpulse.ml import registry
+    from quantpulse.ml.promotion import demote_champion
+
+    registry.configure(get_settings().mlflow_tracking_uri)
+    try:
+        with get_session() as session:
+            result = demote_champion(session, exchange, reason, version, dry_run)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
+
+    verb = "would demote" if dry_run else "demoted"
+    logger.info(
+        "%s %s v%s (%s); champion is now %s",
+        result.exchange,
+        verb,
+        result.demoted_version,
+        result.reason,
+        f"v{result.fell_back_to}" if result.fell_back_to else "none — market stands down",
+    )
+
+
 def _baseline(exchange: str | None) -> None:
     """Compare the champion against simpler models on one shared holdout.
 
@@ -307,6 +338,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     sub.add_parser("sensitivity", help="Backtest sensitivity to trading cost and borrow rate")
     base = sub.add_parser("baseline", help="Compare the champion against simpler models")
+    dem = sub.add_parser("demote", help="Withdraw a promotion and fall back")
+    dem.add_argument("--exchange", required=True, help="Market code, e.g. XJSE")
+    dem.add_argument("--reason", required=True, help="Why — recorded in the audit row")
+    dem.add_argument("--version", default=None, help="Version to demote (default: champion)")
+    dem.add_argument("--dry-run", action="store_true", help="Report the plan, change nothing")
     base.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
     score = sub.add_parser("score", help="Score features with the champion model")
@@ -334,6 +370,8 @@ def main(argv: list[str] | None = None) -> None:
         _sensitivity()
     elif args.command == "baseline":
         _baseline(args.exchange)
+    elif args.command == "demote":
+        _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":
         _train()
     elif args.command == "score":

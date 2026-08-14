@@ -10,6 +10,8 @@ if TYPE_CHECKING:  # heavy/circular at runtime; this module stays importable on 
 
     from quantpulse.db import ModelRun
 
+from sqlalchemy import select
+
 from quantpulse.ml.baselines import STANDING_COMPETITOR
 
 logger = logging.getLogger(__name__)
@@ -185,3 +187,111 @@ def audit_champion(session: "Session", exchange: str) -> "ModelRun | None":
         )
         .order_by(ModelRun.id.desc())
     ).first()
+
+
+@dataclass(frozen=True)
+class DemotionResult:
+    exchange: str
+    demoted_version: str
+    fell_back_to: str | None
+    reason: str
+
+
+def demote_champion(
+    session: "Session",
+    exchange: str,
+    reason: str,
+    version: str | None = None,
+    dry_run: bool = False,
+) -> DemotionResult:
+    """Withdraw a promotion and move the `@champion` alias to whatever stands behind it.
+
+    The ML Test Score audit scored rollback at zero because no code did this: the two
+    demotion rows in `model_runs` were inserted by hand during incidents 17 and 24, so
+    undoing a bad promotion meant editing MLflow *and* Postgres with nothing tying them
+    together. Bad promotions are not hypothetical here — two have happened.
+
+    **Ordering is the whole design.** These are two writable records with no transaction
+    between them, so the sequence is: work out the target first, open a Postgres
+    transaction and write the audit row, move the alias, and only then commit. If MLflow
+    fails the transaction is rolled back and nothing moved. The one unprotected window is a
+    commit failing *after* the alias moved, which leaves the alias ahead of the audit trail
+    — `champion_registry_agrees` exists to catch exactly that, and the error says so.
+
+    Writing the audit row before choosing the fallback would be wrong in a subtler way:
+    `audit_champion` is defined as the most recent promotion with no later demotion, so the
+    new row must already be visible to it. Hence the flush before re-resolving.
+    """
+    from quantpulse.db import ModelRun
+    from quantpulse.ml import registry
+
+    current = registry.get_champion(exchange=exchange)
+    target = version or (current.version if current else None)
+    if target is None:
+        raise ValueError(f"{exchange} has no champion to demote")
+
+    promoted = session.scalars(
+        select(ModelRun).where(
+            ModelRun.decision == "promoted",
+            ModelRun.exchange == exchange,
+            ModelRun.model_version == str(target),
+        )
+    ).first()
+    if promoted is None:
+        raise ValueError(
+            f"{exchange} v{target} has no recorded promotion to withdraw — "
+            "a demotion row would withdraw nothing"
+        )
+
+    row = ModelRun(
+        run_type="demotion",
+        exchange=exchange,
+        mlflow_run_id=promoted.mlflow_run_id,
+        model_version=str(target),
+        metrics={"demotion_reason": reason},
+        decision="rejected",
+    )
+    session.add(row)
+    session.flush()  # visible to audit_champion, still uncommitted
+    fallback = audit_champion(session, exchange)
+    fallback_version = fallback.model_version if fallback else None
+
+    if dry_run:
+        session.rollback()
+        logger.info(
+            "%s dry run: would demote v%s and fall back to %s",
+            exchange,
+            target,
+            f"v{fallback_version}" if fallback_version else "no champion",
+        )
+        return DemotionResult(exchange, str(target), fallback_version, reason)
+
+    try:
+        if fallback_version is None:
+            registry.clear_champion(exchange=exchange)
+        else:
+            registry.promote(fallback_version, exchange=exchange)
+    except Exception:
+        session.rollback()
+        logger.error("%s demotion aborted: the registry did not accept the change", exchange)
+        raise
+
+    try:
+        session.commit()
+    except Exception:
+        logger.critical(
+            "%s alias now points at %s but the audit row failed to commit — the two records "
+            "disagree; champion_registry_agrees will flag it until this is reconciled",
+            exchange,
+            f"v{fallback_version}" if fallback_version else "no champion",
+        )
+        raise
+
+    logger.info(
+        "%s demoted v%s (%s); champion is now %s",
+        exchange,
+        target,
+        reason,
+        f"v{fallback_version}" if fallback_version else "none",
+    )
+    return DemotionResult(exchange, str(target), fallback_version, reason)
