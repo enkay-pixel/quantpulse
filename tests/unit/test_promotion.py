@@ -1,7 +1,11 @@
+import pandas as pd
+import pytest
+
 from quantpulse.ml.promotion import (
     DRAWDOWN,
     IC,
     SHARPE,
+    PromotionDecision,
     PromotionPolicy,
     decide_promotion,
 )
@@ -101,3 +105,146 @@ def test_ic_decides_before_the_veto_is_consulted() -> None:
     assert not decision.promote
     assert "IC" in decision.reason
     assert "materially worse book" not in decision.reason
+
+
+# --- the standing competitor (2026-08-14) ---
+#
+# Beating the incumbent is not enough. A lineage can beat each other while all of them lose
+# to a rule that fits on one line, and that was measured rather than imagined: on the
+# 311-session XJSE holdout, momentum scored IC 0.1167 against champion v3's 0.0681.
+
+BASE = {"holdout_ic": 0.10, "holdout_sharpe": 2.0, "holdout_max_drawdown": -0.05}
+
+
+def _cand(ic: float, sharpe: float = 1.5) -> dict[str, float]:
+    return {"holdout_ic": ic, "holdout_sharpe": sharpe, "holdout_max_drawdown": -0.05}
+
+
+def test_a_candidate_that_loses_to_the_baseline_is_rejected() -> None:
+    """The XJSE case, in miniature: it beats the incumbent and still has not earned it."""
+    incumbent = {"holdout_ic": 0.05, "holdout_sharpe": 1.8, "holdout_max_drawdown": -0.07}
+    decision = decide_promotion(_cand(0.068), incumbent, baseline=BASE)
+    assert not decision.promote
+    assert "momentum" in decision.reason
+    assert "fit-free rule" in decision.reason
+
+
+def test_a_candidate_that_beats_the_baseline_still_faces_the_incumbent() -> None:
+    """The baseline is an extra hurdle, not a replacement for the existing comparison."""
+    incumbent = {"holdout_ic": 0.30, "holdout_sharpe": 2.4, "holdout_max_drawdown": -0.05}
+    decision = decide_promotion(_cand(0.20), incumbent, baseline=BASE)
+    assert not decision.promote
+    assert "champion" in decision.reason
+
+
+def test_beating_both_promotes() -> None:
+    incumbent = {"holdout_ic": 0.11, "holdout_sharpe": 2.0, "holdout_max_drawdown": -0.05}
+    assert decide_promotion(_cand(0.20), incumbent, baseline=BASE).promote
+
+
+def test_the_margin_applies_to_the_baseline_too() -> None:
+    """Matching the baseline is not beating it — inside the margin the difference is noise,
+    and a tie against a fit-free rule is not evidence for a tuned model."""
+    policy = PromotionPolicy(min_ic_improvement=0.006)
+    incumbent = {"holdout_ic": 0.01, "holdout_sharpe": 1.0, "holdout_max_drawdown": -0.05}
+    assert not decide_promotion(_cand(0.1005), incumbent, policy, baseline=BASE).promote
+    assert decide_promotion(_cand(0.1070), incumbent, policy, baseline=BASE).promote
+
+
+def test_a_first_champion_must_also_beat_the_baseline() -> None:
+    """Where an unjustified model is least likely to be noticed: no incumbent to compare
+    against, so without this the opening champion faces no justification test at all."""
+    decision = decide_promotion(_cand(0.02), None, baseline=BASE)
+    assert not decision.promote
+    assert "momentum" in decision.reason
+
+
+def test_a_first_champion_that_beats_the_baseline_is_promoted() -> None:
+    assert decide_promotion(_cand(0.20), None, baseline=BASE).promote
+
+
+def test_a_nan_baseline_blocks_rather_than_waves_through() -> None:
+    """Fails closed. A justification check that promotes when it cannot run is not a check;
+    the cost is that nothing promotes until it is fixed, which is the loud failure."""
+    broken = {"holdout_ic": float("nan"), "holdout_sharpe": 2.0}
+    decision = decide_promotion(_cand(0.5), None, baseline=broken)
+    assert not decision.promote
+    assert "NaN" in decision.reason
+
+
+def test_omitting_the_baseline_leaves_the_other_rules_intact() -> None:
+    """The parameter is optional so the rest of this file stays readable; that must not
+    change any other verdict."""
+    incumbent = {"holdout_ic": 0.05, "holdout_sharpe": 1.8, "holdout_max_drawdown": -0.07}
+    assert decide_promotion(_cand(0.20), incumbent).promote
+
+
+# --- scaffolding for the production-path wiring test below ---
+
+
+def _panel(n_days: int = 40, n_tickers: int = 12) -> pd.DataFrame:
+    """A frame shaped like the real holdout: every FEATURE_COLUMN, the real LABEL_COLUMN,
+    and the (ticker, date) grain the backtest groups on. Built from the actual constants so
+    it cannot drift from the panel the pipeline really produces."""
+    import numpy as np
+
+    from quantpulse.features.engineering import FEATURE_COLUMNS, LABEL_COLUMN
+
+    rng = np.random.default_rng(7)
+    rows = n_days * n_tickers
+    data = {c: rng.normal(size=rows) for c in FEATURE_COLUMNS}
+    data[LABEL_COLUMN] = rng.normal(scale=0.02, size=rows)
+    # train_final_model returns the holdout with predictions already attached.
+    data["pred"] = rng.normal(size=rows)
+    data["ticker"] = [f"T{i % n_tickers}" for i in range(rows)]
+    data["date"] = pd.to_datetime("2026-01-01") + pd.to_timedelta(
+        np.arange(rows) // n_tickers, unit="D"
+    )
+    return pd.DataFrame(data)
+
+
+class _Booster:
+    def predict(self, x):  # type: ignore[no-untyped-def]
+        import numpy as np
+
+        return np.zeros(len(x))
+
+
+class _Version:
+    version = "9"
+    run_id = "run9"
+
+
+class _Session:
+    def add(self, _obj):  # type: ignore[no-untyped-def]
+        return None
+
+
+def test_the_gate_is_always_given_a_baseline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`baseline` is optional on the pure function, so the production path has to be pinned
+    separately — an optional guard that the caller forgets is the failure mode this whole
+    session kept finding. Asserts the real pipeline supplies one, without training anything.
+    """
+    import quantpulse.ml.pipeline as pipeline
+
+    captured: dict[str, object] = {}
+
+    def fake_decide(candidate, champion, policy=None, *, baseline=None):  # type: ignore[no-untyped-def]
+        captured["baseline"] = baseline
+        return PromotionDecision(False, "stubbed")
+
+    monkeypatch.setattr(pipeline, "decide_promotion", fake_decide)
+    monkeypatch.setattr(pipeline, "build_dataset", lambda *a, **k: _panel())
+    monkeypatch.setattr(
+        pipeline, "tune_hyperparameters", lambda *a, **k: {"objective": "regression"}
+    )
+    monkeypatch.setattr(
+        pipeline, "train_final_model", lambda frame, cols, params, cfg: (_Booster(), _panel())
+    )
+    monkeypatch.setattr(pipeline.registry, "log_candidate", lambda *a, **k: _Version())
+    monkeypatch.setattr(pipeline.registry, "load_champion", lambda **k: None)
+
+    pipeline.train_evaluate_promote(object(), _Session(), exchange="XNYS")  # type: ignore[arg-type]
+
+    assert captured["baseline"] is not None, "the gate ran without a standing competitor"
+    assert "holdout_ic" in captured["baseline"]  # type: ignore[operator]

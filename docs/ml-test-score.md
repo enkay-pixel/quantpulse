@@ -57,7 +57,7 @@ comparable scrutiny onto the modelling.
 | 2 | Offline and online metrics correlate | **0** | The open question. Incident 24 showed stored holdout Sharpe 0.205 re-scoring to 2.570 — offline metrics are known unstable. Live record is 14–18 days, too short to correlate |
 | 3 | All hyperparameters tuned | 1 | Optuna TPE, 15 trials, seeded |
 | 4 | Impact of model staleness known | **0** | Retrains weekly by schedule, not by measured decay. No experiment relating performance to model age |
-| 5 | A simpler model is not better | 0.5 | `quantpulse baseline` now runs the comparison automatically (2026-08-14). The test exists; **the property fails for XJSE** — see below |
+| 5 | A simpler model is not better | 0.5 | `quantpulse baseline` runs the comparison, and since 2026-08-14 the promotion gate **enforces** it — no candidate is promoted without beating momentum. Still 0.5, not 1: the property remains violated for the XJSE *incumbent*, and the gate governs promotion, not incumbency |
 | 6 | Quality sufficient on important slices | 0.5 | Per-market slices are first-class (own champion, own IC margin, own quantile width); no within-market slices by liquidity, size or volatility regime |
 | 7 | Inclusion / fairness | **0** | No protected classes in market data. The honest analogue — does the signal work across liquidity and size tiers, or only in the largest names? — is unmeasured |
 
@@ -138,10 +138,12 @@ the right next step is repeating this across several windows before concluding h
 
 ## Gaps, ranked by value per unit of effort
 
-1. ~~No simpler-model baseline~~ — **built 2026-08-14, and it found something.** Momentum
-   beats the XJSE champion on every metric. The gap is now *acting on that*: either the JSE
-   model is replaced by the rule it loses to, or momentum becomes a standing competitor in
-   the promotion gate so a champion can never again be promoted without beating it.
+1. ~~No simpler-model baseline~~ — **built, and momentum is now a standing competitor in
+   the gate (2026-08-14).** No candidate is promoted on either market without beating a
+   fit-free momentum rule by the per-market IC margin, first champions included. What
+   remains is the *existing* XJSE champion, which loses to momentum and which the gate
+   cannot touch: it governs promotion, not incumbency. Removing it needs the rollback path
+   in Infra 7, which is why that is now the top gap.
 2. **No rollback path** (Infra 7). Bad promotions are not hypothetical — two have happened.
    Recovery is currently hand-editing two systems that can disagree. A `quantpulse demote`
    that writes the audit row and moves the alias, with a test, closes it.

@@ -10,6 +10,8 @@ if TYPE_CHECKING:  # heavy/circular at runtime; this module stays importable on 
 
     from quantpulse.db import ModelRun
 
+from quantpulse.ml.baselines import STANDING_COMPETITOR
+
 logger = logging.getLogger(__name__)
 
 # Keys expected in the metric dicts compared below
@@ -60,8 +62,18 @@ def decide_promotion(
     candidate: dict[str, float],
     champion: dict[str, float] | None,
     policy: PromotionPolicy | None = None,
+    *,
+    baseline: dict[str, float] | None = None,
 ) -> PromotionDecision:
-    """Pure decision: should `candidate` replace `champion`? (NaN-safe: NaN never promotes.)"""
+    """Pure decision: should `candidate` replace `champion`? (NaN-safe: NaN never promotes.)
+
+    `baseline` is the standing competitor — a fit-free momentum rule scored on the same
+    holdout. Beating the incumbent is not enough on its own: a lineage of models can beat
+    each other while all of them lose to a rule that fits on one line, and on 2026-08-14
+    that was measured, not hypothesised (XJSE momentum IC 0.1167 against champion 0.0681).
+    Optional here so the many unit tests of the other rules stay readable; the production
+    path always supplies it, which `test_the_gate_is_always_given_a_baseline` enforces.
+    """
     p = policy or PromotionPolicy()
     cand_sharpe = candidate.get(SHARPE, float("nan"))
     cand_ic = candidate.get(IC, float("nan"))
@@ -75,6 +87,28 @@ def decide_promotion(
         return PromotionDecision(
             False, f"candidate drawdown {cand_dd:.2%} worse than floor {p.max_drawdown_floor:.2%}"
         )
+    # The standing competitor gates *every* promotion, including the first — a market's
+    # opening champion is exactly where an unjustified model is least likely to be noticed,
+    # because there is no incumbent to compare it against.
+    #
+    # Fails closed. A NaN baseline means the comparison could not be made, and a
+    # justification check that waves models through when it cannot run is not a check; the
+    # visible cost of failing closed is that nothing promotes until it is fixed, which is
+    # the loud failure rather than the silent one.
+    if baseline is not None:
+        base_ic = baseline.get(IC, float("nan"))
+        if math.isnan(base_ic):
+            return PromotionDecision(False, "baseline IC is NaN — cannot show the model earns it")
+        if math.isnan(cand_ic):
+            return PromotionDecision(False, "candidate IC is NaN — cannot compare to baseline")
+        if cand_ic < base_ic + p.min_ic_improvement:
+            return PromotionDecision(
+                False,
+                f"candidate IC {cand_ic:.4f} does not beat the {STANDING_COMPETITOR} baseline "
+                f"{base_ic:.4f} + margin {p.min_ic_improvement:.4f} — a model that loses to a "
+                "fit-free rule has not earned a promotion",
+            )
+
     if champion is None:
         if cand_sharpe < p.min_first_sharpe:
             return PromotionDecision(

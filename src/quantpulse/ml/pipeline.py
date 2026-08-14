@@ -25,6 +25,7 @@ from quantpulse.features.engineering import (
 from quantpulse.features.store import load_features, load_price_bars
 from quantpulse.ml import registry
 from quantpulse.ml.backtest import BacktestConfig, run_backtest
+from quantpulse.ml.baselines import STANDING_COMPETITOR, standing_competitor_metrics
 from quantpulse.ml.metrics import information_coefficient
 from quantpulse.ml.promotion import PromotionPolicy, decide_promotion
 from quantpulse.ml.training import TrainConfig, train_final_model, tune_hyperparameters
@@ -115,7 +116,20 @@ def train_evaluate_promote(
     # The IC margin is per-market: a thinner cross-section re-rolls wider, so the JSE needs
     # a larger difference before it means anything (see Exchange.ic_promotion_margin).
     policy = PromotionPolicy(min_ic_improvement=get_exchange(exchange).ic_promotion_margin)
-    decision = decide_promotion(candidate_metrics, incumbent_metrics, policy)
+    # The standing competitor sits the same exam as the other two, on the same holdout.
+    # Scored every run rather than cached: a stored baseline number would go stale exactly
+    # the way stored incumbent metrics did in incident 24.
+    baseline_metrics = standing_competitor_metrics(holdout, width)
+    logger.info(
+        "%s %s baseline on this holdout: ic=%.4f sharpe=%.3f",
+        exchange,
+        STANDING_COMPETITOR,
+        baseline_metrics["holdout_ic"],
+        baseline_metrics["holdout_sharpe"],
+    )
+    decision = decide_promotion(
+        candidate_metrics, incumbent_metrics, policy, baseline=baseline_metrics
+    )
     if decision.promote:
         registry.promote(version.version, exchange=exchange)
 
@@ -125,6 +139,9 @@ def train_evaluate_promote(
         "holdout_start": str(holdout["date"].min()),
         "holdout_end": str(holdout["date"].max()),
         "holdout_days": int(holdout["date"].nunique()),
+        # What the model had to beat, stored beside what it scored. Without it a rejection
+        # reads as "IC 0.068" with no way to see that the bar was 0.117.
+        f"baseline_{STANDING_COMPETITOR}_ic": round(baseline_metrics["holdout_ic"], 6),
     }
     session.add(
         ModelRun(

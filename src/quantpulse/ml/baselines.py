@@ -165,3 +165,25 @@ def compare_baselines(
     out.attrs["holdout_end"] = str(holdout["date"].max())
     out.attrs["holdout_days"] = int(holdout["date"].nunique())
     return out
+
+
+#: The baseline every champion must beat to be promoted. Momentum rather than ridge: it is
+#: fitted on nothing, so it cannot be accused of having borrowed the candidate's advantages,
+#: and it is the rule a reader would reach for if the model did not exist. On 2026-08-14 it
+#: beat the XJSE champion on every metric — which is why it is now a gate, not a report.
+STANDING_COMPETITOR = "momentum"
+
+
+def standing_competitor_metrics(holdout: pd.DataFrame, width: float) -> dict[str, float]:
+    """Score the standing competitor on a holdout the gate is already using.
+
+    Takes the holdout alone because the standing competitor is fit-free by choice; passing
+    it as both arguments is safe for that reason and only that reason, which
+    `test_the_standing_competitor_needs_no_training_data` pins so a future edit that starts
+    fitting it fails loudly rather than silently training on the exam.
+    """
+    from quantpulse.ml.pipeline import score_holdout
+
+    scored = holdout.copy()
+    scored["pred"] = BASELINES[STANDING_COMPETITOR](holdout, holdout, list(FEATURE_COLUMNS))
+    return score_holdout(scored, width)

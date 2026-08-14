@@ -43,6 +43,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   champion. Why IC: refitting one spec with only the seed changed moves Sharpe by sd
   0.12–0.24 and moves it ~2.0 across six-month windows, while IC moves by 0.003–0.004.
   The old 0.05 Sharpe margin sat 5–10× **below** its own noise floor.
+  Since 2026-08-14 a candidate must also beat a **standing competitor** — a fit-free
+  63-day momentum rule scored on the same holdout — by the same margin, first champions
+  included, because a lineage can beat each other while all losing to a one-line rule.
+  Measured: XJSE momentum IC 0.1167 vs champion v3's 0.0681, so the JSE champion does
+  not currently earn its place; the gate stops the next one repeating it but cannot
+  demote the incumbent. `quantpulse baseline` reports the comparison on demand.
   Champions: XNYS v1 (IC 0.026 / Sharpe 0.21), XJSE v3 (IC 0.063 / Sharpe 1.51). Those are
   **what each was promoted on, not comparable across models** — both predate the gate fix,
   and on 2026-08-01 XNYS v1 re-scored 2.570 on that run's holdout against its stored 0.205.
