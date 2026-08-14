@@ -266,6 +266,17 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
   (`latest` meant unreproducible builds). Image builds survive flaky laptop Wi-Fi: uv
   cache mounts (retries accumulate wheels), bounded download concurrency, pip timeouts.
 
+## Audited against an external rubric
+
+Scored against the ML Test Score (Breck et al.) on 2026-08-14: **2.0** — *basic
+productionisation*. The score is the minimum of four sections, and the shape is the finding:
+monitoring 6.0 and infrastructure 4.0 against **model development 2.0**. The pipeline around
+the model has had far more adversarial attention than the model itself. Full itemised scoring
+and the ranked gap list: [ml-test-score.md](ml-test-score.md).
+
+The cheapest gap to close is also the one a reviewer asks first — **there is no simpler-model
+baseline**, so nothing yet shows the LightGBM layer earns its place over a momentum rule.
+
 ## Next
 
 1. **Let it run.** The live track record and the options history only accrue with time;
