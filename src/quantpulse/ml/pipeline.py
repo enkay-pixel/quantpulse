@@ -52,8 +52,12 @@ def build_dataset(
     return frame
 
 
-def _score_holdout(holdout: pd.DataFrame, width: float) -> dict[str, float]:
-    """One scoring rule for every model the gate compares — candidate and incumbent."""
+def score_holdout(holdout: pd.DataFrame, width: float) -> dict[str, float]:
+    """One scoring rule for every model that is compared — candidate, incumbent, baseline.
+
+    Public so `ml/baselines.py` sits the *same* exam rather than a copy of it. A second
+    implementation of the scoring rule is the shape of bug this session spent a day fixing:
+    two things that agree with each other and disagree with the thing being measured."""
     backtest = run_backtest(holdout, BacktestConfig(long_quantile=width, short_quantile=width))
     return {
         "holdout_ic": information_coefficient(holdout),
@@ -85,7 +89,7 @@ def train_evaluate_promote(
     # book while the JSE trades a 35% one would promote on evidence about a portfolio
     # that does not exist.
     width = get_exchange(exchange).quantile_width
-    candidate_metrics = _score_holdout(holdout, width)
+    candidate_metrics = score_holdout(holdout, width)
 
     version = registry.log_candidate(
         booster, params, candidate_metrics, feature_cols, FEATURE_VERSION, exchange=exchange
@@ -101,7 +105,7 @@ def train_evaluate_promote(
         champ_booster, _ = champion
         rescored = holdout.copy()
         rescored["pred"] = np.asarray(champ_booster.predict(rescored[feature_cols]))
-        incumbent_metrics = _score_holdout(rescored, width)
+        incumbent_metrics = score_holdout(rescored, width)
         logger.info(
             "%s incumbent re-scored on candidate's holdout: sharpe=%.3f ic=%.4f",
             exchange,

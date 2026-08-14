@@ -9,6 +9,7 @@ import numpy as np
 import optuna
 import pandas as pd
 
+from quantpulse.features.engineering import LABEL_COLUMN
 from quantpulse.ml.cv import DateSplit, purged_walk_forward_splits
 from quantpulse.ml.metrics import information_coefficient
 
@@ -48,8 +49,8 @@ def _fit_one(
     params: dict[str, Any],
     cfg: TrainConfig,
 ) -> lgb.Booster:
-    dtrain = lgb.Dataset(train[feature_cols], label=train["fwd_ret"])
-    dval = lgb.Dataset(val[feature_cols], label=val["fwd_ret"], reference=dtrain)
+    dtrain = lgb.Dataset(train[feature_cols], label=train[LABEL_COLUMN])
+    dval = lgb.Dataset(val[feature_cols], label=val[LABEL_COLUMN], reference=dtrain)
     return lgb.train(
         {**params, "seed": cfg.seed},
         dtrain,

@@ -172,6 +172,44 @@ def _options_snapshot(force: bool = False) -> None:
     logger.info("Wrote %d option quotes", n)
 
 
+def _baseline(exchange: str | None) -> None:
+    """Compare the champion against simpler models on one shared holdout.
+
+    The question the ML Test Score audit found unanswered: does the LightGBM layer beat a
+    momentum rule? Reports every competitor on the same exam so the answer is comparable
+    rather than anecdotal.
+    """
+    from quantpulse.config import get_settings
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.baselines import compare_baselines
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            table = compare_baselines(engine, code, tracking_uri=get_settings().mlflow_tracking_uri)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        logger.info(
+            "%s holdout %s -> %s (%s sessions)",
+            code,
+            table.attrs["holdout_start"],
+            table.attrs["holdout_end"],
+            table.attrs["holdout_days"],
+        )
+        logger.info("%-22s %-9s %-9s %-9s %-9s", "model", "IC", "sharpe", "ann.ret", "max dd")
+        for row in table.to_dict("records"):
+            logger.info(
+                "%-22s %-9.4f %-9.2f %-8.2f%% %-8.2f%%",
+                row["model"],
+                row["holdout_ic"],
+                row["holdout_sharpe"],
+                row["holdout_annual_return"] * 100,
+                row["holdout_max_drawdown"] * 100,
+            )
+
+
 def _sensitivity() -> None:
     """Report how the backtest holds up across trading-cost and borrow assumptions."""
     import pandas as pd
@@ -268,6 +306,8 @@ def main(argv: list[str] | None = None) -> None:
         ),
     )
     sub.add_parser("sensitivity", help="Backtest sensitivity to trading cost and borrow rate")
+    base = sub.add_parser("baseline", help="Compare the champion against simpler models")
+    base.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
     score = sub.add_parser("score", help="Score features with the champion model")
     score.add_argument(
@@ -292,6 +332,8 @@ def main(argv: list[str] | None = None) -> None:
         _options_snapshot(args.force)
     elif args.command == "sensitivity":
         _sensitivity()
+    elif args.command == "baseline":
+        _baseline(args.exchange)
     elif args.command == "train":
         _train()
     elif args.command == "score":

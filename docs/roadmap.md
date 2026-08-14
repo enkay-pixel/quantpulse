@@ -274,8 +274,12 @@ monitoring 6.0 and infrastructure 4.0 against **model development 2.0**. The pip
 the model has had far more adversarial attention than the model itself. Full itemised scoring
 and the ranked gap list: [ml-test-score.md](ml-test-score.md).
 
-The cheapest gap to close is also the one a reviewer asks first — **there is no simpler-model
-baseline**, so nothing yet shows the LightGBM layer earns its place over a momentum rule.
+That gap is now closed, and it found something. `quantpulse baseline` scores the champion
+against noise, momentum, reversal and a linear ridge on one shared holdout. On the **JSE,
+plain 63-day momentum beats the champion on every metric** (IC 0.117 vs 0.068, Sharpe 2.28 vs
+1.84, half the drawdown) with zero parameters. On the **NYSE the champion wins decisively**
+(IC 0.191 vs momentum's 0.016). Read the JSE replay numbers accordingly: they may be
+measuring momentum rather than the model. Detail in [ml-test-score.md](ml-test-score.md).
 
 ## Next
 

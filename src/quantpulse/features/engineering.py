@@ -27,6 +27,11 @@ _CROSS_SECTIONAL_BASE = ["ret_5", "ret_21", "mom_63", "ma_ratio_21"]
 
 FEATURE_COLUMNS = _TECHNICAL + [f"{c}_cs_rank" for c in _CROSS_SECTIONAL_BASE]
 
+#: The supervised label built by `make_forward_returns`. Named once so training,
+#: baselines and any future consumer cannot disagree about it — a test fixture that
+#: invented its own name passed 16 green tests and failed on the first real frame.
+LABEL_COLUMN = "fwd_ret"
+
 
 def compute_features(bars: pd.DataFrame) -> pd.DataFrame:
     """Return a (ticker, date) frame with FEATURE_COLUMNS, NaN warm-up rows dropped.
