@@ -112,7 +112,7 @@ gzcat ~/quantpulse-backups/market-YYYY-MM-DD.sql.gz | docker exec -i quantpulse-
 
 ## Host agents (launchd)
 
-Five scheduled jobs on the dev machine. Each keeps only its *schedule* in
+Six scheduled jobs on the dev machine. Each keeps only its *schedule* in
 `~/Library/LaunchAgents/com.quantpulse.*.plist`; the logic lives in `scripts/` or the
 Makefile, so changing behaviour is a code change with a diff. All log to
 `~/Library/Logs/quantpulse-*.log`.
@@ -125,6 +125,7 @@ separate agent fleet, not this repo. The ones below are the ones a fresh clone c
 |---|---|---|
 | `backup` | 07:00 daily | Dumps `market`, keeps 14 |
 | `jse-close` | 19:47 weekdays | Checks today's JSE session landed and no benchmark bar is missing, after the 19:30 ingest |
+| `retrain-check` | Sat 17:37 | Reports the weekly retrain's outcome per market — decision, candidate IC, and the incumbent and baseline it had to beat |
 | `readiness` | 21:45 weekdays | Warns if the stack is down or on battery, 15 min before the option window |
 | `power` | every 2h | Warns only when sleep is disabled **and** on battery — the combination that runs the machine flat |
 | `prune-cache` | Sun 03:00 | Reclaims Docker build cache, keeps the uv wheel cache |
