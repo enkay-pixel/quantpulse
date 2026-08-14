@@ -7,10 +7,9 @@
 #
 # Exists because the failures worth catching here are the silent ones. A session that never
 # ingested is loud (the catch-up sensor says so, the dashboard goes stale), but a session
-# that ingested *almost* completely is not: on 2026-08-11 STX40.JO alone was absent, which
-# is 1/29th of coverage and trips no threshold, while the CAPM marts inner-join it and lost
-# the whole day. That went unnoticed for two days and was found by comparing mart day counts
-# by hand.
+# that ingested *almost* completely is not: a single absent benchmark ticker is a fraction
+# of coverage and trips no threshold, while the CAPM marts inner-join it and lose the whole
+# day. That kind of gap goes unnoticed until someone compares mart day counts by hand.
 #
 # Notifies, never acts — same rule as check-readiness.sh. Re-fetching from a script is how
 # you write a misdated bar into the benchmark (see docs/data-dictionary.md); deciding to

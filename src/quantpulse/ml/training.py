@@ -137,8 +137,8 @@ def train_final_model(
     The holdout frame (with `pred` column) is the candidate's out-of-sample evidence,
     used by the promotion gate. Early stopping therefore must not see it: the boosting
     rounds are chosen on an *inner* validation tail carved from the training window.
-    Incident 24 is what happens otherwise — a final fit ground 308 rounds toward the
-    exact frame the gate then scored, and the "out-of-sample" Sharpe was partly fit.
+    Otherwise the final fit grinds its rounds toward the exact frame the gate then scores,
+    and the "out-of-sample" result is partly fitted.
     """
     train, holdout = split_by_date(frame, holdout_fraction, cfg.embargo_days)
     if train.empty or holdout.empty:

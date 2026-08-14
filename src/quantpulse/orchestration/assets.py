@@ -140,9 +140,8 @@ def benchmark_freshness() -> dg.AssetCheckResult:
     `fct_portfolio_vs_benchmark` drop the entire day from the CAPM decomposition, so the
     gap only shows up as two marts quietly disagreeing about the live day count.
 
-    Found the slow way: STX40.JO went missing for 2026-08-11, nothing flagged it, and it was
-    noticed days later by hand-comparing day counts. Non-blocking on purpose — a stale
-    benchmark makes the alpha numbers thinner, not wrong, and must not stop the ingest.
+    Non-blocking on purpose: a stale benchmark makes the alpha numbers thinner, not wrong,
+    and must not stop the ingest.
     """
     from sqlalchemy import text
 
@@ -244,9 +243,9 @@ def predictions_are_current() -> dg.AssetCheckResult:
     the worst kind of failure here: nothing errors, the numbers just stop moving.
 
     Lag alone is not enough. Comparing only the two *maxima* is blind to a hole in the
-    middle: when XNYS 2026-07-27 went unscored (incident 26), the next night's run pushed
-    both maxima to 07-28 and this check passed while the live track record was quietly a
-    day short. So gaps are counted too — any feature date inside the scoring window with
+    middle: when a session goes unscored, the next night's run pushes both maxima forward
+    and the check passes while the live track record is quietly a day short. So gaps are
+    counted too — any feature date inside the scoring window with
     no predictions at all.
     """
     import pandas as pd
@@ -459,12 +458,10 @@ def champion_model(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
     One champion per exchange: different sessions, currencies and dynamics, and pooling
     them would muddle attribution for no gain in data we are short of.
 
-    Scoped by the run's `exchange` tag when one is set. The drift sensor measures per
-    market and fires per market, but this loop ran every market regardless, so a JSE drift
-    reading also retrained the NYSE — the precise failure incident 28 named ("it retrained
-    both markets on evidence about neither"). The measurement was fixed then and the action
-    was not, and nothing caught it because the sensor's firing branch has never run in
-    production. An untagged run (the Saturday schedule) still covers every market.
+    Scoped by the run's `exchange` tag when one is set. The drift sensor measures and fires
+    per market, so without this a drift reading on one market would retrain the other too —
+    retraining on evidence about neither. An untagged run, such as the weekly schedule,
+    still covers every market.
     """
     from quantpulse.data.universe import active_tickers
     from quantpulse.ml.pipeline import train_evaluate_promote

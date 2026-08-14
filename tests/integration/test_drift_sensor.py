@@ -216,12 +216,12 @@ def test_capture_sensor_will_not_run_two_captures_at_once(monkeypatch: pytest.Mo
     assert "in flight" in str(result.skip_reason)
 
 
-# --- fault injection: what actually happens after the sensor fires (2026-08-13) ---
+# --- fault injection: what actually happens after the sensor fires ---
 #
 # Everything above tests the sensor's *decision*. Nothing tested the consequence, and this
 # whole path has never executed in production — 23 drift readings, zero above threshold, so
 # the firing branch has never run outside a test. That is exactly the profile of the
-# catch-up sensor before it produced four separate incidents: careful logic, rarely
+# catch-up sensor before it produced several separate bugs: careful logic, rarely
 # exercised, and wrong in a way nobody could see.
 #
 # Injecting the failure the sensor exists to detect, and following it through to the job,
@@ -254,7 +254,7 @@ def test_a_drift_triggered_retrain_only_trains_the_market_that_drifted(
     """The sensor tags the run with the drifting market; the job has to honour it.
 
     Otherwise the per-market rewrite is undone at the point of action: one market's drift
-    retrains both, which is the exact failure incident 28 was about ("it retrained both
+    retrains both, which is the failure this guards against ("it retrained both
     markets on evidence about neither"). The measurement was fixed and the action was not.
     A spurious retrain is not harmless — it burns an Optuna budget per market and files a
     model_runs row for a market whose evidence never triggered anything.

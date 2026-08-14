@@ -101,7 +101,7 @@ def test_complete_option_snapshot_needs_no_capture(seeded: Engine) -> None:
     assert catchup.option_snapshot_incomplete(day) is None
 
 
-# --- benchmark-only gaps (2026-08-13) ---
+# --- benchmark-only gaps ---
 #
 # A missing benchmark costs 1/11th of coverage here and 1/29th on the real JSE, so
 # missing_trading_days rightly calls the day complete — while fct_alpha_beta, which

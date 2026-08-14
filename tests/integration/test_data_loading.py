@@ -3,7 +3,7 @@
 Neither had a test. They are the point where "which market's data is this" is decided, and
 getting that wrong does not raise — it produces a training frame that silently mixes two
 markets, which is how the cross-sectional ranks came to compare Naspers with Apple
-(incident 15) and how drift came to describe neither market (incident 28).
+and how drift came to describe neither market.
 """
 
 import datetime as dt

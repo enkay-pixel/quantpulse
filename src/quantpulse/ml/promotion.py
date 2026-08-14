@@ -71,10 +71,9 @@ def decide_promotion(
 
     `baseline` is the standing competitor — a fit-free momentum rule scored on the same
     holdout. Beating the incumbent is not enough on its own: a lineage of models can beat
-    each other while all of them lose to a rule that fits on one line, and on 2026-08-14
-    that was measured, not hypothesised (XJSE momentum IC 0.1167 against champion 0.0681).
-    Optional here so the many unit tests of the other rules stay readable; the production
-    path always supplies it, which `test_the_gate_is_always_given_a_baseline` enforces.
+    each other while all of them lose to a rule that fits on one line, which has happened
+    here. Optional so the unit tests of the other rules stay readable; the production path
+    always supplies one, and a test enforces that.
     """
     p = policy or PromotionPolicy()
     cand_sharpe = candidate.get(SHARPE, float("nan"))
@@ -159,8 +158,8 @@ def audit_champion(session: "Session", exchange: str) -> "ModelRun | None":
 
     `model_runs` is append-only, so a promotion that was later reversed is still in it. A
     demotion withdraws *its own version's* promotion, and the champion falls back to the
-    most recent promotion with no later demotion; when every promotion is withdrawn (the
-    first-champion rollback, incident 17) the market has no champion.
+    most recent promotion with no later demotion; when every promotion is withdrawn, the
+    market has no champion.
 
     Extracted so the API and the `champion_registry_agrees` asset check ask the question
     exactly once. Two copies of this query is the shape of bug the check exists to find:
@@ -206,10 +205,8 @@ def demote_champion(
 ) -> DemotionResult:
     """Withdraw a promotion and move the `@champion` alias to whatever stands behind it.
 
-    The ML Test Score audit scored rollback at zero because no code did this: the two
-    demotion rows in `model_runs` were inserted by hand during incidents 17 and 24, so
-    undoing a bad promotion meant editing MLflow *and* Postgres with nothing tying them
-    together. Bad promotions are not hypothetical here — two have happened.
+    Without this, undoing a bad promotion means editing MLflow *and* Postgres by hand with
+    nothing tying them together. Bad promotions are not hypothetical.
 
     **Ordering is the whole design.** These are two writable records with no transaction
     between them, so the sequence is: work out the target first, open a Postgres

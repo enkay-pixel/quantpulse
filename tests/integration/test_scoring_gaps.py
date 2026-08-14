@@ -1,10 +1,9 @@
 """Scoring must fill dates that were never scored, without rewriting history.
 
-Incident 26: XNYS 2026-07-27 was ingested late — rescued by the catch-up sensor *after*
-that night's process run. Scoring only ever looked at the newest feature date, so 07-27
-was never the maximum at any later run and was never scored at all. Features existed,
-predictions did not, the paper book carried a permanent hole, and the live track record
-was silently a day short (5 days instead of 6).
+A session ingested late — rescued by the catch-up sensor *after* that night's process run
+— is never the newest feature date again. Scoring only ever looked at the newest date, so
+such a session went unscored entirely: features existed, predictions did not, the paper
+book carried a permanent hole, and the live track record was silently a day short.
 """
 
 import datetime as dt
@@ -26,7 +25,7 @@ from quantpulse.ml.training import DEFAULT_PARAMS
 pytestmark = pytest.mark.integration
 
 TICKERS = ["AAA", "BBB", "CCC"]
-# A late-arriving session in the middle, exactly like 2026-07-27.
+# A late-arriving session in the middle, as happens when a rescue lands after that night's run.
 DATES = [dt.date(2026, 7, 23), dt.date(2026, 7, 24), dt.date(2026, 7, 27), dt.date(2026, 7, 28)]
 LATE = DATES[2]
 
@@ -77,7 +76,7 @@ def _scored(engine: Engine) -> dict[dt.date, set[str]]:
 
 
 def test_a_late_session_is_scored_rather_than_skipped_forever(seeded: Engine) -> None:
-    """The incident, reproduced: score up to 07-24, then let 07-27 arrive late."""
+    """The failure reproduced: score up to the second date, then let the third arrive late."""
     with Session(seeded) as session:
         pipeline.score_latest(seeded, session, asof=DATES[1], exchange="XNYS")
         session.commit()
@@ -191,12 +190,12 @@ def test_the_check_is_blind_to_nothing_when_history_is_complete(
 def test_the_check_catches_a_hole_that_the_maxima_hide(
     seeded: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The incident-26 blind spot: with 07-27 unscored but 07-28 scored, both maxima agree
+    """The blind spot: with the late date unscored but a later one scored, both maxima agree
     and a lag-only check passes while the live record is quietly a day short."""
     with Session(seeded) as session:
         pipeline.score_latest(seeded, session, exchange="XNYS")
         session.commit()
-    with Session(seeded) as session:  # punch the exact hole the incident left
+    with Session(seeded) as session:  # punch the hole a late-arriving session leaves
         session.execute(text("DELETE FROM predictions WHERE date = :d"), {"d": LATE})
         session.commit()
 
@@ -238,7 +237,7 @@ def test_a_fresh_database_falls_back_to_the_floor(
     assert start == DATES[3] - dt.timedelta(days=2)
 
 
-# --- a promotion must not retroactively reclassify a day already scored (2026-08-13) ---
+# --- a promotion must not retroactively reclassify a day already scored ---
 #
 # `test_the_newest_date_is_always_rescored` above re-scores with the *same* champion, which
 # is the ordinary case and is fine. The dangerous one is a champion promoted *after* the
@@ -249,7 +248,7 @@ def test_a_fresh_database_falls_back_to_the_floor(
 # Reachable on a fixed schedule, not just in theory: the retrain runs Saturday and the
 # process job runs Mon-Fri regardless of whether the market traded. Any Monday US holiday
 # following a Saturday promotion leaves the newest feature date on Friday, before the new
-# champion existed. Labor Day 2026-09-07 is the next one.
+# champion existed. Any Monday market holiday following a Saturday retrain does it.
 
 
 def _promote(engine: Engine, version: str, on: dt.date) -> None:

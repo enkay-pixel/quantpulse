@@ -96,10 +96,10 @@ def train_evaluate_promote(
         booster, params, candidate_metrics, feature_cols, FEATURE_VERSION, exchange=exchange
     )
     # Both models sit the SAME exam: the incumbent is re-scored on this run's holdout
-    # under this run's code, never trusted from its stored metrics. Stored numbers go
-    # stale whenever the evaluation code or the panel changes — incident 24: a backfill
-    # grew the panel, the fractional cut slid 9 months into a momentum-rich stretch, and
-    # a candidate "beat" an incumbent that had been examined on a different window.
+    # under this run's code, never trusted from its stored metrics. Stored numbers go stale
+    # whenever the evaluation code or the panel changes: the holdout is a fraction of the
+    # panel, so a backfill slides the window, and a candidate can "beat" an incumbent that
+    # was examined on different data.
     champion = registry.load_champion(exchange=exchange)
     incumbent_metrics = None
     if champion is not None:
@@ -117,8 +117,8 @@ def train_evaluate_promote(
     # a larger difference before it means anything (see Exchange.ic_promotion_margin).
     policy = PromotionPolicy(min_ic_improvement=get_exchange(exchange).ic_promotion_margin)
     # The standing competitor sits the same exam as the other two, on the same holdout.
-    # Scored every run rather than cached: a stored baseline number would go stale exactly
-    # the way stored incumbent metrics did in incident 24.
+    # Scored every run rather than cached, for the same reason the incumbent is re-scored:
+    # a stored number describes a window that has since moved.
     baseline_metrics = standing_competitor_metrics(holdout, width)
     logger.info(
         "%s %s baseline on this holdout: ic=%.4f sharpe=%.3f",
@@ -218,9 +218,9 @@ def scoring_window_start(engine: Engine, exchange: str, latest_feature_date: dt.
 
     A fixed 30-day floor covers ordinary operation, but the laptop this runs on gets shut
     down for travel, and an absence longer than the floor would leave the oldest sessions
-    permanently unscored — silently, exactly like incident 26 but at the scale of the trip.
-    So the window also stretches back to the last date that has any prediction: whatever
-    accumulated during the gap gets filled on return.
+    permanently unscored, without anything failing. So the window also stretches back to the
+    last date that has any prediction: whatever accumulated during the gap is filled on
+    return.
 
     Reaching back is only safe because `fct_portfolio_daily` marks days scored by a
     champion promoted after them as **backfilled** rather than live. Without that, a long
@@ -251,9 +251,8 @@ def score_latest(
     Not just the newest date. A session ingested late — rescued by the catch-up sensor
     after that night's process run — is never the maximum at any later scoring time, so it
     would never be scored at all: features exist, predictions do not, and the paper book
-    carries a permanent hole. XNYS 2026-07-27 was lost exactly that way (incident 26), and
-    it silently shortened the live track record, the one number this project asks to be
-    judged on.
+    carries a permanent hole that silently shortens the live track record — the one number
+    this project asks to be judged on.
 
     Only dates with **no predictions from any champion** are filled in. Re-scoring a date
     some earlier champion already scored would rewrite the live record with a model that

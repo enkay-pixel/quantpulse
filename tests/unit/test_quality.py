@@ -69,9 +69,9 @@ def test_extreme_move_detected() -> None:
     assert "no_extreme_moves" in failed
 
 
-# --- benchmark freshness (2026-08-13) ---
+# --- benchmark freshness ---
 #
-# STX40.JO lost its 2026-08-11 bar and nothing flagged it. Both existing guards were
+# A benchmark bar went missing and nothing flagged it. Both existing guards were
 # working as designed: the catch-up coverage floor is a share of the universe (28/29 = 0.97
 # against 0.8), and per-ticker completeness scores one absent day in thirty at 0.967 against
 # 0.95. One missing ticker *should* be ignored — unless it is the one the CAPM marts

@@ -61,7 +61,7 @@ def test_est_evening_is_the_case_utc_gets_wrong() -> None:
 
 def test_midnight_utc_still_belongs_to_the_previous_session(at_utc) -> None:  # type: ignore[no-untyped-def]
     """A snapshot that runs past 20:00 EDT crosses UTC midnight mid-run — exactly what
-    split one snapshot across two dates on 2026-07-22."""
+    split one snapshot across two dates."""
     at_utc(dt.datetime(2026, 7, 24, 0, 30, tzinfo=UTC))  # 20:30 EDT on the 23rd
     assert market_today() == dt.date(2026, 7, 23)
 

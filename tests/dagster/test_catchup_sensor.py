@@ -72,9 +72,9 @@ def test_exhausted_sessions_are_reported_as_exhausted_not_as_healthy(
 ) -> None:
     """Two silences that mean opposite things must not read the same.
 
-    On 2026-08-11 an outage burned every session's attempts; the sensor then reported "no
-    missed trading days in the lookback window" while two sessions sat unrecovered. The
-    message a human reads has to distinguish "nothing to do" from "I have given up".
+    When an outage burns every session's attempts, the sensor must not report "no missed
+    trading days in the lookback window" while sessions sit unrecovered. The message a
+    human reads has to distinguish "nothing to do" from "I have given up".
     """
     mp = patched["monkeypatch"]
     mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
@@ -103,8 +103,8 @@ def test_nothing_missing_still_reads_as_nothing_missing(patched: dict[str, objec
 def test_a_benchmark_only_gap_is_requested(patched: dict[str, object]) -> None:
     """Coverage is fine, the benchmark bar is not — the session must still be re-ingested.
 
-    This is the wiring the STX40.JO incident needed and did not have: nothing retried an
-    otherwise-complete day, so the gap sat until someone compared mart day counts by hand.
+    Without this wiring nothing retries an otherwise-complete day, so the gap sits until
+    someone compares mart day counts by hand.
     """
     mp = patched["monkeypatch"]
     mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]

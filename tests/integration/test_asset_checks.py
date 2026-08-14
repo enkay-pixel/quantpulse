@@ -199,7 +199,7 @@ def test_drift_report_measures_each_configured_market(db_engine: Engine) -> None
     assert "XJSE/share_drifted" in keys
 
 
-# --- MLflow registry vs the Postgres audit trail (2026-08-13) ---
+# --- MLflow registry vs the Postgres audit trail ---
 #
 # Two systems record which model is champion and they are written separately. The alias
 # decides what actually scores; model_runs decides what the dashboard reports and how

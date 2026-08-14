@@ -8,34 +8,22 @@
 # cache worth reclaiming.
 #
 # Gated on size rather than run unconditionally, because pruning is not free: it costs the
-# next build every layer step above the wheel cache. Run weekly against a cache sitting at
-# ~3 GB with ~287 GB free, the only thing it reliably bought was a slower Monday. The 20 GB
-# incident is the case this is for; an ordinary week is not. Below the ceiling this is a
-# no-op that says so.
+# next build every layer step above the wheel cache. Against a cache of a few GB on a disk
+# with plenty free, running it weekly buys nothing but a slower next build. A runaway cache
+# is the case this exists for; an ordinary week is not, and below the ceiling it is a no-op
+# that says so.
 set -uo pipefail
 
-# Lowered from 12 on 2026-08-02. This comment claimed until 2026-08-09 that Docker.raw grows
-# monotonically and NEVER shrinks on macOS, so pruning could not recover host disk and could
-# only stop the file getting permanently larger. That was true of Docker Desktop 4.45 and is
-# no longer true. Both measurements stand; the version changed underneath them:
+# Whether pruning reclaims host disk depends on the Docker Desktop storage driver. Under
+# overlay2 the VM's disk image grew monotonically and discards never reached the host, so a
+# prune could only stop the file getting larger. Under the containerd snapshotter the space
+# does come back — measured here as several GB off the disk image after an ordinary prune.
+# The mechanism is inferred from the driver change rather than verified directly; the
+# reclaim itself is measured.
 #
-#   4.45  fstrim inside the VM freed 114 MiB in-VM and 0 MB on the host. One `make build`
-#         took Docker.raw 11.6 -> 14.5 GB and the 2.9 GB never came back.
-#   4.85  this script reclaimed 7.01 GB of build cache and Docker.raw fell 16,661 -> 9,976 MB
-#         (du, stable on re-measure; apparent size is ~471 GB and always was — sparse).
-#         Host free went 291 -> 297 GB.
-#
-# The visible difference is the storage driver: 4.85 with engine 29.6.2 reports overlayfs on
-# io.containerd.snapshotter.v1, where 4.45 used overlay2. That discards now reach the host
-# sparse file is the obvious reading and it matches the numbers, but it was NOT verified
-# directly — treat the mechanism as inferred and the reclaim itself as measured. There is no
-# `docker desktop disk` command in 4.85 either; the space came back as a side effect of the
-# ordinary prune, not from anything asked for.
-#
-# The ceiling stays at 10 even though pruning now pays back on the host, because the cost
-# side is unchanged: at 8.53 GB a full rebuild's cache sits just under it, so the next build
-# still starts warm. Lowering it would prune a cache that is doing its job to reclaim space
-# on a disk with 297 GB free. The premise moved; the number it implies did not.
+# The ceiling stays where it is regardless, because the cost side is unchanged: a full
+# rebuild's cache sits just under it, so the next build still starts warm. Lowering it would
+# prune a cache that is doing its job to reclaim space on a disk that is not short of it.
 CEILING_GB="${PRUNE_CEILING_GB:-10}"
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }

@@ -1,7 +1,7 @@
 """A session is only *missed* once its scheduled ingest is overdue, and rescue attempts
 must never reuse a run_key.
 
-Regression (2026-07-24): at 00:08 ET the exchange date flipped and the catch-up sensor
+Regression: at 00:08 ET the exchange date flipped and the catch-up sensor
 requested that day's partition ~18 hours before its scheduled ingest — a run against a
 session that had not opened. Worse, the fixed `catchup-{exchange}-{day}` run_key was
 thereby consumed forever (Dagster dedupes sensor run_keys permanently), so had the
@@ -32,7 +32,7 @@ STILL_QUEUED = ("QUEUED", None)
 
 
 def test_midnight_is_not_overdue() -> None:
-    """The exact 2026-07-24 firing moment: date flipped, session ~18h away."""
+    """The firing moment this guards: date flipped, session ~18h away."""
     assert not ingest_overdue(dt.datetime(2026, 7, 24, 0, 8, tzinfo=ET), "XNYS")
 
 
@@ -82,7 +82,7 @@ def test_attempt_numbers_never_collide_with_history() -> None:
     assert next_ingest_attempt([SUCCEEDED, FAILED]) == 3
 
 
-# --- the budget must expire (2026-08-11) ---
+# --- the budget must expire ---
 #
 # A 24-hour internet outage failed four ingests per market. The budget counted every run
 # ever recorded for the partition, so when connectivity returned the sensor stood down
@@ -91,7 +91,7 @@ def test_attempt_numbers_never_collide_with_history() -> None:
 
 
 def test_yesterdays_exhausted_budget_does_not_block_today() -> None:
-    """The exact 2026-08-11 case: four failed runs yesterday, none today."""
+    """The case this guards: four failed runs yesterday, none today."""
     yesterday = [FAILED] * 4
     assert next_ingest_attempt(yesterday, todays_runs=[]) == 5
 
@@ -120,7 +120,7 @@ def test_omitting_todays_runs_falls_back_to_the_whole_history() -> None:
     assert next_ingest_attempt([FAILED] * MAX_INGEST_ATTEMPTS_PER_SESSION) is None
 
 
-# --- the "today" boundary must be UTC (2026-08-12) ---
+# --- the "today" boundary must be UTC ---
 #
 # The budget above is only as good as the window it counts over. Dagster's
 # RunsFilter(created_after=...) compares wall-clock fields against the naive-UTC
@@ -158,13 +158,13 @@ def test_each_market_gets_its_own_midnight_and_they_differ() -> None:
     assert jse < nyse
 
 
-# --- the boundary has to follow DST, not a fixed offset (2026-08-13) ---
+# --- the boundary has to follow DST, not a fixed offset ---
 #
 # Every test above dates from August, when New York is UTC-4. A fixed-offset implementation
 # is indistinguishable from a correct one in EDT, so all of them pass against hardcoded
-# offsets — verified by trying it. The bug would appear on 2026-11-02, the first session
-# after the clocks go back, when the catch-up budget would count over a window shifted an
-# hour and the sensor would misjudge which runs were "today".
+# offsets — verified by trying it. The bug appears on the first session after the clocks go
+# back, when the catch-up budget counts over a window shifted by an hour and the sensor
+# misjudges which runs were "today".
 
 WINTER = dt.date(2026, 11, 2)  # first XNYS session under EST
 SUMMER = dt.date(2026, 8, 13)  # EDT

@@ -183,7 +183,7 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     Rather than silently skipping those days, request the missing daily partitions
     (bounded per tick) whenever the stack comes back.
 
-    Two rules paid for by incidents (2026-07-23/24), matching the option sensor:
+    Two rules, matching the option sensor:
     - Today only counts as *missed* once its scheduled ingest is overdue — the exchange
       date flips at midnight, hours before the session trades, and a rescue fired then
       runs against a session that does not exist yet.

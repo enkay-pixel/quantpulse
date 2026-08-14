@@ -119,12 +119,11 @@ def run_drift_check(
 ) -> DriftReport:
     """Compare one market's recent feature window against its own reference history.
 
-    Per market, because a mixture describes neither. Measured 2026-08-10 on live data: the
-    pooled share of drifted features read 0.077 while each market alone read 0.154, and the
-    worst pooled feature psi 0.21 against XJSE's 0.74 — pooling halved the signal and hid
-    its size. They drift on different features too (NYSE volatility, JSE momentum), so the
-    one number was an average of two unrelated things. Same reasoning as the cross-sectional
-    ranks in `features.engineering`, which are grouped by `(date, exchange)` for it.
+    Per market, because a mixture describes neither. Pooling roughly halves the measured
+    share of drifted features and hides how large the worst one is, since the markets drift
+    on different features — one number ends up averaging two unrelated things. Same
+    reasoning as the cross-sectional ranks in `features.engineering`, grouped by
+    `(date, exchange)`.
     """
     features = load_features(engine, FEATURE_VERSION, exchange=exchange)
     if features.empty:

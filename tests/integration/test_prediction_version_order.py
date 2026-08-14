@@ -8,9 +8,9 @@ that had already been replaced.
 `model_version` is varchar, because that is MLflow's own type, and the dedupe originally
 sorted it as text. `'9' > '10'` is true in a string sort, so from version 10 onward the
 "newest" version would have been an older model — and any single-digit version from 2 up
-beats '10'. Found on 2026-08-13 while drilling the demotion path, with XJSE at version 5 and
-retrains adding one a week: about five weeks of runway. Nothing had gone wrong yet because
-no date carried two versions, which is exactly why it needed a test rather than a sighting.
+beats '10'. Retrains add a version per market per week, so this becomes reachable within
+weeks of a market's first champion. Nothing had gone wrong yet because no date carried two
+versions, which is exactly why it needed a test rather than a sighting.
 """
 
 import datetime as dt

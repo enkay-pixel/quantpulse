@@ -1,11 +1,10 @@
 """Drift is measured per market, because a mixture describes neither.
 
-The check pooled both markets' features into one distribution. Measured on live data
-2026-08-10, that halved the signal — pooled share 0.077 against 0.154 for either market
-alone — and hid its size: the worst pooled feature read psi 0.21 while XJSE's worst was
-0.74. The two markets also drift on different features (NYSE volatility, JSE momentum), so
-the single number was an average of two unrelated things. Same mistake as incident 15,
-where cross-sectional ranks pooled markets, in a place nobody revisited after fixing it.
+The check pooled both markets' features into one distribution. On live data that roughly
+halved the measured signal and hid its size — the worst pooled feature read far calmer than
+the worst single-market one. The markets also drift on different features, so the single
+number averaged two unrelated things. The same mistake as pooling cross-sectional ranks,
+repeated in a place nobody revisited after fixing it there.
 
 Nothing caught it because `run_drift_check` and `store_drift_report` had no tests at all —
 only the pure PSI helpers did. These cover the part that was broken.

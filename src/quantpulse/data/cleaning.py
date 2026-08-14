@@ -1,9 +1,8 @@
 """Repair vendor unit glitches in price series.
 
-Yahoo intermittently reports a JSE close in Rand instead of cents — SBK.JO went
-22,775 → 228.86 → 23,322 across 2025-04-24/25/29, with entirely normal volume. Left
-alone that is a -99% day followed by a +100x day, which compounds into nonsense: the
-first JSE book built over this data finished at 8,788x.
+Yahoo intermittently reports a JSE close in Rand instead of cents, with entirely normal
+volume. Left alone that is a -99% day followed by a +100x day, which compounds into
+nonsense — a paper book built over uncorrected data can finish thousands of times up.
 
 The correction is safe precisely because the artefact is impossible: no equity falls 99%
 and recovers 100-fold in two sessions. A close that sits a clean factor of 100 away from

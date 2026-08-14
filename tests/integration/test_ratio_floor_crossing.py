@@ -8,9 +8,8 @@ would keep every test green while the dashboard said "not enough data" forever â
 failure would look exactly like a young track record, which is what the project genuinely
 had for weeks.
 
-Timing is why this was drilled on 2026-08-13: XNYS was 3 sessions from crossing. The first
-moment the platform can publish an earned ratio is a bad moment to discover the path is
-untested.
+The first moment the platform can publish an earned ratio is a bad moment to discover the
+path was never exercised.
 
 Seeds 40 sessions with the promotion at index 10, so the two phases sit on opposite sides
 of the floor in a single build: replay 10 days (suppressed), live 30 (published). That also
@@ -155,7 +154,7 @@ def test_a_phase_over_the_floor_actually_publishes_its_ratios(crossed: TestClien
 
 def test_the_floor_is_applied_per_phase_not_globally(crossed: TestClient) -> None:
     """Both phases come from one build. A global check would publish the young phase's
-    ratios too, which is how a 3-day Sharpe of -54.93 reached the dashboard (incident 18)."""
+    ratios too, which is how a 3-day Sharpe of -54.93 reached the dashboard."""
     phases = _phases(crossed, "/track-record")
     assert phases["replay"]["n_days"] == 10
     for field in RATIOS:

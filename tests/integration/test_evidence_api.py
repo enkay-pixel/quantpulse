@@ -297,7 +297,7 @@ def test_a_demoted_champion_is_not_reported_as_current(
 def test_a_demoted_later_version_falls_back_to_the_prior_champion(
     evidence_client: TestClient, test_db_url: str
 ) -> None:
-    """Incident 24 rollback: demoting v2 must surface v1 again — not "no champion".
+    """Rollback: demoting v2 must surface v1 again — not "no champion".
     The blanket any-newer-demotion rule was written for the first-champion rollback,
     where nothing remained to fall back to; a demotion only withdraws its own version."""
     from quantpulse.db import ModelRun

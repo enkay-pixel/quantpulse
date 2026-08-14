@@ -107,7 +107,7 @@ def test_ic_decides_before_the_veto_is_consulted() -> None:
     assert "materially worse book" not in decision.reason
 
 
-# --- the standing competitor (2026-08-14) ---
+# --- the standing competitor ---
 #
 # Beating the incumbent is not enough. A lineage can beat each other while all of them lose
 # to a rule that fits on one line, and that was measured rather than imagined: on the

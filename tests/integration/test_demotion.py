@@ -1,11 +1,10 @@
 """Rolling back a promotion, and the ordering that keeps the two records together.
 
-The ML Test Score audit scored rollback at zero: no code performed a demotion, and the two
-demotion rows in production were inserted by hand during incidents 17 and 24. Undoing a bad
-promotion meant editing MLflow *and* Postgres with nothing tying them together — on a system
-whose whole value proposition is an honest audit trail.
+For a long time no code performed a demotion: the rows that exist were inserted by hand.
+Undoing a bad promotion meant editing MLflow *and* Postgres with nothing tying them
+together, on a system whose value proposition is an honest audit trail.
 
-Bad promotions are not hypothetical here. Two have happened.
+Bad promotions are not hypothetical here; they have happened.
 
 The tests that matter are the failure ones. Anyone can make the happy path work; what
 decides whether this is safe is what the database looks like when the registry refuses.
@@ -105,7 +104,7 @@ def test_the_fallback_is_resolved_after_the_new_row_exists(db_engine: Engine, wi
 
 
 def test_demoting_the_only_promotion_leaves_no_champion(db_engine: Engine, wired) -> None:  # type: ignore[no-untyped-def]
-    """Incident 17's shape. No predictions at all beats predictions from a model judged
+    """No predictions at all beats predictions from a model judged
     unfit — only one of those is visible on the dashboard as a gap."""
     fake = wired(["1"], champion="1")
     with Session(db_engine) as session:

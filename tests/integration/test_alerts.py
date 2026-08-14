@@ -1,8 +1,8 @@
 """Failure alerts round-trip through Postgres.
 
-These were unit tests against a JSONL file until 2026-07-28, when two real ingest failures
-were recorded correctly and still surfaced as an empty `/alerts`: the daemon wrote to a
-path inside its own container that the API could not read and `compose up` erased. The log
+These were unit tests against a JSONL file until real ingest failures were recorded
+correctly and still surfaced as an empty `/alerts`: the daemon wrote to a path inside its
+own container that the API could not read and `compose up` erased. The log
 now lives in the database both containers already share — which makes these integration
 tests, and makes the cross-container path the thing actually under test.
 """

@@ -699,8 +699,8 @@ def current_model(session: SessionDep, exchange: ExchangeDep) -> schemas.ModelIn
 
 @router.get("/drift/latest", response_model=schemas.DriftStatus)
 def latest_drift(session: SessionDep, exchange: ExchangeDep) -> schemas.DriftStatus:
-    # Scoped like every other endpoint. Pre-2026-08-11 rows are stamped POOLED and so are
-    # invisible here: they measured both markets mixed together and belong to neither.
+    # Scoped like every other endpoint. Legacy rows stamped POOLED are invisible here:
+    # they measured both markets mixed together and belong to neither.
     latest_date = session.scalar(
         select(func.max(DriftMetric.date)).where(DriftMetric.exchange == exchange)
     )

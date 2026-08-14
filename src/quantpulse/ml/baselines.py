@@ -8,8 +8,8 @@ champion, so a whole lineage of models could be beating each other while losing 
 that fits on one line.
 
 Every competitor sits **the same exam**: the same holdout frame, cut the same way, scored by
-`pipeline.score_holdout` at the market's own quantile width. That is the discipline incident
-24 paid for — a model compared on a different window is not compared at all.
+`pipeline.score_holdout` at the market's own quantile width. A model compared on a
+different window is not compared at all.
 
 The comparison is deliberately unfair in one direction, and it has to be read that way: the
 baselines are fitted on this run's training window, while the champion was fitted weeks ago
@@ -53,8 +53,8 @@ def _momentum(train: pd.DataFrame, holdout: pd.DataFrame, cols: list[str]) -> np
     """Rank by 63-day momentum. Zero parameters, zero fitting, decades of literature.
 
     The single most likely thing to beat a small ML model on cross-sectional equity data,
-    and the feature the panel is already known to be sensitive to: incident 24 measured raw
-    63-day momentum IC at +0.039 over Mar-Dec 2025 and -0.004 since.
+    and a signal this panel is known to be sensitive to: raw momentum's own edge varies a
+    lot by period, so a holdout that happens to span a momentum-rich stretch flatters it.
     """
     return holdout["mom_63_cs_rank"].to_numpy(dtype=float)
 
@@ -168,9 +168,9 @@ def compare_baselines(
 
 
 #: The baseline every champion must beat to be promoted. Momentum rather than ridge: it is
-#: fitted on nothing, so it cannot be accused of having borrowed the candidate's advantages,
-#: and it is the rule a reader would reach for if the model did not exist. On 2026-08-14 it
-#: beat the XJSE champion on every metric — which is why it is now a gate, not a report.
+#: fitted on nothing, so it cannot be accused of borrowing the candidate's advantages, and
+#: it is the rule a reader would reach for if the model did not exist. It is a gate rather
+#: than a report because a champion has in fact lost to it.
 STANDING_COMPETITOR = "momentum"
 
 

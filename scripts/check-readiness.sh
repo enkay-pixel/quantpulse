@@ -4,8 +4,8 @@
 # Everything else the pipeline does is recoverable: a missed ingest is backfilled by the
 # catch-up sensor, a missed process run re-runs. Option chains are not — they are live-only,
 # so an evening spent with the stack down or the Mac asleep is a permanent hole in the
-# history. On 2026-07-29 the stack was down at 21:00 and the whole night would have been
-# lost unnoticed; this is that near-miss turned into a notification.
+# history. A stack left down through the evening loses the whole night unnoticed; this
+# turns that into a notification.
 #
 # Notifies, never acts. Bringing the stack up automatically would override a deliberate
 # `make down` before travel — the judgement of whether tonight matters is the operator's.
@@ -24,9 +24,8 @@ pmset -g ps 2>/dev/null | head -1 | grep -q "AC Power" || problems+=("on battery
 # "prevent sleep while display is on", Handoff, audio — all drop the moment the lid
 # closes, and the idle timer on battery here is one minute.
 #
-# Worth checking rather than assuming: on 2026-07-31 the setting was believed to be on and
-# was not. `pmset -a disablesleep 1` needs sudo and fails quietly without it, so the belief
-# and the state had diverged with nothing reporting the difference.
+# Worth checking rather than assuming: `pmset -a disablesleep 1` needs sudo and fails
+# quietly without it, so belief and state can diverge with nothing reporting the difference.
 sleep_disabled=$(pmset -g 2>/dev/null | awk '/SleepDisabled/ {print $2}')
 if [ "${sleep_disabled:-0}" != "1" ]; then
     lid=$(ioreg -r -k AppleClamshellState 2>/dev/null |

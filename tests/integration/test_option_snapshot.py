@@ -6,8 +6,8 @@ a day captured *badly* overwrites a good one, because the upsert is keyed on
 `(snapshot_date, ticker, expiry, strike, option_type)`.
 
 Its failure mode is the quiet kind this project keeps meeting: it commits per ticker and
-returns a row count, so a partial snapshot returns successfully. On 2026-07-27 that was 15
-tickers of 50, and nothing raised.
+returns a row count, so a partial snapshot returns successfully — under a third of the
+universe captured, and nothing raised.
 
 The vendor is stubbed throughout. A test that hit Yahoo would measure Yahoo.
 """
@@ -178,7 +178,7 @@ def test_force_exists_for_testing_and_bypasses_the_gate(
 def test_the_stamped_date_is_the_exchange_date(factory, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
     """Containers run UTC. Defaulting to `date.today()` would stamp rows a day forward
     every evening under EST and shift the whole options history at the DST change —
-    invisibly, in a dataset that cannot be rebuilt (incident 14)."""
+    invisibly, in a dataset that cannot be rebuilt."""
     make_session, engine = factory
     monkeypatch.setattr(ingest, "market_today", lambda *a, **k: dt.date(2026, 8, 12))
 

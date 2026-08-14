@@ -84,7 +84,7 @@ def test_split_by_date_embargoes_the_boundary(frame: pd.DataFrame) -> None:
 def test_final_fit_early_stops_on_inner_split_not_the_holdout(
     frame: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Incident 24: choosing the boosting rounds on the promotion holdout partially fits
+    """choosing the boosting rounds on the promotion holdout partially fits
     it — 308 rounds ground toward the exact frame the gate then scored. The validation
     frame handed to LightGBM must be disjoint from (and strictly older than) the holdout."""
     from quantpulse.ml import training

@@ -1,4 +1,4 @@
-"""The promotion gate must examine both models on the same holdout (incident 24).
+"""The promotion gate must examine both models on the same holdout.
 
 The incumbent's stored metrics were measured on a different panel (a backfill grew it)
 and under different evaluation code (flat vs measured turnover). Comparing a fresh
@@ -75,7 +75,7 @@ def test_incumbent_sits_the_same_exam_and_the_window_is_recorded(
     )
 
     def _poisoned(exchange: str | None = None) -> dict[str, float]:
-        raise AssertionError("gate consulted stored champion metrics — incident 24 regression")
+        raise AssertionError("gate consulted stored champion metrics")
 
     monkeypatch.setattr(registry, "champion_metrics", _poisoned)
 

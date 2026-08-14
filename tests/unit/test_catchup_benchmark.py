@@ -3,8 +3,8 @@
 Coverage cannot see this gap: the benchmark is one ticker, so losing it costs 1/29 of a JSE
 session and `missing_trading_days` correctly calls that day complete. But `fct_alpha_beta`
 and `fct_portfolio_vs_benchmark` inner-join the benchmark, so its absence deletes the whole
-day from them. STX40.JO lost its 2026-08-11 bar and nothing retried it; it was found days
-later by hand-comparing day counts.
+day from them. When a benchmark bar goes missing nothing retries it, and the gap surfaces
+only by hand-comparing day counts between the two marts.
 
 The eligibility window is the load-bearing part. Coverage-triggered retries are
 self-limiting — a re-ingest that works fixes the coverage that asked for it. This trigger is
@@ -29,7 +29,7 @@ def test_complete_benchmark_asks_for_nothing() -> None:
 
 
 def test_a_recent_missing_bar_is_requested() -> None:
-    """The 2026-08-11 case: the market ingested the session, the benchmark did not arrive."""
+    """The case this guards: the market ingested the session, the benchmark did not arrive."""
     gap = RECENT[1]
     have = [d for d in SESSIONS if d != gap]
     assert benchmark_gaps_to_retry(SESSIONS, have) == [gap]

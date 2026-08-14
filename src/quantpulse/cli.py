@@ -177,7 +177,7 @@ def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> N
 
     Deliberately manual. Choosing to undo a promotion needs a human judgement about why,
     which is why `--reason` is required and lands in the audit row: a demotion with no
-    recorded cause is the kind of history that makes the next incident harder to read.
+    recorded cause is the kind of history that makes later investigation harder.
     """
     from quantpulse.config import get_settings
     from quantpulse.db import get_session

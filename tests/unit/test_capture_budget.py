@@ -1,6 +1,6 @@
 """The daily capture budget must count runs that reached the vendor, not runs requested.
 
-Regression: on 2026-07-23 three pre-market capture runs were cancelled while still queued.
+Regression: three pre-market capture runs were cancelled while still queued.
 They never touched the feed, yet the old cursor counted them as attempts, exhausting the
 budget and locking the sensor out for the entire evening — the post-close snapshot only
 landed because the 19:00 schedule caught it.
@@ -18,7 +18,7 @@ RUNNING = ("STARTED", 1_000.0)
 
 
 def test_runs_cancelled_before_executing_do_not_consume_budget() -> None:
-    """The exact 2026-07-23 case: three cancelled-while-queued runs, budget untouched."""
+    """The case this guards: three cancelled-while-queued runs, budget untouched."""
     in_flight, reached = summarize_capture_runs([QUEUED_THEN_CANCELLED] * 3)
     assert reached == 0
     assert not in_flight

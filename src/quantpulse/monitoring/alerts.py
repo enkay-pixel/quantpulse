@@ -7,9 +7,9 @@ desktop notification is also attempted best-effort (no-op inside containers).
 **Why Postgres and not a file.** This used to append to JSONL under `DAGSTER_HOME`. The
 Dagster daemon writes alerts and the API serves them from a *different container*, and
 that path is neither a shared volume nor persistent — it lives in the daemon's writable
-layer, so the API could never read it and `compose up` erased it. Two genuine ingest
-failures on 2026-07-27 were recorded perfectly and still surfaced as an empty `/alerts`.
-The database is the one durable thing both containers already share.
+layer, so the API could never read it and `compose up` erased it. Real failures were
+recorded perfectly and still surfaced as an empty `/alerts`. The database is the one
+durable thing both containers already share.
 
 Recording an alert must never take down the run that is already failing, so every
 database error here is swallowed and logged.
