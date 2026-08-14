@@ -175,8 +175,15 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   backfilling a gap while the market is still trading can write *today's* price under
   *yesterday's* date. The `dropna(subset=["close"])` calls in `data/ingest.py` are what stop
   it (the live bar has no close yet) — load-bearing, never fillna them. Don't backfill a
-  window ending on a session still trading, and diagnose with multi-day ranges: a one-day
-  window returned nothing for a ticker a week-long window covered fine.
+  window ending on a session still trading.
+- **Widening the fetch window does not recover a missing bar** — it only invents one. Measured
+  on STX40.JO 2026-08-14: narrow one-day windows and a wide window return *identical* closes
+  for every genuinely published date (08-11 10857, 08-12 10770). The only row the wide window
+  adds is a phantom — 08-13 with a NaN close, which is that day's live session sliding into
+  the empty slot. A wide window ending *before* today produces no phantom. So a one-day fetch
+  returning nothing means the vendor has nothing; the fix is to re-fetch on a later day, never
+  a broader range. (An earlier version of this file claimed the opposite, from a diagnosis
+  that mistook the phantom for recovered data.)
 - **Never `dt.date.today()`** — containers run UTC. Use `calendar.market_today()` (exchange
   time). Under EDT the 19:00 ET jobs are 23:00 UTC and the two agree; under EST they are
   00:00 UTC and naive UTC stamps rows with *tomorrow*, shifting options history by a day at

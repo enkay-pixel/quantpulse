@@ -98,10 +98,24 @@ simply there (close 10857), and a plain re-fetch closed the gap. Two lessons, bo
 - **A benchmark gap is not evidence of a hole at the vendor.** Before concluding anything,
   re-fetch on a later day. An absent bar and a not-yet-published bar are indistinguishable
   at the moment you look, and the second one is far more common.
-- **Query a window, not a day.** yfinance is unreliable at the edges of a one-day range:
-  `2026-08-12 -> 2026-08-13` returned nothing for STX40.JO while `2026-08-05 -> 2026-08-13`
-  returned the row. The ingest path already asks for inclusive ranges, but any manual
-  diagnosis with a single-day window can manufacture the very gap it is investigating.
+- **A wider window does not recover a missing bar — it invents one.** This bullet previously
+  claimed the opposite, on the strength of `2026-08-12 -> 2026-08-13` returning nothing while
+  `2026-08-05 -> 2026-08-13` returned a row. That row was the phantom described below, not the
+  missing bar, and acting on it is precisely how the corruption gets written.
+  Measured properly on 2026-08-14, once STX40.JO's 08-12 bar had actually been published:
+
+  | query | rows returned |
+  |---|---|
+  | narrow `08-11 -> 08-12` | 08-11 @ 10857 |
+  | narrow `08-12 -> 08-13` | 08-12 @ 10770 |
+  | narrow `08-13 -> 08-14` | *(empty)* |
+  | wide `08-05 -> 08-13` (ends before today) | 08-05, 08-06, 08-07, 08-11, 08-12 |
+  | wide `08-05 -> 08-14` (ends **today**) | …the same, **plus 08-13 with a NaN close** |
+
+  Narrow and wide agree on every genuinely published date. The only row the wide window adds
+  is the phantom, and it appears only when the window reaches into a live session. So a
+  one-day fetch returning nothing means the vendor has nothing: re-fetch on a later day,
+  never on a broader range.
 
 **The last row of a yfinance window can carry the wrong date.** When a ticker is genuinely
 missing a session, the in-progress bar can slide into the empty slot and be stamped with the
@@ -121,8 +135,9 @@ into a fillna. Tickers *without* a gap are unaffected (ABG/NPN/SOL returned iden
 closes in both windows), which is what makes this easy to miss: it only bites the instrument
 already having a bad day.
 
-Practical rule: **do not backfill a window whose end falls on a session still trading.**
-Wait for the close or extend the range, and prefer a multi-day window when diagnosing.
+Practical rule: **do not backfill a window whose end falls on a session still trading.** Wait
+for that session to close. Do not reach for a wider range instead — widening is what produces
+the phantom, and it recovers nothing that a one-day window would not already have returned.
 
 Whatever the cause, the gap is left as a gap. Carrying the previous close forward or
 interpolating would fabricate the observation the CAPM decomposition divides by, and a
