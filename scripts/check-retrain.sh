@@ -16,7 +16,7 @@ cd "$REPO" || exit 0
 
 # Retrains are weekly, so three consecutive rejections is three weeks of producing nothing.
 # The age bound catches the other stall: a schedule that stopped firing leaves the champion
-# ageing with no rejections at all to count.
+# ageing with no rejections to count.
 STALL_RUNS="${RETRAIN_STALL_RUNS:-3}"
 STALL_DAYS="${RETRAIN_STALL_DAYS:-28}"
 
@@ -45,8 +45,8 @@ ROWS=$(psql_q "
     ORDER BY exchange, id;")
 
 if [ -z "$ROWS" ]; then
-    # Not an exit: a retrain that never ran is the case where the stall check below matters
-    # most, since a champion ages just as fast whether it was challenged or forgotten.
+    # Not an exit: a champion ages just as fast whether it was challenged or forgotten, so
+    # this is exactly when the stall check below matters.
     printf '%s no retrain recorded today — the schedule may not have fired\n' "$(stamp)"
     osascript -e "display notification \"no retrain recorded today\" \
         with title \"QuantPulse: retrain check\"" 2>/dev/null || true
@@ -67,15 +67,13 @@ fi
 # single week's report can show that — each rejection reads as normal on its own.
 #
 # Streak length alone does not say what to do, because two opposite situations produce the
-# same number. Measured 2026-08-16, both markets at three rejections since 07-25:
+# same number:
 #
-#   XNYS  champion ic 0.1000, best rejected 0.0852   nothing beat it — gate right, model stuck
-#   XJSE  champion ic 0.0625, best rejected 0.0684   one beat it and was rejected anyway
+#   nothing beat the champion       the gate is right and the model is stuck
+#   a candidate beat it anyway      some other criterion is binding, momentum among them
 #
-# The second is the one worth reading: some criterion other than the incumbent's IC is
-# binding, which since 1681ccf is momentum standing as a competitor. So the best rejected
-# candidate is carried alongside the champion it failed to displace, and the two cases are
-# named rather than collapsed into a count.
+# So the best rejected candidate is carried alongside the champion it failed to displace and
+# the two cases are named, rather than collapsed into a count nobody can act on.
 #
 # Demotions are excluded: run_type='demotion' also records decision='rejected', and counting
 # a rollback as a failed challenge would inflate the streak with the opposite kind of event.
@@ -111,8 +109,8 @@ while IFS='|' read -r ex n age since ver champ_ic best_ic; do
     [ "${n:-0}" -ge "$STALL_RUNS" ] || [ "${age:-0}" -gt "$STALL_DAYS" ] || continue
     STALLED=$((STALLED + 1))
     if [ "$ver" = "none" ]; then
-        # A market added but never promoted anything: there is no champion to have beaten,
-        # and the age bound is what fires. XJSE would have read this way before 07-23.
+        # A market added but never promoted anything: no champion exists to have been
+        # beaten, and the age bound is what fires.
         verdict="no champion has ever been promoted for this market"
     elif [ "$champ_ic" != "n/a" ] && [ "$best_ic" != "n/a" ] \
        && awk -v a="$best_ic" -v b="$champ_ic" 'BEGIN { exit !(a > b) }'; then

@@ -23,10 +23,9 @@ stamp() { date '+%Y-%m-%d %H:%M:%S'; }
 problems=()
 notes=()
 
-# The benchmark gap and the pipeline-alert count are both standing conditions: the same
-# STX40.JO hole was reported on 08-13 and 08-14, and the 50 pipeline_alerts behind
-# "N alert(s) today" were 1 job and 1 distinct error. The log below still records every
-# finding on every run; only the notification decays.
+# A benchmark gap and the pipeline-alert count are both standing conditions — the same hole
+# reports every evening until it is filled, and the alert count is usually one failure
+# repeated. The log still records every finding on every run; only the notification decays.
 DEDUP_LIB="$(dirname "$0")/lib/dedup.sh"
 # shellcheck source=scripts/lib/dedup.sh
 [ -r "$DEDUP_LIB" ] && . "$DEDUP_LIB"
@@ -109,10 +108,10 @@ summary="$(
     IFS='; '
     echo "${notes[*]-}"
 )"
-# Raise every current problem before sweeping, so conditions still true this run are not
-# mistaken for resolved ones. Note the early exits above deliberately never reach here: a
-# stack that is down or a non-session day means the checks did not run, and reporting
-# "cleared" for a condition nobody looked at would be a lie.
+# Raise every current problem before sweeping, so conditions still true are not read as
+# resolved. The early exits above never reach here by design: a stack that is down or a
+# non-session day means the checks did not run, and reporting "cleared" for a condition
+# nobody looked at would be a lie.
 due=()
 for p in "${problems[@]-}"; do
     [ -n "$p" ] || continue
@@ -143,8 +142,8 @@ message="$(
 printf '%s ATTENTION: %s (%s)\n' "$(stamp)" "$message" "$summary"
 [ -n "$resolved" ] && printf '%s resolved: %s\n' "$(stamp)" "$resolved"
 
-# Only what is new or due goes to the banner. A day-old benchmark gap restated every evening
-# is the thing that trains you to dismiss this notification unread.
+# Only what is new or due goes to the banner. A known gap restated every evening is what
+# trains you to dismiss this notification unread.
 if [ ${#due[@]} -gt 0 ]; then
     banner="$(
         IFS='; '

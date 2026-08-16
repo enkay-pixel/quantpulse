@@ -1,47 +1,36 @@
 #!/usr/bin/env bash
 # Turn a standing condition into a decaying reminder instead of a metronome.
 #
-# Measured 2026-08-16: check-power had emitted 47 identical notifications over 17 days for
-# one unchanged setting, and pipeline_alerts held 50 rows over 10 days that were 1 job and
-# 1 distinct error. Neither is 47 or 50 problems. Each is one problem, restated on a timer.
+# A check on a short interval restates an unchanged condition every run. The cost is not
+# noise for its own sake: when every banner says the same thing, the one that says something
+# new looks like all the others.
 #
-# The failure that causes is not noise for its own sake — it is that a notification stops
-# carrying information. When every banner says the same thing, the one that says something
-# new looks identical to the forty before it.
+# Not silence after the first alert. A condition still true after two weeks still matters,
+# it just does not matter every two hours — so the interval doubles and then caps, keeping a
+# standing problem on a weekly heartbeat. Suppression that never expires is how a real
+# problem gets forgotten, which is worse than the noise.
 #
-# Deliberately NOT silence after the first alert. A condition that is still true after two
-# weeks still matters; it just does not matter every two hours. So the interval doubles —
-# immediately, +1d, +2d, +4d — and then caps, which keeps a standing problem on a weekly
-# heartbeat rather than letting it disappear. Suppression that never expires is how a real
-# problem gets forgotten, which would be a worse bug than the one this fixes.
-#
-# Resolution is reported too, and that is new: nothing here has ever told you a condition
-# stopped. `qp_alert_sweep` treats any key the caller did not raise this run as cleared.
+# Resolution is reported too: without it, "still true" and "fixed" look identical.
 #
 # Usage:
 #   . scripts/lib/dedup.sh
 #   if qp_alert_due power "sleep disabled on battery ($charge)"; then notify; fi
-#   qp_alert_sweep power     # prints one line per condition that has now cleared
+#   qp_alert_sweep power     # one line per condition that has now cleared
 
 QP_ALERT_DIR="${QP_ALERT_DIR:-$HOME/.quantpulse/alerts}"
 # Cap the backoff so a standing condition still speaks weekly.
 QP_ALERT_CAP_D="${QP_ALERT_CAP_D:-7}"
 QP_ALERT_RUN_TS="$(date +%s)"
-# Keys raised during this run, newline separated. The sweep originally inferred this from
-# file mtime against the run stamp, which is correct only while both are real wall-clock
-# time — a replay with a simulated clock reported every condition as raised AND cleared in
-# the same run. Recording what was raised removes the coupling entirely, and a rule that
-# cannot be exercised with a fake clock is one that cannot be tested at all.
+# Keys raised during this run, newline separated. Inferring this from file mtime against the
+# run stamp works only while both are real wall-clock time, which makes the rule impossible
+# to exercise with a simulated clock — and therefore impossible to test.
 QP_ALERT_RAISED=""
 
-# Strip the volatile parts so the same condition keeps one identity across runs. Without
-# this the battery percentage and the gap date make every occurrence a brand-new condition
-# and nothing ever dedupes: "STX40.JO missing: 2026-08-12" and "...: 2026-08-13" are one
-# standing gap, not two, and "on battery (88%)" is the same warning as "(97%)".
+# Strip the volatile parts so a condition keeps one identity across runs. A battery
+# percentage or a gap date otherwise mints a new condition every run and nothing dedupes.
 #
-# Digits glued to letters are KEPT, so STX40.JO and STX50.JO stay distinct conditions —
-# stripping every number collapsed them to the same key. BSD sed has no \b, hence the
-# explicit non-alphanumeric prefix rather than a word boundary.
+# Digits glued to letters are KEPT: stripping every number collapses tickers that differ only
+# in digits into one key. BSD sed has no \b, hence the explicit non-alphanumeric prefix.
 qp_alert_key() {
     printf '%s' "$1" \
         | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}/D/g; s/(^|[^A-Za-z0-9])[0-9]+(\.[0-9]+)?/\1N/g' \
@@ -72,8 +61,7 @@ $ns/$key"
         return 0
     fi
 
-    # Exported because they are this library's output interface, read by the caller to
-    # build its message — not incidental locals.
+    # Exported: this is the output interface the caller reads, not incidental locals.
     export QP_ALERT_NEW=0
     export QP_ALERT_AGE_D=$(( (now - first) / 86400 ))
     export QP_ALERT_COUNT="$occ"
@@ -101,7 +89,7 @@ qp_alert_sweep() {
     d="$QP_ALERT_DIR/$ns"
     [ -d "$d" ] || return 0
     # `find` rather than "$d"/*: an empty directory makes the glob expand to a literal path
-    # under bash and abort outright under zsh, and this library is sourced by both.
+    # under bash and abort under zsh, and this library is sourced by both.
     while IFS= read -r f; do
         [ -n "$f" ] && [ -f "$f" ] || continue
         key="$(basename "$f")"

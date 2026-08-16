@@ -10,14 +10,13 @@
 # exactly the kind of thing a human stops noticing. It recurred twice in two days here.
 set -uo pipefail
 
-# Running every two hours, this had produced 47 identical notifications over 17 days for one
-# unchanged setting. The log still records every check; only the notification decays.
+# On a two-hourly interval an unchanged setting produces a banner every run. The log still
+# records every check; only the notification decays.
 DEDUP_LIB="$(dirname "$0")/lib/dedup.sh"
 # shellcheck source=scripts/lib/dedup.sh
 [ -r "$DEDUP_LIB" ] && . "$DEDUP_LIB"
-# A missing library degrades to notifying every time, never to silence. Suppression is the
-# dangerous direction to fail in: the loud version is annoying, the quiet one hides a flat
-# battery.
+# A missing library degrades to notifying every time, never to silence. The loud failure is
+# annoying; the quiet one hides a flat battery.
 if ! command -v qp_alert_due >/dev/null 2>&1; then
     qp_alert_due() { return 0; }
     qp_alert_sweep() { :; }
@@ -30,8 +29,8 @@ if [ "$sleep_disabled" = "1" ] && [ "$on_battery" = "yes" ]; then
     charge=$(pmset -g batt 2>/dev/null | grep -o '[0-9]*%' | head -1)
     printf '%s WARN: sleep disabled on battery (%s)\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$charge"
     if qp_alert_due power "sleep disabled on battery ($charge)"; then
-        # After the first, say how long it has stood — a reminder that reads identically to
-        # the original alert is what taught you to ignore it.
+        # A reminder that reads identically to the original alert is what teaches you to
+        # ignore it, so say how long it has stood.
         context=""
         [ "${QP_ALERT_NEW:-1}" = "1" ] || context=" Standing ${QP_ALERT_AGE_D}d over \
 ${QP_ALERT_COUNT} checks."
@@ -42,8 +41,7 @@ Plug in, or run: sudo pmset -a disablesleep 0.$context\" \
     exit 0
 fi
 
-# Nothing has ever told you the condition stopped, which is half of what makes a standing
-# alert readable: you could not tell "still true" from "fixed and forgotten".
+# Report the clear as well: otherwise "still true" and "fixed and forgotten" look the same.
 resolved=$(qp_alert_sweep power)
 if [ -n "$resolved" ]; then
     printf '%s resolved: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$resolved"
