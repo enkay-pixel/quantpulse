@@ -27,6 +27,12 @@ QP_ALERT_DIR="${QP_ALERT_DIR:-$HOME/.quantpulse/alerts}"
 # Cap the backoff so a standing condition still speaks weekly.
 QP_ALERT_CAP_D="${QP_ALERT_CAP_D:-7}"
 QP_ALERT_RUN_TS="$(date +%s)"
+# Keys raised during this run, newline separated. The sweep originally inferred this from
+# file mtime against the run stamp, which is correct only while both are real wall-clock
+# time — a replay with a simulated clock reported every condition as raised AND cleared in
+# the same run. Recording what was raised removes the coupling entirely, and a rule that
+# cannot be exercised with a fake clock is one that cannot be tested at all.
+QP_ALERT_RAISED=""
 
 # Strip the volatile parts so the same condition keeps one identity across runs. Without
 # this the battery percentage and the gap date make every occurrence a brand-new condition
@@ -52,6 +58,8 @@ qp_alert_due() {
     local ns="$1" text="$2" key f first last n occ iv i now="$QP_ALERT_RUN_TS"
     key="$(qp_alert_key "$text")"
     f="$QP_ALERT_DIR/$ns/$key"
+    QP_ALERT_RAISED="$QP_ALERT_RAISED
+$ns/$key"
     mkdir -p "$QP_ALERT_DIR/$ns" 2>/dev/null || return 0   # unwritable state: never suppress
 
     first=""; last=""; n=0; occ=0
@@ -89,20 +97,22 @@ qp_alert_due() {
 # Any key not raised this run has cleared. Prints one line each and forgets it, so the next
 # occurrence is genuinely new rather than resuming a stale backoff.
 qp_alert_sweep() {
-    local ns="$1" d f first last n occ mt
+    local ns="$1" d f key first last n occ
     d="$QP_ALERT_DIR/$ns"
     [ -d "$d" ] || return 0
-    for f in "$d"/*; do
-        [ -f "$f" ] || continue
-        mt="$(stat -f %m "$f" 2>/dev/null || echo 0)"
-        # Raised this run means the file was just written, so its mtime is not older than
-        # the run stamp taken when this library was sourced.
-        [ "$mt" -lt "$QP_ALERT_RUN_TS" ] || continue
+    # `find` rather than "$d"/*: an empty directory makes the glob expand to a literal path
+    # under bash and abort outright under zsh, and this library is sourced by both.
+    while IFS= read -r f; do
+        [ -n "$f" ] && [ -f "$f" ] || continue
+        key="$(basename "$f")"
+        printf '%s\n' "$QP_ALERT_RAISED" | grep -qxF "$ns/$key" && continue
         first=""; last=""; n=0; occ=0
         read -r first last n occ <"$f"
         printf 'cleared after %sd and %s occurrence(s): %s\n' \
             "$(( (QP_ALERT_RUN_TS - ${first:-QP_ALERT_RUN_TS}) / 86400 ))" \
-            "${occ:-?}" "$(basename "$f")"
+            "${occ:-?}" "$key"
         rm -f "$f"
-    done
+    done <<EOF
+$(find "$d" -maxdepth 1 -type f 2>/dev/null)
+EOF
 }

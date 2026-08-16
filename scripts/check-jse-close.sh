@@ -23,6 +23,18 @@ stamp() { date '+%Y-%m-%d %H:%M:%S'; }
 problems=()
 notes=()
 
+# The benchmark gap and the pipeline-alert count are both standing conditions: the same
+# STX40.JO hole was reported on 08-13 and 08-14, and the 50 pipeline_alerts behind
+# "N alert(s) today" were 1 job and 1 distinct error. The log below still records every
+# finding on every run; only the notification decays.
+DEDUP_LIB="$(dirname "$0")/lib/dedup.sh"
+# shellcheck source=scripts/lib/dedup.sh
+[ -r "$DEDUP_LIB" ] && . "$DEDUP_LIB"
+if ! command -v qp_alert_due >/dev/null 2>&1; then
+    qp_alert_due() { return 0; }
+    qp_alert_sweep() { :; }
+fi
+
 RUNNING=$(docker ps --filter "name=quantpulse-" --format '{{.Names}}' 2>/dev/null | wc -l | tr -d ' ')
 if [ "${RUNNING:-0}" -lt 6 ]; then
     # Nothing below can be trusted without the database, so report and stop rather than
@@ -97,8 +109,30 @@ summary="$(
     IFS='; '
     echo "${notes[*]-}"
 )"
+# Raise every current problem before sweeping, so conditions still true this run are not
+# mistaken for resolved ones. Note the early exits above deliberately never reach here: a
+# stack that is down or a non-session day means the checks did not run, and reporting
+# "cleared" for a condition nobody looked at would be a lie.
+due=()
+for p in "${problems[@]-}"; do
+    [ -n "$p" ] || continue
+    if qp_alert_due jse "$p"; then
+        if [ "${QP_ALERT_NEW:-1}" = "1" ]; then
+            due+=("$p")
+        else
+            due+=("$p [standing ${QP_ALERT_AGE_D}d]")
+        fi
+    fi
+done
+resolved="$(qp_alert_sweep jse)"
+
 if [ ${#problems[@]} -eq 0 ]; then
     printf '%s ok: %s\n' "$(stamp)" "$summary"
+    if [ -n "$resolved" ]; then
+        printf '%s resolved: %s\n' "$(stamp)" "$resolved"
+        osascript -e "display notification \"${resolved//\"/\'}\" \
+            with title \"QuantPulse: JSE check cleared\"" 2>/dev/null || true
+    fi
     exit 0
 fi
 
@@ -107,8 +141,18 @@ message="$(
     echo "${problems[*]}"
 )"
 printf '%s ATTENTION: %s (%s)\n' "$(stamp)" "$message" "$summary"
-# A benchmark gap is usually a late bar that fixes itself, so the notification says what to
-# do rather than implying breakage: the sensor retries on tomorrow's budget.
-osascript -e "display notification \"${message//\"/\'}\" \
-    with title \"QuantPulse: JSE post-close check\"" 2>/dev/null || true
+[ -n "$resolved" ] && printf '%s resolved: %s\n' "$(stamp)" "$resolved"
+
+# Only what is new or due goes to the banner. A day-old benchmark gap restated every evening
+# is the thing that trains you to dismiss this notification unread.
+if [ ${#due[@]} -gt 0 ]; then
+    banner="$(
+        IFS='; '
+        echo "${due[*]}"
+    )"
+    # A benchmark gap is usually a late bar that fixes itself, so the notification says what
+    # to do rather than implying breakage: the sensor retries on tomorrow's budget.
+    osascript -e "display notification \"${banner//\"/\'}\" \
+        with title \"QuantPulse: JSE post-close check\"" 2>/dev/null || true
+fi
 exit 0
