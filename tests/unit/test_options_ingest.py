@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from quantpulse.options import ingest
 from quantpulse.options.ingest import (
     OffHoursSnapshotError,
+    VendorOutageError,
     _rows_for_ticker,
     dedupe_rows,
     snapshot_option_chains,
@@ -166,3 +167,76 @@ def test_force_bypasses_the_gate(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ingest, "is_post_close", lambda: False)
 
     assert snapshot_option_chains(_exploding_session, [], force=True) == 0
+
+
+# --------------------------------------------------------------------- vendor outage
+
+
+def test_whole_universe_returning_nothing_is_an_outage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The three-session loss this exists for: every ticker empty, exit code 0.
+
+    yfinance answers with no expiries for every symbol when Yahoo rate-limits or moves an
+    endpoint. Each ticker then takes the `continue` path, the run writes nothing and
+    returns cleanly, and the watchdog re-runs it nightly against a feed with nothing to
+    give. Option marks cannot be captured after the session, so a quiet 0 costs the day.
+    """
+    monkeypatch.setattr(ingest, "is_post_close", lambda: True)
+    monkeypatch.setattr(ingest, "_fetch_ticker_chain", lambda t, n: (None, []))
+
+    with pytest.raises(VendorOutageError, match="serving nothing"):
+        snapshot_option_chains(_exploding_session, ["AAPL", "MSFT", "NVDA"])
+
+
+def test_outage_is_raised_when_every_fetch_throws(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The other shape of the same outage: the vendor raises rather than returning empty."""
+    monkeypatch.setattr(ingest, "is_post_close", lambda: True)
+
+    def boom(ticker: str, n_expiries: int) -> object:
+        raise RuntimeError("429 Too Many Requests")
+
+    monkeypatch.setattr(ingest, "_fetch_ticker_chain", boom)
+
+    with pytest.raises(VendorOutageError):
+        snapshot_option_chains(_exploding_session, ["AAPL", "MSFT"])
+
+
+def test_one_ticker_without_a_chain_is_not_an_outage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A symbol with no listed options is ordinary and must not fail the run.
+
+    This is the line between the two: some tickers empty is normal, all of them is the
+    feed being down.
+    """
+    monkeypatch.setattr(ingest, "is_post_close", lambda: True)
+    monkeypatch.setattr(
+        ingest,
+        "_fetch_ticker_chain",
+        lambda t, n: (
+            (None, [])
+            if t == "NOOPT"
+            else (
+                100.0,
+                [(dt.date(2026, 9, 18), chain_frame([100.0], 100.0), chain_frame([100.0], 100.0))],
+            )
+        ),
+    )
+    monkeypatch.setattr(ingest, "upsert_quotes", lambda session, rows: len(rows))
+
+    class _Sess:
+        def __enter__(self) -> object:
+            return self
+
+        def __exit__(self, *a: object) -> None:
+            return None
+
+    assert snapshot_option_chains(lambda: _Sess(), ["NOOPT", "AAPL"]) > 0
+
+
+def test_empty_universe_is_still_a_no_op(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing asked for is not an outage — the guard must not fire on an empty list."""
+    monkeypatch.setattr(ingest, "is_post_close", lambda: True)
+
+    assert snapshot_option_chains(_exploding_session, []) == 0
