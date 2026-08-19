@@ -14,6 +14,7 @@ import { PredictionsTable } from "./components/PredictionsTable";
 import { PriceChart } from "./components/PriceChart";
 import { QuintileChart } from "./components/QuintileChart";
 import { RiskCharts } from "./components/RiskCharts";
+import { LiveStats } from "./components/LiveStats";
 import { StatCard } from "./components/StatCard";
 import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
@@ -40,7 +41,7 @@ import { ExchangePicker } from "./components/ExchangePicker";
 import { useExchange } from "./hooks/useExchange";
 import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
-import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "./lib/format";
+import { formatDate, formatNumber, formatPercent } from "./lib/format";
 
 const TABS = ["Overview", "Evidence", "Options", "Model & Book"];
 
@@ -70,21 +71,15 @@ function OverviewTab({ exchange }: { exchange: string }) {
   const rotation = useRotatingTicker(tickers);
   const activeTicker = rotation.ticker;
 
+  // The headline row reports the live phase, not the replay. A paper return that includes
+  // the in-sample replay is the largest number on the page and the least meaningful one;
+  // leading with it invites the reader to treat a fit as a result.
+  const live = trackRecord.data?.phases.find((p) => p.phase === "live");
+
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard
-          label="Total return (paper)"
-          value={formatSignedPercent(equity.data?.total_return)}
-          valueColor={deltaColor(equity.data?.total_return)}
-          sub="incl. in-sample replay"
-        />
-        <StatCard label="Sharpe" value={formatNumber(equity.data?.sharpe)} sub="annualized, daily returns" />
-        <StatCard
-          label="Max drawdown"
-          value={formatPercent(equity.data?.max_drawdown)}
-          sub="paper equity curve"
-        />
+        <LiveStats live={live} />
         <StatCard
           label="Champion model"
           value={model.data?.model_version ? `v${model.data.model_version}` : "—"}

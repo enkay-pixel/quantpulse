@@ -1,9 +1,6 @@
 import type { TrackRecord } from "../api/types";
 import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
-
-// Ratios need a sample before they mean anything. Two days of returns annualize to a
-// confident-looking Sharpe that is pure noise, so withhold it rather than print it.
-const MIN_DAYS_FOR_RATIOS = 20;
+import { MIN_DAYS_FOR_RATIOS } from "../lib/thresholds";
 
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
