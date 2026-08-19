@@ -40,7 +40,7 @@ describe("TrackRecordCard", () => {
     expect(screen.queryByText(/since Jul 23, 2026/)).not.toBeInTheDocument();
   });
 
-  it("shows live stats once the live phase exists", () => {
+  it("shows what the headline cards do not: sample size, window and win rate", () => {
     const live = {
       ...REPLAY,
       phase: "live" as const,
@@ -51,12 +51,29 @@ describe("TrackRecordCard", () => {
     };
     render(<TrackRecordCard record={{ live_since: "2026-07-18", phases: [REPLAY, live] }} />);
     expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("+3.10%")).toBeInTheDocument();
-    expect(screen.getByText("0.90")).toBeInTheDocument(); // Sharpe shown once there is a sample
+    expect(screen.getByText("52%")).toBeInTheDocument();
     expect(screen.queryByText(/Accumulating/)).not.toBeInTheDocument();
   });
 
-  it("withholds Sharpe and win rate until the sample can support them", () => {
+  it("does not repeat the headline figures", () => {
+    // Return, Sharpe and max drawdown are the LiveStats cards directly above. Showing them
+    // again puts the same three numbers twice within a screen of each other.
+    const live = {
+      ...REPLAY,
+      phase: "live" as const,
+      n_days: 42,
+      total_return: 0.031,
+      sharpe: 0.9,
+      max_drawdown: -0.0238,
+      win_rate: 0.52,
+    };
+    render(<TrackRecordCard record={{ live_since: "2026-07-18", phases: [REPLAY, live] }} />);
+    expect(screen.queryByText("+3.10%")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.90")).not.toBeInTheDocument();
+    expect(screen.queryByText("-2.38%")).not.toBeInTheDocument();
+  });
+
+  it("withholds win rate until the sample can support it", () => {
     // Two days of returns annualize to a confident-looking number that is pure noise.
     const live = {
       ...REPLAY,
@@ -67,9 +84,9 @@ describe("TrackRecordCard", () => {
       win_rate: 0,
     };
     render(<TrackRecordCard record={{ live_since: "2026-07-18", phases: [REPLAY, live] }} />);
-    expect(screen.queryByText("-35.25")).not.toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBe(2); // Sharpe and win rate both withheld
+    expect(screen.getAllByText("—")).toHaveLength(1); // win rate withheld
     expect(screen.getByText(/2 days cannot tell you about a year/)).toBeInTheDocument();
-    expect(screen.getByText("-0.80%")).toBeInTheDocument(); // return still shown
+    // Sample size is honest at any size and stays visible.
+    expect(screen.getByText("2")).toBeInTheDocument();
   });
 });

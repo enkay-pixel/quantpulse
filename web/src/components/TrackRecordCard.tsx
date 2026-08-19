@@ -1,5 +1,5 @@
 import type { TrackRecord } from "../api/types";
-import { deltaColor, formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
+import { formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
 import { MIN_DAYS_FOR_RATIOS } from "../lib/thresholds";
 
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -32,18 +32,11 @@ export function TrackRecordCard({ record }: { record: TrackRecord }) {
 
       {live ? (
         <>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {/* Return, Sharpe and max drawdown are the headline cards above; repeating them
+              here would put the same three numbers twice within a screen of each other. */}
+          <div className="grid grid-cols-3 gap-3">
             <Stat label="Days" value={String(live.n_days)} />
-            <Stat
-              label="Return"
-              value={formatSignedPercent(live.total_return)}
-              color={deltaColor(live.total_return)}
-            />
-            <Stat
-              label="Sharpe"
-              value={live.n_days >= MIN_DAYS_FOR_RATIOS ? formatNumber(live.sharpe) : "—"}
-            />
-            <Stat label="Max DD" value={formatPercent(live.max_drawdown)} />
+            <Stat label="Window" value={`${formatDate(live.start_date)} – ${formatDate(live.end_date)}`} />
             <Stat
               label="Win rate"
               value={live.n_days >= MIN_DAYS_FOR_RATIOS ? formatPercent(live.win_rate, 0) : "—"}
@@ -51,10 +44,10 @@ export function TrackRecordCard({ record }: { record: TrackRecord }) {
           </div>
           {live.n_days < MIN_DAYS_FOR_RATIOS ? (
             <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              Sharpe and win rate stay blank until {MIN_DAYS_FOR_RATIOS} trading days.
-              Annualizing a handful of days produces a precise-looking number that means
-              nothing — {live.n_days === 1 ? "one day" : `${live.n_days} days`} cannot tell
-              you about a year.
+              Win rate and the ratios above stay blank until {MIN_DAYS_FOR_RATIOS} trading
+              days. Annualizing a handful of days produces a precise-looking number that
+              means nothing — {live.n_days === 1 ? "one day" : `${live.n_days} days`} cannot
+              tell you about a year.
             </p>
           ) : null}
         </>
