@@ -79,54 +79,34 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
   and ≈36% during market hours, versus ≈2.1% pre-market. Snapshots must run when the
   market has been trading.
 
-## Current model & data snapshot (as of 2026-08-14)
+## Current model & data snapshot (as of 2026-08-19)
 
-- **Two markets.** NYSE: 50 tickers, 108,240 bars, 105,090 feature rows, 470,046 option
-  quotes over 16 snapshot days. JSE: 29 Top-40 tickers, 60,334 bars, 58,507 feature rows,
-  no options (no free chain data). Both from 2018-01-02. Live track record: XNYS 18 days
-  (+1.00%), XJSE 14 (−0.49%) — both under the 20-day floor, so ratios stay withheld.
-- **Champions** (registered `quantpulse-lgbm-<exchange>`):
-  - XNYS v1 — promoted at holdout IC 0.026, Sharpe 0.21, max DD −5.0%. (v2, from the
-    first scheduled retrain, was auto-promoted on a mismatched exam and demoted the same
-    day — incident 24.)
-  - XJSE v3 — promoted at holdout IC 0.063, Sharpe 1.51, max DD −7.5%, on 2026-07-25 in a
-    like-for-like comparison against v2's 1.32.
-  - Those figures are **historical records of what each model was promoted on, not
-    comparable across models**. Both predate the fix, and the 2026-08-01 retrain showed
-    how far apart stored and current can drift: XNYS v1 re-scored **2.570** on that run's
-    311-day holdout against its stored 0.205. The gate no longer reads stored numbers.
-  - (JSE v1 was auto-promoted at Sharpe −0.069 under a gate with no first-champion floor,
-    then demoted; see below.)
-- **Retrains.** 2026-07-25: XJSE v3 promoted, XNYS candidate promoted-then-demoted
-  (incident 24). 2026-08-01, first under the corrected gate: **both challengers rejected**
-  — XNYS 1.595 vs incumbent re-scored at 2.570, XJSE 1.326 vs 1.786. The old gate would
-  have promoted the XNYS challenger against the stored 0.205, repeating the previous
-  week's error; instead it was rejected silently and correctly.
-- **Books** (in-sample replay, daily/horizon/long-only): XNYS 7.7%·0.73 / 14.3%·1.30 /
-  34.6%·1.16; XJSE 21.8%·1.94 / 34.8%·2.94 / 41.9%·1.41. All carry survivorship + in-sample
-  bias; the live phase is the number to judge. Read the JSE figures with the baseline result
-  in mind — a fit-free momentum rule beats that market's champion on the same holdout, so
-  they may be measuring momentum rather than the model.
-- Promotion policy (`ml/promotion.py`): the comparison runs on **IC**, not Sharpe.
-  Candidate needs holdout IC ≥ champion + a per-market margin (2 sd of the measured seed
-  re-roll: 0.006 XNYS, 0.008 XJSE), IC ≥ 0, drawdown better than −35%; Sharpe survives
-  only as a wide veto (`max_sharpe_regression` 0.50) checked **after** IC decides, so it
-  can overrule a promotion but never make one. Since 2026-08-14 the candidate must also beat
-  a **standing competitor** — a fit-free momentum rule on the same holdout — by the same
-  margin, so beating only the incumbent is no longer sufficient. A **first** champion must
-  also clear
-  `min_first_sharpe` (0.0); NaN never promotes. The gate backtests at the market's own
-  quantile width, and **re-scores the incumbent on the candidate's exact holdout** at
-  decision time — stored metrics are never consulted (incident 24).
-- Quantile width per market, set from breadth: 20% of 50 US names and 35% of 29 JSE names
-  both ≈10 positions per side.
-- Training (`TrainConfig`): horizon 21d, 4 splits, embargo 21d, 15 Optuna trials,
-  15% holdout, LightGBM early stopping 50 — on an **inner validation split**, never the
-  promotion holdout; each `model_runs` row records its holdout window.
-- Features v1: ret_1/5/21, mom_63, vol_21/63, ma_ratio_21/63, volume_z_21 + cross-
-  sectional pct-ranks of ret_5/ret_21/mom_63/ma_ratio_21 — ranked **within each exchange**.
-- Drift: scipy KS + PSI per feature (PSI>0.2 = drifted; share≥0.3 triggers the retrain
-  sensor); Evidently kept only as best-effort HTML diagnostics.
+- **The live record.** XNYS crossed the 20-session floor on 2026-08-18 and its ratios
+  publish for the first time: 21 sessions, **−1.17%** total, **Sharpe −1.43**, alpha
+  **−22.6%** annualized, information ratio **−4.05**, beta 0.11, R² 0.02, win rate 47.6%.
+  XJSE is 17 sessions and flat (+0.01%), ratios still withheld below the floor. Against the
+  in-sample replay (NYSE Sharpe +0.74, JSE +1.94) the live record is the opposite sign. The
+  annualized figures scale a 21-session sample and should be read for their sign, not their
+  magnitude; the low beta confirms the negative alpha is signal rather than market exposure.
+- **Two markets.** NYSE: 50 tickers, 108,240 bars, 105,090 feature rows, 566,646 option
+  quotes over 19 snapshot days. JSE: 29 Top-40 tickers, 60,334 bars, 58,507 feature rows, no
+  options (no free chain data). Both from 2018-01-02.
+- **Champions**: XNYS v1, XJSE v3 — unchanged since 2026-07-25. Registered
+  `quantpulse-lgbm-<exchange>`, MLflow alias and audit trail reconciled by an asset check.
+  The figures each was promoted on are **not comparable across models**; the gate re-scores
+  the incumbent on the candidate's exact holdout rather than trusting stored metrics.
+- **Promotion has stalled on both markets** — three consecutive retrains, nothing promoted,
+  for opposite reasons. XNYS: nothing beat the champion (best 0.0852 vs 0.1000), so the gate
+  is right and the model is stuck. XJSE: a challenger beat its champion (0.0684 vs 0.0625)
+  and lost to the momentum baseline anyway.
+- **A simpler model beats the JSE champion.** `quantpulse baseline` scores every champion
+  against noise, momentum, reversal and a linear ridge on one shared holdout. On the JSE,
+  plain 63-day momentum takes IC 0.1167 and Sharpe 2.28 against the champion's 0.0681 and
+  1.84, with half the drawdown and zero parameters. On the NYSE the champion wins decisively
+  (IC 0.1907 against momentum's 0.0161). Momentum is now a standing competitor in the gate:
+  no candidate is promoted without beating it, first champions included.
+- **Noise scored Sharpe +0.47** on the NYSE holdout at IC −0.0015 — a signal containing
+  nothing looking positive on Sharpe, which is direct support for gating on IC.
 
 ## Incident log (root causes worth remembering)
 

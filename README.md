@@ -13,6 +13,34 @@ monitoring, a serving API, and a live dashboard with a market switcher.
 > **Disclaimer**: educational engineering project. Nothing here is investment advice, and the
 model's signals are research output in a sandbox — not trade recommendations.
 
+## The live record
+
+The only numbers here worth judging. Each market's live phase starts at its first champion
+promotion; everything before that is an in-sample replay, kept separate on purpose.
+
+| | NYSE (XNYS) | JSE (XJSE) |
+|---|---|---|
+| Live sessions | 21 (from 2026-07-20) | 17 (from 2026-07-23) |
+| Total return | **−1.17%** | +0.01% |
+| Sharpe | **−1.43** | withheld below 20 sessions |
+| Alpha (annualized) | **−22.6%** | withheld |
+| Information ratio | **−4.05** | withheld |
+| Beta / R² | 0.11 / 0.02 | withheld |
+| Win rate | 47.6% | withheld |
+
+**The model is losing money out-of-sample.** Twenty-one sessions annualize into very wide
+error bars — the −22.6% alpha is a −1.17% total return scaled up, not a rate anything has
+sustained — but the sign is the sign, and it is the opposite of what the in-sample replay
+suggests (NYSE replay Sharpe +0.74, JSE +1.94). That gap between replay and live is the
+single most useful thing this project has produced, and separating the two is why the
+distinction exists at all.
+
+Beta 0.11 and R² 0.02 confirm the book is genuinely market-neutral, so the negative alpha
+is the signal rather than disguised market exposure. Ratios stay withheld below 20 sessions
+because a handful of days annualizes into a confident-looking number that is pure noise.
+
+The replay figures below are in-sample throughout. They describe a fit, not a forecast.
+
 ![QuantPulse dashboard](docs/assets/dashboard.png)
 
 <details>
@@ -22,12 +50,11 @@ model's signals are research output in a sandbox — not trade recommendations.
 
 ![Evidence tab](docs/assets/evidence-tab.png)
 
-The CAPM decomposition is the headline: **beta −0.05 and R² 0.007 confirm the book is
-genuinely market-neutral**, so comparing its raw return to SPY was never the right test.
-Alpha is **+4.74% annualized** over the replay — but read that with two caveats the panel
-states plainly: the window is in-sample, and the information ratio is still **negative
-(−0.34)**. (Alpha was −0.56% until the paper book stopped double-charging its trading
-costs — see [docs/roadmap.md](docs/roadmap.md); a measurement bug, not a strategy change.)
+The CAPM decomposition is what makes the record readable: **a low beta and near-zero R²
+confirm the book is genuinely market-neutral**, so comparing its raw return to SPY was never
+the right test. The screenshot predates the live phase and shows the in-sample replay, where
+alpha is positive and the information ratio is already negative. The live decomposition —
+now published, and negative on both — is in the table at the top of this page.
 
 Below it, the two-book panel shows what rebalancing frequency actually costs, then signal
 quintiles slope the right way (Q1 highest → Q5 lowest: real ranking skill, modest in size)
@@ -53,8 +80,9 @@ directional view into a defined-risk spread, clearly labelled as illustration, n
 Switching to XJSE re-scopes everything: **beta is measured against STX40.JO** (not SPY —
 comparing a JSE book to the S&P would measure the rand, not the strategy), the Options tab
 is gone (no free JSE chain data), and the numbers are the JSE champion's. Its in-sample
-replay looks strong (alpha +16%, IR 0.42, all three books positive), but the panel says
-plainly these are in-sample.
+replay looks strong — alpha +16%, IR 0.42, all three books positive — and the panel says
+plainly that these are in-sample. Its live phase is 17 sessions and flat (+0.01%), with
+every ratio still withheld below the 20-session floor.
 
 There is a sharper caveat than that. `quantpulse baseline` scores every champion against
 simple rules on the same holdout, and on the JSE **a plain 63-day momentum rule beats the

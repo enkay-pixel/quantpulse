@@ -1,6 +1,6 @@
 # Roadmap & project state
 
-**Updated 2026-08-14.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-08-19.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 
@@ -42,13 +42,39 @@ Read that with the caveat the log earns: every serious bug found so far shipped 
 fully green. The tests catch regressions in what has already gone wrong; the bugs that
 matter have been found by reading the data and asking whether it makes sense.
 
-## Current state (2026-08-14)
+## Current state (2026-08-19)
 
-Two markets, each with its own champion, books and evidence. **Every performance figure
-below is in-sample replay** — the live phase begins at each champion's promotion and is the
-only number worth judging. Live so far: XNYS 18 days (+1.00%), XJSE 14 days (−0.49%); both
-still under the 20-day floor, so the marts correctly withhold every ratio. Books trail
-prices by one session by construction.
+### The live record — the only numbers worth judging
+
+XNYS crossed the 20-session floor on 2026-08-18, so its ratios are published for the first
+time. They are negative.
+
+| | NYSE (XNYS) | JSE (XJSE) |
+|---|---|---|
+| Live sessions | 21 (from 2026-07-20) | 17 (from 2026-07-23) |
+| Total return | **−1.17%** | +0.01% |
+| Sharpe | **−1.43** | withheld (< 20 sessions) |
+| Annualized vol | 9.6% | withheld |
+| Win rate | 47.6% | withheld |
+| Beta / R² | 0.11 / 0.02 | withheld |
+| Alpha (annualized) | **−22.6%** | withheld |
+| Information ratio | **−4.05** | withheld |
+
+Against the in-sample replay — NYSE Sharpe **+0.74**, JSE **+1.94** — the live record is the
+opposite sign. That gap is the most useful output this project has produced, and keeping the
+two phases apart is the reason it is visible at all rather than blended into one flattering
+number.
+
+Read the annualized figures with their sample in mind: −22.6% alpha is a −1.17% total return
+over 21 sessions scaled up, not a rate anything has sustained. The sign is meaningful; the
+magnitude is not yet. Beta 0.11 and R² 0.02 confirm the book is market-neutral as designed,
+so the negative alpha is the signal rather than hidden market exposure.
+
+Books trail prices by one session by construction.
+
+### The replay — in-sample throughout
+
+Everything below describes a fit, not a forecast.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
@@ -56,18 +82,17 @@ prices by one session by construction.
 | Price bars (from 2018) | 108,240 | 60,334 |
 | Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
 | Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
-| Options | 470,046 quotes, 16 snapshot days (last 2026-08-10) | none (no free JSE chain data) |
+| Options | 566,646 quotes, 19 snapshot days | none (no free JSE chain data) |
 
 A connectivity outage cost **three consecutive option snapshot days (08-11 to 08-13)**, and
 those are gone for good — chains are live-only, so a missed day is a permanent hole. Every
 price session was recoverable and has been recovered, including a full XNYS day that failed
 20 ingest attempts overnight and landed first try once the connection returned.
 
-One gap stays open: **STX40.JO has no 08-13 bar.** Its 08-12 bar arrived two days late and
-was backfilled, but 08-13 looks different — the vendor has already published 08-14 while
-leaving 08-13 empty, so it is skipped rather than pending. Until it appears the JSE's
-benchmark-joined marts sit a session behind the track record. The catch-up sensor retries
-it unaided; nothing needs doing by hand.
+Both benchmark gaps have since closed. STX40.JO's 08-12 bar arrived two days late and was
+backfilled by hand; its 08-13 bar arrived a day later still and was recovered **by the
+catch-up sensor's benchmark trigger without intervention** — the first time that mechanism
+closed a gap unaided. `benchmark_freshness` passes on both markets.
 
 Those champion Sharpes are the numbers each model was *promoted* on, and they are not
 comparable across models — see the retrain log below for why. Both were measured under the
@@ -80,6 +105,8 @@ out-of-sample estimate.
 |---|---|---|
 | 2026-07-25 | candidate promoted on a mismatched exam, **demoted same day** (incident 24) | v3 promoted, like-for-like vs v2 |
 | 2026-08-01 | v3 rejected — 1.595 vs incumbent **2.570** | v4 rejected — 1.326 vs incumbent **1.786** |
+| 2026-08-08 | v4 rejected | v5 rejected |
+| 2026-08-15 | v5 rejected — IC 0.0698 vs incumbent **0.1884** | v6 rejected — IC 0.0679 vs **momentum baseline 0.1159** |
 
 The 2026-08-01 run is the first under the corrected gate, and it is worth reading closely
 because it demonstrates the failure it was built to prevent. Those incumbent figures appear
@@ -93,6 +120,20 @@ a landslide, and promoted a model that is in fact substantially worse — repeat
 previous week's error exactly. The new gate rejected both challengers without drama. One
 retrain is not a trend, and rejection may or may not turn out to be the normal outcome, but
 the mechanism is now demonstrated in production rather than only in tests.
+
+### Promotion has stalled on both markets
+
+Three consecutive retrains have promoted nothing, and the two markets are stalled for
+different reasons — which the weekly check now separates rather than reporting as one count:
+
+- **XNYS** — nothing has beaten the champion (best challenger IC 0.0852 against 0.1000). The
+  gate is right and the model is stuck.
+- **XJSE** — a challenger *did* beat its champion (0.0684 against 0.0625) and was rejected
+  anyway, because it lost to the momentum baseline. The JSE lineage is improving on itself
+  while still failing to justify itself.
+
+The 2026-08-15 run was the first under the standing competitor, and it is the first
+promotion in the project's history blocked by something other than the incumbent.
 
 **Replay book performance** (daily / horizon / long-only), in-sample:
 
