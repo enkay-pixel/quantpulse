@@ -47,7 +47,7 @@ comparable scrutiny onto the modelling.
 | # | Test | Score | Evidence |
 |---|---|---|---|
 | 1 | Feature expectations captured in a schema | 1 | `FEATURE_COLUMNS` + `FEATURE_VERSION`, DB CHECK constraints, 59 dbt data tests, `data/quality.py` |
-| 2 | All features are beneficial | 0.5 | `quantpulse ablation` runs drop-one and single-feature sweeps against the market's noise margin. The study exists; **the property fails badly** — no feature carries signal on either market and most cost it |
+| 2 | All features are beneficial | 0.5 | `quantpulse ablation` and `quantpulse prune` run drop-one, single-feature and forward-selection sweeps against a floor measured per run. The study exists, but **it is underpowered**: on one holdout the seed-only spread (2 sd 0.0375 / 0.0228) exceeds every effect being tested, so no feature is shown to help or hurt |
 | 3 | No feature's cost is too much | 0.5 | All derived from stored OHLCV, vectorized, full recompute ~4s — bounded in practice, never measured per feature |
 | 4 | Features meet meta-level requirements | 1 | Market data only, no PII; gitleaks over every staged diff on a public repo |
 | 5 | Pipeline has privacy controls | 1 | No personal data exists; loopback-only ports; credentials in `.env` |
@@ -144,47 +144,82 @@ the right next step is repeating this across several windows before concluding h
 ## Feature ablation result (2026-08-22)
 
 `quantpulse ablation` refits without each feature in turn and with each feature alone, on
-the same holdout the gate uses, judged against each market's `ic_promotion_margin` — two
-standard deviations of a seed re-roll, so a delta inside it is indistinguishable from noise.
+the same holdout the gate uses. Hyperparameters are held at defaults rather than retuned per
+subset, so the "full model" below is a freshly fitted default-parameter model, **not the
+champion**. It measures the feature set, not the deployed model.
 
-Hyperparameters are held at defaults rather than retuned per subset, so the "full model"
-below is a freshly fitted default-parameter model, **not the champion**. It measures the
-feature set, not the deployed model.
+### The first reading of this was wrong
 
-**XNYS** — full model IC 0.0382, margin 0.0060:
+The sweep was originally judged against each market's `ic_promotion_margin` (0.0060 XNYS,
+0.0080 XJSE), and on that basis it was written up as having found the root cause: no feature
+carrying signal on the NYSE, eight of thirteen actively costing it, single features scoring
+double the full model.
 
-| verdict | count | worst offenders |
-|---|---|---|
-| carries signal | **0** | — |
-| within noise | 5 | ma_ratio_21_cs_rank, ret_1, volume_z_21, ret_5_cs_rank, ma_ratio_21 |
-| costs signal | **8** | ret_21_cs_rank and mom_63_cs_rank (+0.0361 each when removed) |
+That margin was the wrong yardstick, and the error was not small. It was measured on *tuned*
+models selected by the gate. An ablation refits at default parameters, where early stopping
+lands on a different tree count for every seed, and the spread under that procedure is far
+larger. Measured directly — same panel, same parameters, same holdout, only the seed varied:
 
-**XJSE** — full model IC 0.0028, margin 0.0080:
+| market | seed IC spread (5 seeds) | sd | **2 sd** | margin originally used |
+|---|---|---|---|---|
+| XNYS | 0.0284 – 0.0726 | 0.0188 | **0.0375** | 0.0060 |
+| XJSE | −0.0051 – 0.0250 | 0.0114 | **0.0228** | 0.0080 |
 
-| verdict | count | notes |
-|---|---|---|
-| carries signal | 3 | ret_21, ret_21_cs_rank, mom_63_cs_rank |
-| within noise | 7 | |
-| costs signal | 3 | vol_21 (+0.0317), ma_ratio_21 (+0.0220), vol_63 (+0.0204) |
+Every delta reported as a finding sat inside that floor. The largest, +0.0361, is below even
+the 0.0375 it should have been judged against. The ranked list of "harmful" features was
+seed noise, sorted.
 
-Two findings, and the second is the serious one.
+`ablation_report` and `forward_select` now measure the floor themselves on each run rather
+than borrowing one, and `forward_select` measures a second floor on the inner split, which
+is smaller and therefore noisier than the full panel.
 
-**Not one feature on the NYSE panel is shown to contribute.** Eight of thirteen actively
-cost signal: removing `ret_21_cs_rank` or `mom_63_cs_rank` alone takes IC from 0.0382 to
-0.0743, nearly doubling it. The JSE is milder but similar — three features carry signal
-against three that cost it, on a full-model IC of 0.0028 that is itself inside the noise
-margin.
+### What the corrected sweep shows
 
-**Several single features beat the whole model.** On the NYSE, `ma_ratio_21` alone scores
-0.0766 against the full model's 0.0382; `mom_63` alone 0.0686; `vol_21` alone 0.0680. On the
-JSE, `vol_63` alone scores 0.0734 against a full model of 0.0028. A thirteen-feature model
-that scores half what one of its own columns scores is not combining information — it is
-being confused by it.
+Re-run against measured floors, **25 of 26 feature verdicts are "within noise — not shown to
+contribute"**. The single exception is XJSE `vol_21` (+0.0317 against a 0.0228 floor) — one
+marginal result across 26 tests at a two-sigma threshold, which is the false-positive rate
+those tests are expected to produce.
 
-This is consistent with everything else measured recently: challenger quality declining over
-four retrains, momentum beating the JSE champion outright, and the NYSE live record negative
-over 24 sessions. The problem is upstream of the gate and upstream of the model class. It is
-the feature set.
+So the sweep does not show that the features are harmful. It shows this panel cannot resolve
+feature-level effects at all: the effect being looked for is smaller than the noise of the
+procedure used to look for it.
+
+### Pruning, measured rather than inferred
+
+Drop-one deltas do not add up — removing several features that each look costly can land
+anywhere, because their effects interact. So `quantpulse prune` *selects* a set and then
+*measures* it. Selection runs on an inner split carved from training data only; the holdout
+is used once at the end. Choosing features by holdout IC would fit the choice to the holdout
+and the final number would describe that fit rather than out-of-sample behaviour.
+
+| market | selected | pruned IC | full IC | momentum | floor | verdict |
+|---|---|---|---|---|---|---|
+| XNYS | none of 13 | — | 0.0382 | 0.0174 | 0.0375 | nothing cleared the bar |
+| XJSE | ma_ratio_63 | −0.0176 | 0.0028 | 0.1094 | 0.0228 | pruning changes nothing measurable |
+
+Nothing survives pruning on the NYSE, and the one feature that does on the JSE produces a
+model no better than the full set. **The answer to "prune to what survives" is that nothing
+does.**
+
+### What actually survives as a finding
+
+Stripping out everything the noise floor now disallows, two results stand:
+
+- **The JSE model has no measurable skill.** Full-model IC 0.0054 ± 0.0114 across seeds —
+  indistinguishable from zero — while fit-free momentum scores 0.1094 on the same holdout.
+  This agrees with the standing-competitor comparison and is the stronger statement of it.
+- **The NYSE model has weak positive skill.** IC 0.0521 ± 0.0188, against momentum's 0.0174.
+  Small, noisy, but the model is doing something momentum alone does not.
+
+The earlier conclusion — "the problem is the feature set" — is not supported. The feature
+set has not been shown to be the problem or not to be; the measurement was never powerful
+enough to say. What can be said is that the JSE model does not beat a one-line rule, which
+was already known before this sweep ran.
+
+Making the sweep able to answer the question needs more resolution than one holdout provides:
+repeated splits or several walk-forward windows, averaging IC across them so the floor falls
+below the effects being tested. That is the prerequisite for any feature decision, and it is
+worth more than any change to the current feature list.
 
 ## Gaps, ranked by value per unit of effort
 
@@ -198,10 +233,13 @@ the feature set.
 2. **Model staleness unmeasured** (Model 4). The weekly retrain cadence is arbitrary. One
    experiment — score a frozen champion forward and watch IC decay — turns it into a
    measurement.
-3. ~~No feature ablation~~ — **run 2026-08-22, and it found the likely root cause.** No
-   feature carries signal on the NYSE panel and eight of thirteen cost it, with single
-   features scoring double the full model. Acting on it means pruning to the columns that
-   survive and re-testing, which is a modelling change rather than a platform one.
+3. ~~No feature ablation~~ — **built and run 2026-08-22; the sweep is underpowered on one
+   holdout.** Drop-one, single-feature and forward selection all exist, and all report the
+   same thing: the seed-only noise floor (0.0375 XNYS, 0.0228 XJSE) is larger than any
+   effect being measured, so nothing survives pruning and nothing is shown to be harmful.
+   The next step is not a feature change but more resolution — repeated splits or several
+   walk-forward windows, averaged, so the floor drops below the effects. Every feature
+   decision waits on that.
 4. **Offline/online correlation** (Model 2). Cannot be closed by work, only by time; it is
    what the live track record accrues toward.
 5. **No canary** (Infra 6). Genuinely low priority while the book is paper.
