@@ -87,7 +87,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 ## Conventions
 
 - ruff is pinned EXACTLY in pyproject (CI lints from uv.lock — keep venv in sync after
-  `uv lock`). mypy strict-ish; pytest markers: `integration` needs live Postgres.
+  `uv lock`). The **pre-commit hook rev must match that pin**, and CI fails on drift:
+  dependabot updates pyproject but has no pre-commit ecosystem configured, so the hook
+  silently stays behind and you get commits the hook reformats and CI then rejects. Same
+  guard as markdownlint, whose rev is likewise mirrored in ci.yml.
+- mypy strict-ish; pytest markers: `integration` needs live Postgres.
 - dbt: `transform/`, profiles via env vars, tests use the `arguments:` nesting,
   package pins in `transform/package-lock.yml` (committed). Marts join the Dagster
   graph via dagster-dbt (group `transform`); sources map with `meta.dagster.asset_key`.

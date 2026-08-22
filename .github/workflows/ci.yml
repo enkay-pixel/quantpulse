@@ -31,6 +31,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check the hook and pyproject agree on a ruff version
+        # CI lints with the pinned ruff from uv.lock while commits are formatted by the
+        # pre-commit hook's own copy. Nothing updates the hook rev when the pin moves, so
+        # the two drift apart silently and the result is a commit the hook reformats and
+        # CI then rejects. pyproject is the single source of truth; the hook must match it.
+        run: |
+          pin="$(sed -n 's/.*"ruff==\([0-9][^"]*\)".*/\1/p' pyproject.toml | head -1)"
+          hook_rev="$(grep -A1 'repo: https://github.com/astral-sh/ruff-pre-commit$' \
+            .pre-commit-config.yaml | sed -n 's/.*rev: *v*//p')"
+          if [ -z "$pin" ] || [ -z "$hook_rev" ]; then
+            echo "could not read a ruff version: pyproject='$pin' hook='$hook_rev'" >&2
+            exit 1
+          fi
+          if [ "$pin" != "$hook_rev" ]; then
+            echo "ruff drift: pyproject=$pin .pre-commit-config.yaml=v$hook_rev" >&2
+            exit 1
+          fi
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
