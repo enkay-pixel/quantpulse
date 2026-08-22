@@ -102,6 +102,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   incl. gitleaks (222 rules) over every staged diff, since this repo is public and a
   leaked token must be *rotated*, not force-pushed away. False positives go in
   `.gitleaks.toml` narrowly scoped to rule + path + line pattern, never as a blanket skip.
+- **A merge subject must not repeat the branch's own commit subject.** `main` then shows the
+  same line twice and the log no longer distinguishes the merge from the work it brought in.
+  Either omit `--subject` (GitHub writes `Merge pull request #N from ...`) or write one that
+  summarizes the branch rather than restating its tip. Dependabot merges avoid this for free,
+  since the branch commits are `chore(deps):` and the merges are retitled `build(deps):`.
+  Two pairs on `main` predate this rule and stay as they are: rewording a pushed commit needs
+  a force-push, and the `Protect` ruleset blocks `non_fast_forward` on the default branch.
 - CI (GitHub Actions): python (ruff/mypy/pytest + Postgres service) · dbt build ·
   web · compose validation. Keep it green; Dependabot weekly with documented major
   ignores (typescript/eslint/recharts) — don't take Docker base-image majors untested.
