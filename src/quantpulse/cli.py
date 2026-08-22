@@ -200,6 +200,39 @@ def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> N
     )
 
 
+def _ablation(exchange: str | None) -> None:
+    """Report which features earn their place, per market."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.ablation import ablation_report
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            table = ablation_report(engine, code)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        logger.info(
+            "%s full model IC %.4f | noise margin %.4f (deltas inside it mean nothing)",
+            code,
+            table.attrs["full_ic"],
+            table.attrs["noise_margin"],
+        )
+        logger.info(
+            "%-22s %-9s %-10s %-9s %s", "feature", "drop IC", "delta", "alone IC", "verdict"
+        )
+        for row in table.to_dict("records"):
+            logger.info(
+                "%-22s %-9.4f %+-10.4f %-9.4f %s",
+                row["feature"],
+                row["drop_ic"],
+                row["delta"],
+                row["alone_ic"],
+                row["verdict"],
+            )
+
+
 def _baseline(exchange: str | None) -> None:
     """Compare the champion against simpler models on one shared holdout.
 
@@ -335,6 +368,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     sub.add_parser("sensitivity", help="Backtest sensitivity to trading cost and borrow rate")
     base = sub.add_parser("baseline", help="Compare the champion against simpler models")
+    abl = sub.add_parser("ablation", help="Report which features earn their place")
+    abl.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     dem = sub.add_parser("demote", help="Withdraw a promotion and fall back")
     dem.add_argument("--exchange", required=True, help="Market code, e.g. XJSE")
     dem.add_argument("--reason", required=True, help="Why — recorded in the audit row")
@@ -367,6 +402,8 @@ def main(argv: list[str] | None = None) -> None:
         _sensitivity()
     elif args.command == "baseline":
         _baseline(args.exchange)
+    elif args.command == "ablation":
+        _ablation(args.exchange)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":

@@ -47,7 +47,7 @@ comparable scrutiny onto the modelling.
 | # | Test | Score | Evidence |
 |---|---|---|---|
 | 1 | Feature expectations captured in a schema | 1 | `FEATURE_COLUMNS` + `FEATURE_VERSION`, DB CHECK constraints, 59 dbt data tests, `data/quality.py` |
-| 2 | All features are beneficial | **0** | No importance, ablation or permutation study anywhere. 13 features chosen a priori and never pruned |
+| 2 | All features are beneficial | 0.5 | `quantpulse ablation` runs drop-one and single-feature sweeps against the market's noise margin. The study exists; **the property fails badly** — no feature carries signal on either market and most cost it |
 | 3 | No feature's cost is too much | 0.5 | All derived from stored OHLCV, vectorized, full recompute ~4s — bounded in practice, never measured per feature |
 | 4 | Features meet meta-level requirements | 1 | Market data only, no PII; gitleaks over every staged diff on a public repo |
 | 5 | Pipeline has privacy controls | 1 | No personal data exists; loopback-only ports; credentials in `.env` |
@@ -141,6 +141,51 @@ momentum-rich stretch incident 24 identified (raw 63-day momentum IC +0.039 Mar�
 champion — momentum beat it *on the window the gate itself would have used* — but both mean
 the right next step is repeating this across several windows before concluding how general it is.
 
+## Feature ablation result (2026-08-22)
+
+`quantpulse ablation` refits without each feature in turn and with each feature alone, on
+the same holdout the gate uses, judged against each market's `ic_promotion_margin` — two
+standard deviations of a seed re-roll, so a delta inside it is indistinguishable from noise.
+
+Hyperparameters are held at defaults rather than retuned per subset, so the "full model"
+below is a freshly fitted default-parameter model, **not the champion**. It measures the
+feature set, not the deployed model.
+
+**XNYS** — full model IC 0.0382, margin 0.0060:
+
+| verdict | count | worst offenders |
+|---|---|---|
+| carries signal | **0** | — |
+| within noise | 5 | ma_ratio_21_cs_rank, ret_1, volume_z_21, ret_5_cs_rank, ma_ratio_21 |
+| costs signal | **8** | ret_21_cs_rank and mom_63_cs_rank (+0.0361 each when removed) |
+
+**XJSE** — full model IC 0.0028, margin 0.0080:
+
+| verdict | count | notes |
+|---|---|---|
+| carries signal | 3 | ret_21, ret_21_cs_rank, mom_63_cs_rank |
+| within noise | 7 | |
+| costs signal | 3 | vol_21 (+0.0317), ma_ratio_21 (+0.0220), vol_63 (+0.0204) |
+
+Two findings, and the second is the serious one.
+
+**Not one feature on the NYSE panel is shown to contribute.** Eight of thirteen actively
+cost signal: removing `ret_21_cs_rank` or `mom_63_cs_rank` alone takes IC from 0.0382 to
+0.0743, nearly doubling it. The JSE is milder but similar — three features carry signal
+against three that cost it, on a full-model IC of 0.0028 that is itself inside the noise
+margin.
+
+**Several single features beat the whole model.** On the NYSE, `ma_ratio_21` alone scores
+0.0766 against the full model's 0.0382; `mom_63` alone 0.0686; `vol_21` alone 0.0680. On the
+JSE, `vol_63` alone scores 0.0734 against a full model of 0.0028. A thirteen-feature model
+that scores half what one of its own columns scores is not combining information — it is
+being confused by it.
+
+This is consistent with everything else measured recently: challenger quality declining over
+four retrains, momentum beating the JSE champion outright, and the NYSE live record negative
+over 24 sessions. The problem is upstream of the gate and upstream of the model class. It is
+the feature set.
+
 ## Gaps, ranked by value per unit of effort
 
 1. ~~No simpler-model baseline~~ — **built, and momentum is now a standing competitor in
@@ -153,7 +198,10 @@ the right next step is repeating this across several windows before concluding h
 2. **Model staleness unmeasured** (Model 4). The weekly retrain cadence is arbitrary. One
    experiment — score a frozen champion forward and watch IC decay — turns it into a
    measurement.
-3. **No feature ablation** (Data 2). Thirteen features, none justified individually.
+3. ~~No feature ablation~~ — **run 2026-08-22, and it found the likely root cause.** No
+   feature carries signal on the NYSE panel and eight of thirteen cost it, with single
+   features scoring double the full model. Acting on it means pruning to the columns that
+   survive and re-testing, which is a modelling change rather than a platform one.
 4. **Offline/online correlation** (Model 2). Cannot be closed by work, only by time; it is
    what the live track record accrues toward.
 5. **No canary** (Infra 6). Genuinely low priority while the book is paper.
