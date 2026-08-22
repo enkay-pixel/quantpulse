@@ -94,7 +94,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Frontend: palette/roles as CSS vars in `web/src/index.css` (dataviz method: legends
   for ≥2 series, status colors always icon+label, vendor chunks split).
 - Commits: imperative subject, body explains why, trailer
-  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Pre-commit hooks installed —
+  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. Pre-commit hooks installed —
   incl. gitleaks (222 rules) over every staged diff, since this repo is public and a
   leaked token must be *rotated*, not force-pushed away. False positives go in
   `.gitleaks.toml` narrowly scoped to rule + path + line pattern, never as a blanket skip.
