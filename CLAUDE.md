@@ -145,6 +145,20 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `market` DB on localhost and passing. If a sensor gains a new DB-backed call, stub it in
   the suite's fixture. This is why "passes locally, fails in CI" happened on 2026-08-13, and
   there the local pass was the wrong answer, not CI.
+- **A noise floor belongs to the procedure that measured it, and does not transfer.**
+  `Exchange.ic_promotion_margin` is 2 sd of a seed re-roll on *tuned* models. Reused to judge
+  an ablation — which refits at default parameters, where early stopping picks a different
+  tree count per seed — it is 3-6x too small (measured: 2 sd is 0.0375 XNYS / 0.0228 XJSE,
+  against margins of 0.0060 / 0.0080). Judged against the borrowed one, every feature cleared
+  it and the sweep produced a ranked list of "harmful" features that was entirely seed noise.
+  `ablation.measured_noise_floor()` re-measures on each run; anything new that calls a
+  difference significant must do the same, and a sweep whose floor exceeds the effect it is
+  testing is underpowered, not a finding. Watch the ratio of significant results to tests
+  run: 1 in 26 at two sigma *is* the false-positive rate, not a discovery.
+- **A greedy search seeded at `-inf` always accepts its first candidate.** Forward selection
+  reported one "selected" feature on a market where nothing beat zero, because the first
+  comparison was against negative infinity rather than against the skill of an empty set.
+  Seed a running best at the value of doing nothing, not at a sentinel.
 - **A green test run is not evidence.** Every serious bug in the incident log shipped with
   CI green and was found by reading data. Verify a new test by breaking the code it guards
   and watching it fail — and assert your sabotage actually applied, because a

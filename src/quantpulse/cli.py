@@ -200,6 +200,44 @@ def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> N
     )
 
 
+def _prune(exchange: str | None) -> None:
+    """Select a feature set from evidence and measure it against the full one."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.ablation import forward_select
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            sel = forward_select(engine, code)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        logger.info(
+            "%s selected %d of 13: %s",
+            sel.exchange,
+            len(sel.chosen),
+            ", ".join(sel.chosen) or "(none cleared the margin)",
+        )
+        logger.info(
+            "  holdout IC — pruned %.4f | full %.4f | momentum %.4f | margin %.4f",
+            sel.pruned_ic,
+            sel.full_ic,
+            sel.baseline_ic,
+            sel.noise_margin,
+        )
+        delta = sel.pruned_ic - sel.full_ic
+        if delta != delta:
+            verdict = "no set selected — nothing to compare"
+        elif delta >= sel.noise_margin:
+            verdict = f"pruning helps by {delta:+.4f}, beyond the noise margin"
+        elif delta <= -sel.noise_margin:
+            verdict = f"pruning hurts by {delta:+.4f} — keep the full set"
+        else:
+            verdict = f"pruning changes nothing measurable ({delta:+.4f} inside the margin)"
+        logger.info("  %s", verdict)
+
+
 def _ablation(exchange: str | None) -> None:
     """Report which features earn their place, per market."""
     from quantpulse.data.calendar import EXCHANGES
@@ -369,6 +407,8 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("sensitivity", help="Backtest sensitivity to trading cost and borrow rate")
     base = sub.add_parser("baseline", help="Compare the champion against simpler models")
     abl = sub.add_parser("ablation", help="Report which features earn their place")
+    prn = sub.add_parser("prune", help="Select a feature set from evidence and measure it")
+    prn.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     abl.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     dem = sub.add_parser("demote", help="Withdraw a promotion and fall back")
     dem.add_argument("--exchange", required=True, help="Market code, e.g. XJSE")
@@ -404,6 +444,8 @@ def main(argv: list[str] | None = None) -> None:
         _baseline(args.exchange)
     elif args.command == "ablation":
         _ablation(args.exchange)
+    elif args.command == "prune":
+        _prune(args.exchange)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":
