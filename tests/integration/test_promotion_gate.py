@@ -64,7 +64,12 @@ def test_incumbent_sits_the_same_exam_and_the_window_is_recorded(
     monkeypatch.setattr(pipeline, "build_dataset", lambda engine, cfg, exchange: frame)
     monkeypatch.setattr(pipeline, "tune_hyperparameters", lambda f, cols, cfg: dict(DEFAULT_PARAMS))
     monkeypatch.setattr(
-        registry, "load_champion", lambda exchange=None: (champ, SimpleNamespace(version="1"))
+        registry,
+        "load_champion",
+        # run_id is part of a real ModelVersion; the gate reads it to recover the panel
+        # the incumbent was fitted to. None stands for a model logged before spans were
+        # recorded, which is the case the gate has to warn about rather than assume away.
+        lambda exchange=None: (champ, SimpleNamespace(version="1", run_id=None)),
     )
     monkeypatch.setattr(
         registry, "log_candidate", lambda *a, **k: SimpleNamespace(version="2", run_id="run-2")

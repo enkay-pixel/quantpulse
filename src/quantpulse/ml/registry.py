@@ -40,6 +40,7 @@ def log_candidate(
     feature_columns: list[str],
     feature_version: str,
     exchange: str = DEFAULT_EXCHANGE,
+    train_span: tuple[str, str] | None = None,
 ) -> ModelVersion:
     """Log a training run and register the model; returns the new registry version."""
     name = model_name(exchange)
@@ -51,6 +52,12 @@ def log_candidate(
                 "feature_version": feature_version,
                 "feature_columns": ",".join(feature_columns),
                 "exchange": exchange,
+                # The panel a model was fitted to. Two models trained on different histories
+                # are not comparable however carefully they share a holdout, and without this
+                # the difference is invisible: the gate sees only the scores.
+                **(
+                    {"train_start": train_span[0], "train_end": train_span[1]} if train_span else {}
+                ),
             }
         )
         mlflow.lightgbm.log_model(booster, name="model", registered_model_name=name)
@@ -124,3 +131,15 @@ def predict_with(booster: Any, frame: pd.DataFrame) -> np.ndarray:
     Asking the booster removes the second copy of the truth.
     """
     return np.asarray(booster.predict(frame[booster.feature_name()]))
+
+
+def training_span(
+    version: ModelVersion, client: MlflowClient | None = None
+) -> tuple[str, str] | None:
+    """The panel a registered model was fitted to, or None for one logged before this existed."""
+    if not version.run_id:
+        return None
+    client = client or MlflowClient()
+    tags = client.get_run(version.run_id).data.tags
+    start, end = tags.get("train_start"), tags.get("train_end")
+    return (start, end) if start and end else None

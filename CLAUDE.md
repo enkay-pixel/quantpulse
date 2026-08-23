@@ -185,7 +185,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   span, so this is invisible in the data. Re-scoring the incumbent on the candidate's holdout
   is necessary and not sufficient: same exam, different syllabus. Suspect it whenever an
   incumbent looks untouchable, and note the live book was losing money the whole time that
-  incumbent scored 0.1777.
+  incumbent scored 0.1777. Models now tag `train_start`/`train_end`, the audit row carries
+  both the candidate's span and the incumbent's, and the gate warns when they differ *or*
+  when the incumbent predates the tag. It warns rather than refuses: whether a mismatch
+  should block a promotion is a judgement nobody has made yet, and a gate that silently
+  refuses is its own kind of stall.
 - **Early stopping validates on RMSE while the gate scores IC.** On the full panel the final
   fit stops after a single boosting round in seven of eight seeds — RMSE on noisy 21-day
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding

@@ -126,3 +126,46 @@ def test_scoring_does_not_depend_on_the_global_feature_list(
     before = predict_with(booster, wide)
     monkeypatch.setattr(engineering, "FEATURE_COLUMNS", ["ret_1", "mom_63"])
     assert np.allclose(predict_with(booster, wide), before)
+
+
+# --- a model records the panel it was fitted to --------------------------------------------
+
+
+def test_a_logged_model_records_its_training_span(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Two models fitted to different histories are not comparable however carefully they
+    share a holdout. Without this the gate sees only the scores, which is how an incumbent
+    trained on a shorter panel went five retrains unexplained."""
+    import mlflow
+
+    from quantpulse.ml import registry
+
+    registry.configure(f"sqlite:///{tmp_path}/mlflow.db")
+    booster = _tiny_booster(["vol_21", "ret_5"])
+    version = registry.log_candidate(
+        booster,
+        {"objective": "regression"},
+        {"holdout_ic": 0.01},
+        ["vol_21", "ret_5"],
+        "v1",
+        exchange="XNYS",
+        train_span=("2018-04-04", "2025-03-18"),
+    )
+    assert registry.training_span(version) == ("2018-04-04", "2025-03-18")
+    assert mlflow is not None
+
+
+def test_a_model_logged_without_a_span_reports_none(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Models predating this carry no span, and that must read as unknown rather than as
+    agreement — the gate warns on it instead of assuming the histories matched."""
+    from quantpulse.ml import registry
+
+    registry.configure(f"sqlite:///{tmp_path}/mlflow2.db")
+    version = registry.log_candidate(
+        _tiny_booster(["vol_21", "ret_5"]),
+        {"objective": "regression"},
+        {"holdout_ic": 0.01},
+        ["vol_21", "ret_5"],
+        "v1",
+        exchange="XNYS",
+    )
+    assert registry.training_span(version) is None
