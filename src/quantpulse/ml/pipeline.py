@@ -343,6 +343,14 @@ def score_latest(
             promoted_on,
         )
     to_score = recent[recent["date"].isin(pending)].copy()
+    if to_score.empty:
+        # Nothing outstanding is the normal state between sessions, and it is also what a
+        # promotion produces when it lands on a day with no new features: every date in the
+        # window was already scored by the outgoing champion and must not be re-scored. The
+        # booster raises on an empty frame rather than returning nothing, so this has to
+        # return before it, not after.
+        logger.info("%s: no unscored dates in the window — nothing to score", exchange)
+        return 0
     to_score["score"] = registry.predict_with(booster, to_score)
 
     records = [
