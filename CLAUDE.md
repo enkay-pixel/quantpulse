@@ -326,9 +326,10 @@ can't attribute its own results. Measured: daily 7.8%/0.73 Sharpe vs horizon
 - Backlog: rename dbt `tests:`→`data_tests:` when tooling nags; Databricks Free Edition
   companion project (same pipeline as PySpark/Delta); richer features/models only after
   live evidence accumulates; options history analytics once ~20+ snapshots exist.
-  Screenshots carry data through 2026-07-23 and are structurally current (switcher, all
-  tabs); regenerate once XNYS crosses the 20-day floor — recipe in
-  docs/roadmap.md "Next".
+  Screenshots carry data through 2026-08-21 and show the live decomposition on both
+  markets; regenerate when the dashboard changes shape — recipe in docs/roadmap.md "Next",
+  and measure the capture height at 1440 width or the page reflows and the shot gains a
+  tail of empty black.
 - **Declined, don't re-propose**: a local LLM Q&A layer over the data
   ([ADR 0004](docs/adr/0004-no-llm-question-answering-layer.md)). The `verdict()` functions
   in the React cards ARE the summarization layer — deterministic, unit-tested, cannot

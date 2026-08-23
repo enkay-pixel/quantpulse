@@ -350,15 +350,19 @@ measuring momentum rather than the model. Detail in [ml-test-score.md](ml-test-s
    the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
    signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
    toward the latter — and only accumulated live days distinguish them.
-3. **Screenshots** carry data through 23 Jul 2026. They are structurally current — market
-   switcher, all three tabs, the alpha/beta panel — but every evidence panel still reads
-   "in-sample replay", because the live phase had not accrued. The moment worth
-   regenerating on is XNYS crossing the 20-day floor, when the live decomposition appears
-   for the first time. Recipe, per market:
+3. **Screenshots** carry data through 21 Aug 2026 and show the live decomposition on both
+   markets, including alpha with its standard error. Regenerate when the dashboard changes
+   shape or the live record reaches a milestone worth showing. Recipe, per market and tab:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
-   --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,1230
-   --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000 "http://localhost:8080/?market=XNYS#overview"`
-   (tab slugs `overview`/`evidence`/`options`/`model-book`, `?market=XNYS|XJSE`; tune height).
+   --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,HEIGHT
+   --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000
+   "http://localhost:8080/?market=XNYS#overview"` (tab slugs
+   `overview`/`evidence`/`options`/`model-book`, `?market=XNYS|XJSE`).
+   **Measure HEIGHT at 1440 width**, not at whatever the browser happens to be: read
+   `document.body.scrollHeight` with the viewport already at 1440, because the layout
+   reflows and a height taken at a narrower width leaves a page of empty black below the
+   content. Current values — overview 1257, evidence 1277, options 1149, model-book 686.
+
 4. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
    realized-vs-implied volatility, IV-change signals. This is the payoff for the
    snapshot-forward design, and it needs no new data source.
