@@ -137,6 +137,21 @@ models:
                 values: ["replay", "backfilled", "live"]
       - name: n_days
         tests: [not_null]
+      - name: alpha_std_error_annualized
+        description: >
+          Standard error of the alpha estimate. Null below min_days_for_ratios. A window can
+          clear that floor and still resolve nothing, so this is what says whether the alpha
+          means anything; quoting alpha without it reports noise as a return.
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= 0"
+              config:
+                where: "alpha_std_error_annualized is not null"
+      - name: alpha_t_stat
+        description: >
+          Alpha over its standard error. Above ~2 in absolute value the alpha is
+          distinguishable from zero at roughly two sigma.
 
   - name: fct_option_summary
     description: >

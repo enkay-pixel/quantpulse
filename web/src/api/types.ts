@@ -199,6 +199,8 @@ export interface AlphaBetaStats {
   beta: number | null;
   alpha_daily: number | null;
   alpha_annualized: number | null;
+  alpha_std_error_annualized: number | null;
+  alpha_t_stat: number | null;
   r_squared: number | null;
   correlation: number | null;
   tracking_error: number | null;

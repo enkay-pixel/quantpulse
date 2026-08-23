@@ -557,7 +557,8 @@ def alpha_beta(session: SessionDep, exchange: ExchangeDep) -> schemas.AlphaBetaO
     """Market exposure vs market-independent return — the fair read on a long/short book."""
     rows = _mart_rows(
         session,
-        "SELECT phase, n_days, beta, alpha_daily, alpha_annualized, r_squared, "
+        "SELECT phase, n_days, beta, alpha_daily, alpha_annualized, "
+        "alpha_std_error_annualized, alpha_t_stat, r_squared, "
         "correlation, tracking_error, information_ratio "
         "FROM analytics.fct_alpha_beta WHERE exchange = :ex ORDER BY phase",
         {"ex": exchange},

@@ -9,7 +9,15 @@
 --
 -- Every output here is a regression statistic, so all of them are nulled below
 -- `min_days_for_ratios`: a three-day window produced beta -0.07 and alpha -103%/yr,
--- which is arithmetic, not evidence.
+-- which is arithmetic, not evidence. That floor is necessary and not sufficient — a window
+-- can clear it and still resolve nothing — so alpha carries its own standard error and
+-- t-statistic, and a consumer that quotes the alpha without them is quoting noise.
+--
+-- Note alpha and `information_ratio` answer different questions and can disagree in sign:
+-- alpha is beta-adjusted (what is left once market exposure is removed) while the
+-- information ratio is benchmark-relative (raw active return over tracking error). For a
+-- deliberately market-neutral book in a rising market, a positive alpha beside a negative
+-- information ratio is the expected result, not a contradiction.
 {% set rf = var('risk_free_rate', 0.04) %}
 {% set min_days = var('min_days_for_ratios', 20) %}
 
@@ -45,6 +53,32 @@ select
     case when count(*) >= {{ min_days }} then regr_intercept(rp, rb) end as alpha_daily,
     case when count(*) >= {{ min_days }} then regr_intercept(rp, rb) * 252 end
         as alpha_annualized,
+    -- Standard error of the intercept, so alpha can be read against its own uncertainty
+    -- rather than as a measured quantity. A short window produces a large one: over the
+    -- first few weeks live the error exceeds the estimate, which is the difference between
+    -- "earned this" and "cannot tell yet". `min_days` alone never catches that, because it
+    -- gates on how many days exist and not on whether they resolve anything.
+    --   SE(a) = sqrt( SSE/(n-2) * (1/n + avgx^2/Sxx) ),  SSE = Syy - Sxy^2/Sxx
+    case
+        when count(*) >= {{ min_days }} and count(*) > 2 and regr_sxx(rp, rb) > 0
+            then sqrt(
+                (regr_syy(rp, rb) - regr_sxy(rp, rb) * regr_sxy(rp, rb) / regr_sxx(rp, rb))
+                / (count(*) - 2)
+                * (1.0 / count(*) + regr_avgx(rp, rb) * regr_avgx(rp, rb) / regr_sxx(rp, rb))
+            ) * 252
+    end as alpha_std_error_annualized,
+    -- Intercept over its standard error. Above ~2 in absolute value the alpha is
+    -- distinguishable from zero at roughly two sigma; below it, the window has not
+    -- separated the signal from noise whatever the headline number says.
+    case
+        when count(*) >= {{ min_days }} and count(*) > 2 and regr_sxx(rp, rb) > 0
+            and (regr_syy(rp, rb) - regr_sxy(rp, rb) * regr_sxy(rp, rb) / regr_sxx(rp, rb)) > 0
+            then regr_intercept(rp, rb) / sqrt(
+                (regr_syy(rp, rb) - regr_sxy(rp, rb) * regr_sxy(rp, rb) / regr_sxx(rp, rb))
+                / (count(*) - 2)
+                * (1.0 / count(*) + regr_avgx(rp, rb) * regr_avgx(rp, rb) / regr_sxx(rp, rb))
+            )
+    end as alpha_t_stat,
     case when count(*) >= {{ min_days }} then regr_r2(rp, rb) end as r_squared,
     case when count(*) >= {{ min_days }} then corr(rp, rb) end as correlation,
     case when count(*) >= {{ min_days }} then stddev_samp(active_return) * sqrt(252) end
