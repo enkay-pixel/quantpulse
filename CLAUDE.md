@@ -170,6 +170,22 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   reported one "selected" feature on a market where nothing beat zero, because the first
   comparison was against negative infinity rather than against the skill of an empty set.
   Seed a running best at the value of doing nothing, not at a sentinel.
+- **Two models fitted to different panels are not comparable, and nothing records that.**
+  The NYSE champion was trained two days before a backfill tripled the history (panel began
+  2023-04; backfilled to 2018-04). It re-scores at IC 0.1777 on the shared holdout while
+  challengers trained on the long panel score ~0.06 — reproduced exactly by refitting on the
+  short panel (25 trees, 0.1792). The holdout sits right after the regime the short panel
+  covered, so a specialist beats generalists on their shared exam every time, which is the
+  whole promotion stall. `model_runs` stores each run's holdout window but not its training
+  span, so this is invisible in the data. Re-scoring the incumbent on the candidate's holdout
+  is necessary and not sufficient: same exam, different syllabus. Suspect it whenever an
+  incumbent looks untouchable, and note the live book was losing money the whole time that
+  incumbent scored 0.1777.
+- **Early stopping validates on RMSE while the gate scores IC.** On the full panel the final
+  fit stops after a single boosting round in seven of eight seeds — RMSE on noisy 21-day
+  forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding
+  trees fixed, IC peaks near 10-25 trees. A stopping rule has to watch the metric the
+  decision is made on.
 - **A green test run is not evidence.** Every serious bug in the incident log shipped with
   CI green and was found by reading data. Verify a new test by breaking the code it guards
   and watching it fail — and assert your sabotage actually applied, because a
