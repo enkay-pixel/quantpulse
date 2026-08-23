@@ -46,13 +46,18 @@ class Exchange:
     # fixed hyperparameters: a drop-one sweep and an independent forward selection both
     # found `vol_63` helps one market and hurts the other. Both sweeps hold parameters
     # fixed on purpose, so that a difference can be attributed to the feature rather than
-    # to retuning — and that is exactly why their result does not transfer here. Retuned,
-    # the pruned sets match the full one (paired +0.0041 +/- 0.0038 on XNYS, +0.0009 +/-
-    # 0.0070 on XJSE): the tuner finds regularization that absorbs the unhelpful columns.
+    # to retuning, so their result needs re-checking against a tuned model before it can be
+    # acted on. Re-checked at sixteen seeds, pruning XNYS to vol_21 does hold up: paired
+    # +0.0133 +/- 0.0044 (t +3.00), eleven of sixteen seeds positive. XJSE is unresolved at
+    # t +1.16 and would need about twenty-four.
     #
-    # So set this only on evidence gathered with tuning in the loop, the way the promotion
-    # gate trains. Names are validated against the engineered columns at resolution time,
-    # so a typo fails loudly instead of quietly training on a shorter list.
+    # Still empty on both, because a resolved effect is not the same as a decision: vol_21
+    # was selected on this panel, and +0.0133 is smaller than the round-to-round spread that
+    # early stopping already contributes. Set this on evidence from a fresh panel period,
+    # gathered with tuning in the loop the way the promotion gate trains.
+    #
+    # Names are validated against the engineered columns at resolution time, so a typo
+    # fails loudly instead of quietly training on a shorter list.
     feature_columns: tuple[str, ...] = ()
 
     @property
