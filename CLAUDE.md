@@ -265,8 +265,16 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   inside the app bundle, so a Docker Desktop upgrade that moves or renames that directory
   breaks `docker`, `docker-credential-osxkeychain` and `hub-tool` for all 17 launchd jobs
   at once — and silently, since nothing runs `which docker` after an upgrade. Re-check with
-  `readlink -f /opt/homebrew/bin/docker` after upgrading; relevant now, with 4.45.0
-  installed against a current 4.85.0.
+  `readlink -f /opt/homebrew/bin/docker` after upgrading. Checked 2026-08-23 on 4.87.0:
+  `docker` and `docker-credential-osxkeychain` both still resolve, `hub-tool` has gone from
+  PATH and nothing uses it.
+- **BuildKit can hang resolving registry metadata while the network is fine.** Symptom is
+  `failed to solve: DeadlineExceeded` on the `FROM` lines and `docker pull` hanging
+  indefinitely, while `curl https://ghcr.io/v2/` returns 401 in under a second — so
+  connectivity and the credential helper are both red herrings. Restarting Docker Desktop
+  clears it; `make down` first, since quitting with a run in flight strands it. And never
+  pipe a build to `/dev/null`: a failure is otherwise indistinguishable from a cache hit,
+  so the stale image keeps serving while you believe you deployed.
 - `pre-commit run gitleaks --all-files` is a **no-op that always passes** — the hook's entry
   is `gitleaks git --staged` with `pass_filenames: false`, so pre-commit's file list is
   discarded and an empty index scans nothing. Verify it with a real scan
