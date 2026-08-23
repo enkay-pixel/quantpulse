@@ -309,3 +309,39 @@ def test_the_newest_date_is_still_rescored_by_a_champion_that_predates_it(
         pipeline.score_latest(seeded, session, exchange="XNYS")
         session.commit()
     assert "7" in _scored(seeded)[DATES[3]]
+
+
+def test_nothing_to_score_returns_rather_than_predicting_on_an_empty_frame(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A promotion landing on a day with no new features leaves nothing eligible: every date
+    in the window was already scored by the outgoing champion and must not be re-scored. The
+    booster raises on an empty frame instead of returning nothing, so scoring has to bail out
+    before calling it — which is how a freshly promoted champion crashed the nightly run.
+
+    Reaching that branch takes a fully scored panel *and* a champion promoted after the last
+    feature date. With either missing, scoring exits on an earlier guard and this test would
+    pass without exercising anything.
+    """
+    with Session(seeded) as session:
+        assert pipeline.score_latest(seeded, session, exchange="XNYS") > 0
+        session.commit()
+
+    # The new champion was promoted after the newest feature date, so even the latest date
+    # is withheld — re-scoring it would relabel a live day as backfilled.
+    monkeypatch.setattr(
+        pipeline,
+        "champion_promoted_on",
+        lambda engine, exchange, version: max(DATES) + dt.timedelta(days=1),
+    )
+    exploding = SimpleNamespace(
+        feature_name=lambda: list(FEATURE_COLUMNS),
+        predict=lambda frame: pytest.fail("predict must not be called with nothing to score"),
+    )
+    monkeypatch.setattr(
+        registry,
+        "load_champion",
+        lambda exchange=None: (exploding, SimpleNamespace(version="9", run_id=None)),
+    )
+    with Session(seeded) as session:
+        assert pipeline.score_latest(seeded, session, exchange="XNYS") == 0
