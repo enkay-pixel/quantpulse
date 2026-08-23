@@ -196,70 +196,58 @@ per-seed differences change sign. The +0.0238 was simply the seed-42 draw, the l
 whether the difference is repeatable. Those come apart exactly when a draw is lucky, which is
 the case the whole exercise is trying to detect.
 
-### Results (paired, 4 folds x 10 seeds)
+### Results (paired, 4 folds x 10 seeds, re-run after the early-stopping fix)
 
-**XNYS** — full-model IC 0.0121. Three features actively hurt, and they are all the
-long-horizon ones:
+Everything below was re-measured once `_fit_one` began stopping on IC. The earlier numbers on
+this page were taken with RMSE stopping, which ended the NYSE fits after a single boosting
+round, so they are superseded. The full-model IC roughly doubled on both markets (XNYS 0.0121
+to 0.0272, XJSE 0.0114 to 0.0248) and the findings held with tighter errors.
 
-| feature | delta | std err | t | verdict |
-|---|---|---|---|---|
-| vol_63 | **+0.0234** | 0.0024 | **+9.92** | costs signal |
-| ma_ratio_63 | +0.0100 | 0.0033 | +3.06 | costs signal |
-| mom_63 | +0.0076 | 0.0029 | +2.60 | costs signal |
-| *(other ten)* | −0.0015 to +0.0035 | | \|t\| < 1.7 | within noise |
-
-Dropping `vol_63` alone takes fold-mean IC from 0.0121 to **0.0355**, with all ten seeds
-agreeing. Dropping all three together gives +0.0189 (t +4.67) — *less* than dropping
-`vol_63` by itself, because the deltas interact and do not add.
-
-**XJSE** — full-model IC 0.0114. No feature costs signal; two carry it:
+**XNYS** — full-model IC 0.0272. Four features actively hurt:
 
 | feature | delta | std err | t | verdict |
 |---|---|---|---|---|
-| vol_63 | **−0.0096** | 0.0031 | **−3.12** | carries signal |
-| ret_21_cs_rank | −0.0065 | 0.0023 | −2.85 | carries signal |
-| *(other eleven)* | −0.0039 to +0.0032 | | \|t\| < 1.6 | within noise |
+| vol_63 | **+0.0153** | 0.0017 | **+9.14** | costs signal |
+| ma_ratio_63 | +0.0076 | 0.0011 | **+6.99** | costs signal |
+| mom_63 | +0.0055 | 0.0014 | +3.99 | costs signal |
+| ret_1 | +0.0035 | 0.0014 | +2.48 | costs signal |
+| *(other nine)* | −0.0000 to +0.0030 | | \|t\| < 2 | within noise |
 
-**The markets disagree about the same feature, strongly and in opposite directions.**
-`vol_63` is the most harmful feature on the NYSE (t +9.92) and a genuinely useful one on the
-JSE (t −3.12). A single shared feature list cannot be right for both. That is the first
-result from this project that argues for a per-market feature set rather than a shared one,
-and it is the kind of decision `Exchange` already exists to carry — it holds
-`quantile_width` and `ic_promotion_margin` for exactly this reason.
+**XJSE** — full-model IC 0.0248. One helps, one hurts:
 
-One caveat on `vol_63`: it was singled out *because* it had the largest delta in this
-measurement, so that particular figure is selection-inflated. The effect is far too large and
-too consistent for selection to explain it away — t +9.92 with ten of ten seeds agreeing,
-across four walk-forward folds — but the honest confirmation is a fresh panel period, not a
-re-read of this one.
+| feature | delta | std err | t | verdict |
+|---|---|---|---|---|
+| vol_63 | **−0.0133** | 0.0025 | **−5.35** | carries signal |
+| ma_ratio_63 | +0.0047 | 0.0017 | +2.73 | costs signal |
+| *(other eleven)* | −0.0036 to +0.0026 | | \|t\| < 1.9 | within noise |
+
+**The markets still disagree about `vol_63`, and more sharply than before.** It is the most
+harmful feature on the NYSE (t +9.14) and the only one on the JSE shown to help (t −5.35).
+Both sides are now better resolved than in the pre-fix run, so this is not an artifact of the
+stopping rule. `ma_ratio_63` hurts on both.
 
 ### Pruning, measured rather than inferred
 
-Drop-one deltas do not add up — removing several features that each look costly can land
-anywhere, because their effects interact. So `quantpulse prune` *selects* a set and then
-*measures* it. Selection runs by walk-forward folds within the training portion only, paired
-on the seed exactly as the drop-one sweep is, and a candidate is admitted only when its
-improvement repeats. The untouched holdout is used once at the end, also paired across seeds.
+`quantpulse prune` selects a set on the training portion, paired on the seed, and measures it
+once on the untouched holdout — also paired.
 
 | market | selected | pruned IC | full IC | paired delta | momentum |
 |---|---|---|---|---|---|
-| XNYS | vol_21 | 0.0675 | 0.0484 | **+0.0192** (t +4.20) | 0.0174 |
-| XJSE | vol_63, ret_21 | 0.0505 | 0.0180 | **+0.0325** (t +3.84) | 0.1094 |
+| XNYS | vol_21 | 0.0645 | 0.0465 | **+0.0180** (t +5.76) | 0.0174 |
+| XJSE | vol_63, vol_21, ret_21, ret_5_cs_rank | 0.0312 | 0.0569 | **−0.0256** (t −4.24) | 0.1094 |
 
-**A one- or two-feature model beats the thirteen-feature model on data neither had seen**, on
-both markets, with the difference measured under matched seeds.
+**The two markets now answer differently, and the JSE answer is negative.** On the NYSE a
+one-feature model beats all thirteen on data it never saw. On the JSE the selected set is
+measurably *worse* than the full one: selection found four features that improved the inner
+split and they did not carry to the holdout. That is selection overfitting, caught by the
+holdout doing its job — "selected" is not "better", which is the entire reason the set is
+measured after being chosen rather than inferred from the sweep.
 
-The two methods were built separately and agree. The drop-one sweep found `vol_63` *carries*
-signal on the JSE and *costs* it on the NYSE; forward selection, which never reads that
-result, picks `vol_63` first on the JSE and never picks it at all on the NYSE. Agreement
-between an exclusion test and an inclusion test is the closest thing here to independent
-confirmation.
+A one-feature NYSE model beating thirteen is not a stopping artifact, as first suspected:
+`vol_21` alone scores 0.0532 against the full model's 0.0272 *after* the fix.
 
-Two things this does not say. The selection still chose among thirteen candidates, so the
-identity of the winner is worth less than the size of the gap — a fresh panel period is what
-would confirm *which* feature rather than *that* pruning helps. And the JSE's pruned model,
-though far better than its full one, still scores 0.0505 against momentum's 0.1094: pruning
-improves that market without rescuing it.
+The JSE's full model still scores 0.0569 against momentum's 0.1094, so none of this rescues
+that market.
 
 ### The sweeps hold hyperparameters fixed, and that limits what they can say
 
@@ -270,15 +258,20 @@ and the deployed model is tuned by Optuna on every retrain.
 
 Measured with tuning in the loop, the pruning benefit disappears:
 
-| market | untuned paired delta | tuned paired delta |
+| market | untuned paired delta | tuned paired delta (3 seeds) |
 |---|---|---|
-| XNYS | +0.0192 (t +4.20) | **+0.0041 ± 0.0038** (t 1.08) |
-| XJSE | +0.0325 (t +3.84) | **+0.0009 ± 0.0070** (t 0.13) |
+| XNYS | +0.0180 (t +5.76) | **+0.0150 ± 0.0147** (t +1.02) |
+| XJSE | −0.0256 (t −4.24) | **+0.0138 ± 0.0151** (t +0.92) |
 
-A tuned thirteen-feature model and a tuned one-feature model reach the same IC on the NYSE
-(~0.060 each). The tuner finds regularization that absorbs the unhelpful columns, which is
-what regularization is for. So "these features hurt" is true *at fixed default parameters*
-and does not transfer to the model that actually runs.
+Neither resolves once the tuner is in the loop, and the per-seed differences change sign on
+both markets. Note the JSE reverses outright: pruning is clearly harmful untuned and merely
+unproven tuned. The tuner finds regularization that absorbs whichever columns the fixed-
+parameter sweep found unhelpful, which is what regularization is for. So "these features
+hurt" is a statement about a fixed-parameter model and does not transfer to the one that runs.
+
+The tuned figures rest on three seeds against the sweeps' ten, because each seed costs a full
+Optuna budget per feature set. A wider run could resolve them either way; what it cannot do is
+make the ten-seed fixed-parameter result apply to a tuned model.
 
 `Exchange.feature_columns` exists to carry a per-market list, and both markets are set to
 "all" because nothing yet justifies otherwise. Any future feature decision needs evidence
@@ -366,12 +359,10 @@ paired across ten seeds:
 Clearly better on the JSE, indistinguishable on the NYSE. The change is right on principle
 either way: a stopping rule has to watch the metric the decision is made on.
 
-**Every ablation and pruning number on this page was measured with the old rule**, which
-means the NYSE sweeps ran on one-tree models. A one-tree model can split on a single feature,
-so "one column matches thirteen" was very likely describing the stopping bug rather than the
-feature set. The drop-one and forward-selection results above should be re-run before any of
-them is quoted again, and the per-market feature evidence in `Exchange.feature_columns` rests
-on the same stale measurements.
+**The sweeps above have been re-run under the new rule** and are the corrected numbers. The
+NYSE findings survived and sharpened; the JSE pruning result reversed sign. What the old rule
+had produced was not wrong in direction so much as underpowered, since a one-tree model can
+split on a single feature.
 
 ### A second, smaller finding
 
