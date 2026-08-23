@@ -1,6 +1,7 @@
 """LightGBM training with purged walk-forward CV and Optuna hyperparameter search."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,6 +42,43 @@ class TrainConfig:
     seed: int = 42
 
 
+def _ic_eval(val: pd.DataFrame) -> Callable[[np.ndarray, Any], tuple[str, float, bool]]:
+    """Early-stopping metric: the same information coefficient the promotion gate scores.
+
+    Stopping on RMSE while deciding on IC picks the wrong number of rounds. RMSE over noisy
+    21-day forward returns is dominated by variance the model cannot explain, so it flattens
+    almost at once and stopping fires long before ranking stops improving — on the full panel
+    that ended the fit after a single boosting round.
+
+    Spearman is computed as Pearson on within-date ranks, aggregated with bincount rather than
+    a groupby, because this runs on every boosting round and a per-date scipy loop over a
+    decade of dates dominates the fit.
+    """
+    codes = pd.factorize(val["date"])[0]
+    label_rank = pd.Series(val[LABEL_COLUMN].to_numpy()).groupby(codes).rank().to_numpy()
+    counts = np.bincount(codes).astype(float)
+    sum_y = np.bincount(codes, label_rank)
+    sum_yy = np.bincount(codes, label_rank * label_rank)
+
+    def _eval(preds: np.ndarray, _dataset: Any) -> tuple[str, float, bool]:
+        pred_rank = pd.Series(preds).groupby(codes).rank().to_numpy()
+        sum_x = np.bincount(codes, pred_rank)
+        sum_xx = np.bincount(codes, pred_rank * pred_rank)
+        sum_xy = np.bincount(codes, pred_rank * label_rank)
+        numerator = counts * sum_xy - sum_x * sum_y
+        denominator = np.sqrt(
+            np.maximum(counts * sum_xx - sum_x * sum_x, 0.0)
+            * np.maximum(counts * sum_yy - sum_y * sum_y, 0.0)
+        )
+        # A date with fewer than three names, or no spread in either ranking, carries no
+        # rank information; `information_coefficient` skips those too.
+        usable = (counts >= 3) & (denominator > 0)
+        ic = float(np.mean(numerator[usable] / denominator[usable])) if usable.any() else 0.0
+        return "ic", ic, True  # higher is better
+
+    return _eval
+
+
 def _fit_one(
     train: pd.DataFrame,
     val: pd.DataFrame,
@@ -51,10 +89,12 @@ def _fit_one(
     dtrain = lgb.Dataset(train[feature_cols], label=train[LABEL_COLUMN])
     dval = lgb.Dataset(val[feature_cols], label=val[LABEL_COLUMN], reference=dtrain)
     return lgb.train(
-        {**params, "seed": cfg.seed},
+        # "None" switches off the built-in metric so early stopping watches IC alone.
+        {**params, "seed": cfg.seed, "metric": "None"},
         dtrain,
         num_boost_round=cfg.num_boost_round,
         valid_sets=[dval],
+        feval=_ic_eval(val),
         callbacks=[lgb.early_stopping(cfg.early_stopping_rounds, verbose=False)],
     )
 

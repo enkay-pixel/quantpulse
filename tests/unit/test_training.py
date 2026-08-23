@@ -101,3 +101,82 @@ def test_final_fit_early_stops_on_inner_split_not_the_holdout(
     assert captured["val"], "early-stopping validation frame was never captured"
     assert not (captured["val"] & set(holdout["date"]))
     assert max(captured["val"]) < min(holdout["date"])
+
+
+# --- early stopping watches the metric the gate decides on ---------------------------------
+
+
+def _ic_pair(frame):  # type: ignore[no-untyped-def]
+    """(reference IC, fast early-stopping IC) for the same predictions."""
+    from quantpulse.ml.metrics import information_coefficient
+    from quantpulse.ml.training import _ic_eval
+
+    reference = information_coefficient(frame)
+    _, fast, higher_better = _ic_eval(frame)(frame["pred"].to_numpy(), None)
+    assert higher_better is True
+    return reference, fast
+
+
+def test_the_fast_ic_matches_the_one_the_gate_scores() -> None:
+    """The early-stopping metric is a second implementation of the gate's IC, written
+    vectorized because it runs every boosting round. If the two disagree the fit is stopped
+    on a number nobody is judged by, and nothing would report the divergence."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    dates = np.repeat(pd.date_range("2024-01-01", periods=40).date, 25)
+    frame = pd.DataFrame(
+        {
+            "date": dates,
+            "fwd_ret": rng.normal(size=len(dates)),
+            "pred": rng.normal(size=len(dates)),
+        }
+    )
+    reference, fast = _ic_pair(frame)
+    assert fast == pytest.approx(reference, abs=1e-9)
+
+
+def test_the_two_agree_when_ranks_are_tied() -> None:
+    """Ties are where a hand-rolled Spearman usually drifts from scipy's."""
+    import numpy as np
+    import pandas as pd
+
+    dates = np.repeat(pd.date_range("2024-01-01", periods=8).date, 10)
+    frame = pd.DataFrame(
+        {
+            "date": dates,
+            # Heavy ties in both columns.
+            "fwd_ret": np.tile([0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0], 8),
+            "pred": np.tile([5.0, 5.0, 5.0, 1.0, 1.0, 2.0, 2.0, 2.0, 9.0, 9.0], 8),
+        }
+    )
+    reference, fast = _ic_pair(frame)
+    assert fast == pytest.approx(reference, abs=1e-9)
+
+
+def test_a_date_with_no_rank_information_is_skipped_by_both() -> None:
+    """Fewer than three names, or a constant column, carries no ranking — counting it as
+    zero would drag the average toward nothing and stop the fit early."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(1)
+    good = pd.DataFrame(
+        {
+            "date": np.repeat(pd.date_range("2024-02-01", periods=10).date, 20),
+            "fwd_ret": rng.normal(size=200),
+            "pred": rng.normal(size=200),
+        }
+    )
+    degenerate = pd.DataFrame(
+        {
+            "date": [pd.Timestamp("2024-03-01").date()] * 2  # too few names
+            + [pd.Timestamp("2024-03-02").date()] * 5,  # constant prediction
+            "fwd_ret": [0.1, -0.2, 0.3, 0.1, -0.4, 0.2, 0.5],
+            "pred": [1.0, 2.0, 7.0, 7.0, 7.0, 7.0, 7.0],
+        }
+    )
+    frame = pd.concat([good, degenerate], ignore_index=True)
+    reference, fast = _ic_pair(frame)
+    assert fast == pytest.approx(reference, abs=1e-9)
