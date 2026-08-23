@@ -95,6 +95,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - dbt: `transform/`, profiles via env vars, tests use the `arguments:` nesting,
   package pins in `transform/package-lock.yml` (committed). Marts join the Dagster
   graph via dagster-dbt (group `transform`); sources map with `meta.dagster.asset_key`.
+- `web/package.json` carries an `allowScripts` entry for `fsevents@2.3.3`, vite's macOS
+  file-watcher. npm 11 refuses to run install scripts until each is approved by name and
+  exact version, so a bump needs re-approving — which is the point. Approve named
+  packages, never `--all`, or the next transitive dependency to add an install script
+  runs it unreviewed.
 - Frontend: palette/roles as CSS vars in `web/src/index.css` (dataviz method: legends
   for ≥2 series, status colors always icon+label, vendor chunks split).
 - Commits: imperative subject, body explains why, trailer
