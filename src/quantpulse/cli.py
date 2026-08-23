@@ -304,6 +304,72 @@ def _ablation(exchange: str | None) -> None:
             )
 
 
+def _staleness(exchange: str | None) -> None:
+    """Report how fast a frozen model loses skill, per market."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.staleness import staleness_curve
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            table = staleness_curve(engine, code)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        if table.empty:
+            logger.warning("%s: no age bucket had enough dates to score", code)
+            continue
+        logger.info(
+            "%s staleness: %d freeze points x %d seeds",
+            code,
+            table.attrs["origins"],
+            table.attrs["seeds"],
+        )
+        logger.info("%-14s %-10s %-10s %s", "age (days)", "IC", "std err", "window-fits")
+        for row in table.to_dict("records"):
+            logger.info(
+                "%-14s %+-10.4f %-10.4f %d",
+                f"{row['age_start']}-{row['age_end']}",
+                row["ic"],
+                row["ic_std_error"],
+                row["n_windows"],
+            )
+        first, last = table.iloc[0], table.iloc[-1]
+        change = last["ic"] - first["ic"]
+        pooled = (first["ic_std_error"] ** 2 + last["ic_std_error"] ** 2) ** 0.5
+        resolved = pooled > 0 and abs(change) >= 2 * pooled
+        if not resolved:
+            logger.info(
+                "  no change this window can resolve (%+.4f against %.4f) — measured "
+                "staleness does not justify any particular cadence",
+                change,
+                2 * pooled,
+            )
+            continue
+        if change < 0:
+            # The last age at which the model is still better than nothing is the cadence
+            # bound: past it the book is running on a model that hurts.
+            useful = [r for r in table.to_dict("records") if r["ic"] - 2 * r["ic_std_error"] > 0]
+            bound = f"{useful[-1]['age_end']} days" if useful else "less than the first bucket"
+            logger.info(
+                "  IC falls %+.4f from age %d to age %d (%.1f sd); still positive out to %s, "
+                "so retrain before a model is older than that",
+                change,
+                first["age_start"],
+                last["age_end"],
+                abs(change) / pooled,
+                bound,
+            )
+        else:
+            logger.info(
+                "  IC *rises* %+.4f with age (%.1f sd), which is not staleness — a model that "
+                "predicts worst when freshest points at the training window, not the cadence",
+                change,
+                abs(change) / pooled,
+            )
+
+
 def _baseline(exchange: str | None) -> None:
     """Compare the champion against simpler models on one shared holdout.
 
@@ -439,6 +505,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     sub.add_parser("sensitivity", help="Backtest sensitivity to trading cost and borrow rate")
     base = sub.add_parser("baseline", help="Compare the champion against simpler models")
+    stale = sub.add_parser("staleness", help="Report how fast a frozen model loses skill")
+    stale.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     abl = sub.add_parser("ablation", help="Report which features earn their place")
     prn = sub.add_parser("prune", help="Select a feature set from evidence and measure it")
     prn.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
@@ -480,6 +548,8 @@ def main(argv: list[str] | None = None) -> None:
         _ablation(args.exchange)
     elif args.command == "prune":
         _prune(args.exchange)
+    elif args.command == "staleness":
+        _staleness(args.exchange)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":
