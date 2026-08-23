@@ -281,7 +281,7 @@ def score_history(
     was never trained for.
     """
     from quantpulse.db import Prediction
-    from quantpulse.features.engineering import FEATURE_COLUMNS, FEATURE_VERSION
+    from quantpulse.features.engineering import FEATURE_VERSION
     from quantpulse.features.store import load_features
     from quantpulse.ml import registry
 
@@ -296,7 +296,7 @@ def score_history(
     if features.empty:
         return 0
     features = features.copy()
-    features["score"] = np.asarray(booster.predict(features[list(FEATURE_COLUMNS)]))
+    features["score"] = registry.predict_with(booster, features)
     records = [
         {
             "ticker": cast(str, row["ticker"]),

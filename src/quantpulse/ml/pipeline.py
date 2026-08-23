@@ -7,7 +7,6 @@ the glue between the feature store, LightGBM training, MLflow, and Postgres audi
 import datetime as dt
 import logging
 
-import numpy as np
 import pandas as pd
 from sqlalchemy import Engine, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -16,10 +15,10 @@ from sqlalchemy.orm import Session
 from quantpulse.data.calendar import DEFAULT_EXCHANGE, get_exchange
 from quantpulse.db import ModelRun, Prediction
 from quantpulse.features.engineering import (
-    FEATURE_COLUMNS,
     FEATURE_VERSION,
     build_training_frame,
     compute_features,
+    feature_columns_for,
     make_forward_returns,
 )
 from quantpulse.features.store import load_features, load_price_bars
@@ -81,7 +80,9 @@ def train_evaluate_promote(
         registry.configure(tracking_uri)
 
     frame = build_dataset(engine, cfg, exchange)
-    feature_cols = list(FEATURE_COLUMNS)
+    # The market's own list, not every engineered column: the two markets measurably
+    # disagree about which features help (see Exchange.feature_columns).
+    feature_cols = feature_columns_for(exchange)
 
     params = tune_hyperparameters(frame, feature_cols, cfg)
     booster, holdout = train_final_model(frame, feature_cols, params, cfg)
@@ -105,7 +106,7 @@ def train_evaluate_promote(
     if champion is not None:
         champ_booster, _ = champion
         rescored = holdout.copy()
-        rescored["pred"] = np.asarray(champ_booster.predict(rescored[feature_cols]))
+        rescored["pred"] = registry.predict_with(champ_booster, rescored)
         incumbent_metrics = score_holdout(rescored, width)
         logger.info(
             "%s incumbent re-scored on candidate's holdout: sharpe=%.3f ic=%.4f",
@@ -297,7 +298,7 @@ def score_latest(
             promoted_on,
         )
     to_score = recent[recent["date"].isin(pending)].copy()
-    to_score["score"] = np.asarray(booster.predict(to_score[list(FEATURE_COLUMNS)]))
+    to_score["score"] = registry.predict_with(booster, to_score)
 
     records = [
         {

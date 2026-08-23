@@ -261,6 +261,33 @@ would confirm *which* feature rather than *that* pruning helps. And the JSE's pr
 though far better than its full one, still scores 0.0505 against momentum's 0.1094: pruning
 improves that market without rescuing it.
 
+### The sweeps hold hyperparameters fixed, and that limits what they can say
+
+Both the drop-one sweep and forward selection train at `DEFAULT_PARAMS`. That is deliberate:
+retuning per subset varies two things at once, and the difference could no longer be
+attributed to the feature. But it means every result above describes an **untuned** model,
+and the deployed model is tuned by Optuna on every retrain.
+
+Measured with tuning in the loop, the pruning benefit disappears:
+
+| market | untuned paired delta | tuned paired delta |
+|---|---|---|
+| XNYS | +0.0192 (t +4.20) | **+0.0041 ± 0.0038** (t 1.08) |
+| XJSE | +0.0325 (t +3.84) | **+0.0009 ± 0.0070** (t 0.13) |
+
+A tuned thirteen-feature model and a tuned one-feature model reach the same IC on the NYSE
+(~0.060 each). The tuner finds regularization that absorbs the unhelpful columns, which is
+what regularization is for. So "these features hurt" is true *at fixed default parameters*
+and does not transfer to the model that actually runs.
+
+`Exchange.feature_columns` exists to carry a per-market list, and both markets are set to
+"all" because nothing yet justifies otherwise. Any future feature decision needs evidence
+gathered the way the gate trains — with tuning in the loop — not from these sweeps alone.
+
+This does not make the sweeps useless. They still show, robustly, that the feature set is
+doing very little work: a single column matches thirteen once either is tuned. It is the
+*action* that the evidence does not support, not the diagnosis.
+
 ### What actually survives as a finding
 
 Stripping out everything the noise floor now disallows, two results stand:

@@ -5,6 +5,8 @@ from typing import Any
 
 import lightgbm as lgb
 import mlflow
+import numpy as np
+import pandas as pd
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.tracking import MlflowClient
 
@@ -110,3 +112,15 @@ def champion_metrics(
         return None
     run = client.get_run(champion.run_id)
     return dict(run.data.metrics)
+
+
+def predict_with(booster: Any, frame: pd.DataFrame) -> np.ndarray:
+    """Score `frame` with `booster`, using the columns the booster was actually trained on.
+
+    A model is not interchangeable with the feature list that happens to be current. Once
+    different markets train on different columns — or the list changes at all — selecting
+    features by a module-level constant feeds one model another's matrix, and the incumbent
+    in a promotion gate is exactly where that goes unnoticed: it still returns numbers.
+    Asking the booster removes the second copy of the truth.
+    """
+    return np.asarray(booster.predict(frame[booster.feature_name()]))

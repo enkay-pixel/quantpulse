@@ -86,3 +86,25 @@ def build_training_frame(features: pd.DataFrame, targets: pd.DataFrame) -> pd.Da
     """Inner-join features and targets on (ticker, date)."""
     frame = features.merge(targets, on=["ticker", "date"], how="inner")
     return frame.sort_values(["date", "ticker"]).reset_index(drop=True)
+
+
+def feature_columns_for(exchange: str | None = None) -> list[str]:
+    """The columns one market trains on, defaulting to all engineered features.
+
+    Validated rather than trusted: a name that is not an engineered column is a typo, and
+    silently dropping it would train a shorter model that still fits, still scores and still
+    reports a number — the failure would surface as a worse model weeks later, attributed to
+    anything but a misspelling.
+    """
+    from quantpulse.data.calendar import get_exchange
+
+    chosen = get_exchange(exchange).feature_columns
+    if not chosen:
+        return list(FEATURE_COLUMNS)
+    unknown = [c for c in chosen if c not in FEATURE_COLUMNS]
+    if unknown:
+        raise ValueError(
+            f"{get_exchange(exchange).code} names features that are not engineered: "
+            f"{unknown}; known: {sorted(FEATURE_COLUMNS)}"
+        )
+    return list(chosen)
