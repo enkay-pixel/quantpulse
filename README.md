@@ -54,6 +54,9 @@ column is for: clearing 20 days does not make an estimate mean anything.
 
 The replay figures below are in-sample throughout. They describe a fit, not a forecast.
 
+**Full documentation: [docs/](docs/README.md)** — roadmap, runbook, architecture,
+the incident log, and the ADRs.
+
 ![QuantPulse dashboard](docs/assets/dashboard.png)
 
 <details>

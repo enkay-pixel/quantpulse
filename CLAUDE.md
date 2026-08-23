@@ -105,6 +105,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   runs it unreviewed.
 - Frontend: palette/roles as CSS vars in `web/src/index.css` (dataviz method: legends
   for ≥2 series, status colors always icon+label, vendor chunks split).
+- Docs live in `docs/`, indexed by [docs/README.md](docs/README.md). The repo root is also
+  an Obsidian vault (`.obsidian/app.json` committed, per-machine state gitignored). Write
+  **markdown links, never `[[wikilinks]]`** — they render as literal brackets on GitHub,
+  which is where this is actually read. `scripts/check_doc_links.py` fails CI on a wikilink
+  or a relative link that points nowhere, so the rule does not rely on being remembered.
+  Publishing a site later means Quartz on GitHub Pages, which is free; Obsidian Publish is
+  $8/month and declined.
 - Commits: imperative subject, body explains why, trailer
   `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. Pre-commit hooks installed —
   incl. gitleaks (222 rules) over every staged diff, since this repo is public and a
