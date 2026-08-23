@@ -101,17 +101,34 @@ def _features() -> None:
     logger.info("Stored %d feature rows (version %s)", written, FEATURE_VERSION)
 
 
-def _train() -> None:
+def _train(exchange: str | None = None) -> None:
+    """Retrain every market, or one when named.
+
+    `train_evaluate_promote` handles a single market, so a caller that omits the exchange
+    silently gets the default one and a summary that reads like a full retrain. The
+    scheduled path loops markets itself; this one has to as well, or the two disagree about
+    what "train" means.
+    """
+    from quantpulse.data.calendar import EXCHANGES, get_exchange
+    from quantpulse.data.universe import active_tickers
     from quantpulse.db import get_engine, get_session
     from quantpulse.ml.pipeline import train_evaluate_promote
 
     settings = get_settings()
-    with get_session() as session:
-        summary = train_evaluate_promote(
-            get_engine(), session, tracking_uri=settings.mlflow_tracking_uri
-        )
-    for key, value in summary.items():
-        logger.info("%-24s %s", key, value)
+    codes = [get_exchange(exchange).code] if exchange else sorted(EXCHANGES)
+    for code in codes:
+        with get_session() as session:
+            if not active_tickers(session, code):
+                logger.info("%s: no active tickers — skipping", code)
+                continue
+            summary = train_evaluate_promote(
+                get_engine(),
+                session,
+                tracking_uri=settings.mlflow_tracking_uri,
+                exchange=code,
+            )
+        for key, value in summary.items():
+            logger.info("%-24s %s", key, value)
 
 
 def _score(replay: bool, exchange: str | None = None) -> None:
@@ -432,7 +449,8 @@ def main(argv: list[str] | None = None) -> None:
     dem.add_argument("--version", default=None, help="Version to demote (default: champion)")
     dem.add_argument("--dry-run", action="store_true", help="Report the plan, change nothing")
     base.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
-    sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
+    trn = sub.add_parser("train", help="Train, evaluate, and maybe promote a model")
+    trn.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     score = sub.add_parser("score", help="Score features with the champion model")
     score.add_argument(
         "--replay",
@@ -465,7 +483,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":
-        _train()
+        _train(args.exchange)
     elif args.command == "score":
         _score(args.replay, args.exchange)
 
