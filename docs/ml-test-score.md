@@ -353,6 +353,26 @@ Three things follow.
 so nothing in the data would have shown this. Two models fitted to different histories are
 not comparable, and the gate has no way to know.
 
+### The early-stopping mismatch is fixed, and it invalidates the sweeps above
+
+`_fit_one` now early-stops on IC — the metric the gate decides on — instead of RMSE. Measured
+paired across ten seeds:
+
+| market | trees (median) | paired IC delta | seeds better |
+|---|---|---|---|
+| XNYS | 1 → 12 | −0.0019 ± 0.0033 (t −0.57) | 4/10 |
+| XJSE | 1 → 22 | **+0.0389 ± 0.0112 (t +3.48)** | 8/10 |
+
+Clearly better on the JSE, indistinguishable on the NYSE. The change is right on principle
+either way: a stopping rule has to watch the metric the decision is made on.
+
+**Every ablation and pruning number on this page was measured with the old rule**, which
+means the NYSE sweeps ran on one-tree models. A one-tree model can split on a single feature,
+so "one column matches thirteen" was very likely describing the stopping bug rather than the
+feature set. The drop-one and forward-selection results above should be re-run before any of
+them is quoted again, and the per-market feature evidence in `Exchange.feature_columns` rests
+on the same stale measurements.
+
 ### A second, smaller finding
 
 On the full panel, early stopping fires after **one boosting round** in seven of eight seeds:
