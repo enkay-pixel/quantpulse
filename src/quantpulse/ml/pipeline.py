@@ -27,7 +27,12 @@ from quantpulse.ml.backtest import BacktestConfig, run_backtest
 from quantpulse.ml.baselines import STANDING_COMPETITOR, standing_competitor_metrics
 from quantpulse.ml.metrics import information_coefficient
 from quantpulse.ml.promotion import PromotionPolicy, decide_promotion
-from quantpulse.ml.training import TrainConfig, train_final_model, tune_hyperparameters
+from quantpulse.ml.training import (
+    TrainConfig,
+    split_by_date,
+    train_final_model,
+    tune_hyperparameters,
+)
 from quantpulse.utils import chunked
 
 logger = logging.getLogger(__name__)
@@ -86,6 +91,8 @@ def train_evaluate_promote(
 
     params = tune_hyperparameters(frame, feature_cols, cfg)
     booster, holdout = train_final_model(frame, feature_cols, params, cfg)
+    train_frame, _ = split_by_date(frame, 0.15, cfg.embargo_days)
+    train_span = (str(train_frame["date"].min()), str(train_frame["date"].max()))
 
     # The gate must measure the construction the market actually runs: judging a 20%
     # book while the JSE trades a 35% one would promote on evidence about a portfolio
@@ -94,7 +101,13 @@ def train_evaluate_promote(
     candidate_metrics = score_holdout(holdout, width)
 
     version = registry.log_candidate(
-        booster, params, candidate_metrics, feature_cols, FEATURE_VERSION, exchange=exchange
+        booster,
+        params,
+        candidate_metrics,
+        feature_cols,
+        FEATURE_VERSION,
+        exchange=exchange,
+        train_span=train_span,
     )
     # Both models sit the SAME exam: the incumbent is re-scored on this run's holdout
     # under this run's code, never trusted from its stored metrics. Stored numbers go stale
@@ -103,8 +116,9 @@ def train_evaluate_promote(
     # was examined on different data.
     champion = registry.load_champion(exchange=exchange)
     incumbent_metrics = None
+    incumbent_span: tuple[str, str] | None = None
     if champion is not None:
-        champ_booster, _ = champion
+        champ_booster, champ_version = champion
         rescored = holdout.copy()
         rescored["pred"] = registry.predict_with(champ_booster, rescored)
         incumbent_metrics = score_holdout(rescored, width)
@@ -114,6 +128,28 @@ def train_evaluate_promote(
             incumbent_metrics["holdout_sharpe"],
             incumbent_metrics["holdout_ic"],
         )
+        # The same holdout is not the same exam if the two models read different histories.
+        # A panel that grew after the incumbent was fitted leaves it specialised on the
+        # window the gate now scores, and it will win every comparison on that window while
+        # the live book says otherwise. Say so rather than leave it to be excavated later.
+        incumbent_span = registry.training_span(champ_version)
+        if incumbent_span is None:
+            logger.warning(
+                "%s incumbent v%s records no training span, so it cannot be shown to have "
+                "been fitted to the same history as this candidate (%s to %s)",
+                exchange,
+                champ_version.version,
+                *train_span,
+            )
+        elif incumbent_span != train_span:
+            logger.warning(
+                "%s incumbent v%s was fitted to %s..%s and this candidate to %s..%s — the "
+                "comparison below is between models that read different histories",
+                exchange,
+                champ_version.version,
+                *incumbent_span,
+                *train_span,
+            )
     # The IC margin is per-market: a thinner cross-section re-rolls wider, so the JSE needs
     # a larger difference before it means anything (see Exchange.ic_promotion_margin).
     policy = PromotionPolicy(min_ic_improvement=get_exchange(exchange).ic_promotion_margin)
@@ -140,6 +176,15 @@ def train_evaluate_promote(
         "holdout_start": str(holdout["date"].min()),
         "holdout_end": str(holdout["date"].max()),
         "holdout_days": int(holdout["date"].nunique()),
+        # The syllabus beside the exam. A holdout defined as a fraction of the panel moves
+        # when the panel grows, and so does what a model was trained on.
+        "train_start": train_span[0],
+        "train_end": train_span[1],
+        **(
+            {"incumbent_train_start": incumbent_span[0], "incumbent_train_end": incumbent_span[1]}
+            if incumbent_span
+            else {}
+        ),
         # What the model had to beat, stored beside what it scored. Without it a rejection
         # reads as "IC 0.068" with no way to see that the bar was 0.117.
         f"baseline_{STANDING_COMPETITOR}_ic": round(baseline_metrics["holdout_ic"], 6),
