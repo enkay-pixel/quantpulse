@@ -66,3 +66,56 @@ def test_each_exchange_has_a_distinct_session_clock() -> None:
     assert XNYS.timezone != XJSE.timezone
     assert XJSE.close_hour == 17  # JSE closes 17:00 SAST
     assert XNYS.close_hour == 16
+
+
+# --- per-market feature sets --------------------------------------------------------------
+
+
+def test_every_market_names_only_features_that_exist() -> None:
+    """A misspelled column would be dropped silently and the market would train a shorter
+    model that still fits, still scores and still reports a number. The failure would look
+    like a worse model weeks later, attributed to anything but a typo."""
+    from quantpulse.features.engineering import FEATURE_COLUMNS, feature_columns_for
+
+    for code in EXCHANGES:
+        cols = feature_columns_for(code)
+        assert cols, f"{code} resolved to an empty feature list"
+        assert set(cols) <= set(FEATURE_COLUMNS)
+
+
+def test_an_unknown_feature_name_is_rejected_loudly(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dataclasses import replace
+
+    from quantpulse.data import calendar
+    from quantpulse.features.engineering import feature_columns_for
+
+    broken = replace(calendar.XNYS, feature_columns=("vol_21", "vol_21_typo"))
+    monkeypatch.setitem(calendar.EXCHANGES, "XNYS", broken)
+    with pytest.raises(ValueError, match="not engineered"):
+        feature_columns_for("XNYS")
+
+
+def test_an_empty_list_means_every_engineered_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The default has to stay 'all', or adding a market would silently train it on nothing."""
+    from dataclasses import replace
+
+    from quantpulse.data import calendar
+    from quantpulse.features.engineering import FEATURE_COLUMNS, feature_columns_for
+
+    monkeypatch.setitem(calendar.EXCHANGES, "XNYS", replace(calendar.XNYS, feature_columns=()))
+    assert feature_columns_for("XNYS") == list(FEATURE_COLUMNS)
+
+
+def test_a_market_can_carry_its_own_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both markets currently train on everything, so this pins the mechanism rather than
+    today's values — the field is what lets them diverge when evidence supports it."""
+    from dataclasses import replace
+
+    from quantpulse.data import calendar
+    from quantpulse.features.engineering import FEATURE_COLUMNS, feature_columns_for
+
+    monkeypatch.setitem(
+        calendar.EXCHANGES, "XNYS", replace(calendar.XNYS, feature_columns=("vol_21",))
+    )
+    assert feature_columns_for("XNYS") == ["vol_21"]
+    assert feature_columns_for("XJSE") == list(FEATURE_COLUMNS)

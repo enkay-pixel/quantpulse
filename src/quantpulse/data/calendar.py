@@ -39,6 +39,21 @@ class Exchange:
     # which is why the gate compares IC and keeps Sharpe only as a floor. Re-measure with
     # the variance study when the panel or the evaluation code changes materially.
     ic_promotion_margin: float = 0.006
+    # Features this market trains on. Empty means every engineered column, which is what
+    # both markets currently use.
+    #
+    # The field exists because the markets measurably disagree about the same feature at
+    # fixed hyperparameters: a drop-one sweep and an independent forward selection both
+    # found `vol_63` helps one market and hurts the other. Both sweeps hold parameters
+    # fixed on purpose, so that a difference can be attributed to the feature rather than
+    # to retuning — and that is exactly why their result does not transfer here. Retuned,
+    # the pruned sets match the full one (paired +0.0041 +/- 0.0038 on XNYS, +0.0009 +/-
+    # 0.0070 on XJSE): the tuner finds regularization that absorbs the unhelpful columns.
+    #
+    # So set this only on evidence gathered with tuning in the loop, the way the promotion
+    # gate trains. Names are validated against the engineered columns at resolution time,
+    # so a typo fails loudly instead of quietly training on a shorter list.
+    feature_columns: tuple[str, ...] = ()
 
     @property
     def tz(self) -> ZoneInfo:

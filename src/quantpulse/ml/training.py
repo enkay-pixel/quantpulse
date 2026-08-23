@@ -1,7 +1,7 @@
 """LightGBM training with purged walk-forward CV and Optuna hyperparameter search."""
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import lightgbm as lgb
@@ -39,7 +39,6 @@ class TrainConfig:
     early_stopping_rounds: int = 50
     optuna_trials: int = 15
     seed: int = 42
-    feature_columns: tuple[str, ...] = field(default_factory=tuple)
 
 
 def _fit_one(
