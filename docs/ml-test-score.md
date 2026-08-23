@@ -256,30 +256,37 @@ retuning per subset varies two things at once, and the difference could no longe
 attributed to the feature. But it means every result above describes an **untuned** model,
 and the deployed model is tuned by Optuna on every retrain.
 
-Measured with tuning in the loop, the pruning benefit disappears:
+Measured with tuning in the loop, at increasing sample size:
 
-| market | untuned paired delta | tuned paired delta (3 seeds) |
-|---|---|---|
-| XNYS | +0.0180 (t +5.76) | **+0.0150 ± 0.0147** (t +1.02) |
-| XJSE | −0.0256 (t −4.24) | **+0.0138 ± 0.0151** (t +0.92) |
+| market | untuned | tuned, 3 seeds | tuned, 8 seeds | tuned, 16 seeds |
+|---|---|---|---|---|
+| XNYS | +0.0180 (t +5.76) | +0.0150 ± 0.0147 (t 1.02) | +0.0128 ± 0.0072 (t 1.79) | **+0.0133 ± 0.0044 (t +3.00)** |
+| XJSE | −0.0256 (t −4.24) | +0.0138 ± 0.0151 (t 0.92) | +0.0123 ± 0.0106 (t 1.16) | not run |
 
-Neither resolves once the tuner is in the loop, and the per-seed differences change sign on
-both markets. Note the JSE reverses outright: pruning is clearly harmful untuned and merely
-unproven tuned. The tuner finds regularization that absorbs whichever columns the fixed-
-parameter sweep found unhelpful, which is what regularization is for. So "these features
-hurt" is a statement about a fixed-parameter model and does not transfer to the one that runs.
+**On the NYSE, pruning survives tuning.** This page previously said it did not, twice, on
+three and then eight seeds. That was a power problem read as a null result: the mean barely
+moved across sample sizes (+0.0150, +0.0128, +0.0133) while the standard error fell as the
+square root of n, which is a stable estimate waiting for resolution rather than an absent
+effect. Eleven of sixteen seeds are positive.
 
-The tuned figures rest on three seeds against the sweeps' ten, because each seed costs a full
-Optuna budget per feature set. A wider run could resolve them either way; what it cannot do is
-make the ten-seed fixed-parameter result apply to a tuned model.
+The JSE remains unresolved at t +1.16 and would need roughly twenty-four seeds. It is not
+worth the compute while that market loses to a fit-free momentum rule regardless.
 
-`Exchange.feature_columns` exists to carry a per-market list, and both markets are set to
-"all" because nothing yet justifies otherwise. Any future feature decision needs evidence
-gathered the way the gate trains — with tuning in the loop — not from these sweeps alone.
+Two caveats sit on the NYSE number, and they are the reason this is reported rather than
+acted on:
 
-This does not make the sweeps useless. They still show, robustly, that the feature set is
-doing very little work: a single column matches thirteen once either is tuned. It is the
-*action* that the evidence does not support, not the diagnosis.
+- **`vol_21` was chosen on this panel.** Forward selection picked it from thirteen candidates
+  using walk-forward folds *inside the training portion*, so the choice never saw the
+  holdout — but the holdout has now been read many times across this work, and repeated
+  looks at one window inflate confidence in whatever survives them. The claim this supports
+  is "pruning helps here", not "`vol_21` is the right column".
+- **+0.0133 is smaller than the ~0.03 round-to-round spread** from the early-stopping
+  finding above. Pairing on the seed controls part of that, since both arms are tuned, but
+  not all of it.
+
+Confirming on a fresh panel period is what would settle both. Until then
+`Exchange.feature_columns` stays at "all" on both markets: the field exists to carry this
+decision, and the decision is a modelling change rather than a measurement.
 
 ### What actually survives as a finding
 
