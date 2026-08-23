@@ -31,6 +31,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check the hook and CI agree on a uv version
+        run: |
+          hook_rev="$(grep -A1 'repo: https://github.com/astral-sh/uv-pre-commit$' \
+            .pre-commit-config.yaml | sed -n 's/.*rev: *//p')"
+          # Read the version out of the setup-uv block itself, not the first `version:` in
+          # the file — pinning any other action would otherwise silently become the thing
+          # this compares against.
+          ci_ver="$(awk '/astral-sh\/setup-uv/{f=1} f && /version: "/{
+            gsub(/.*version: "|".*/, ""); print; exit}' .github/workflows/ci.yml)"
+          if [ -z "$hook_rev" ] || [ -z "$ci_ver" ]; then
+            echo "could not read a uv version: hook='$hook_rev' ci='$ci_ver'" >&2
+            exit 1
+          fi
+          if [ "$hook_rev" != "$ci_ver" ]; then
+            echo "uv drift: .pre-commit-config.yaml=$hook_rev ci.yml=$ci_ver" >&2
+            exit 1
+          fi
+
       - name: Check the hook and pyproject agree on a ruff version
         # CI lints with the pinned ruff from uv.lock while commits are formatted by the
         # pre-commit hook's own copy. Nothing updates the hook rev when the pin moves, so
@@ -53,6 +71,10 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          # Pinned so CI and the uv-lock hook write the same lock format. Unpinned, CI
+          # tracks whatever uv released this morning while the hook stays where it was,
+          # and the lock they disagree about is the one every install reads.
+          version: "0.11.29"
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
