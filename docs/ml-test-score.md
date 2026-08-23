@@ -372,6 +372,47 @@ noisy 21-day forward returns plateaus immediately. Holding trees fixed, IC peaks
 trees (0.062) against 0.050 at one tree. So candidates are also being cut short — worth about
 0.01 IC, independent of the panel problem above.
 
+## Model staleness result (2026-08-23)
+
+The weekly retrain cadence was chosen, never measured. `quantpulse staleness` freezes a model
+and scores it on successive windows *after* its training data ends, so decay is read off a
+curve. The freeze point is rolled across five origins and five seeds, and each age pools 25
+window-fits — a single origin gives each age one 21-day window, whose IC swings far more with
+*which* three weeks it covers than with anything about the model.
+
+**XNYS** — skill for about six weeks, then negative:
+
+| model age | IC | std err |
+|---|---|---|
+| 0–20 days | +0.0793 | 0.0319 |
+| 21–41 days | +0.1253 | 0.0437 |
+| 42–62 days | −0.0431 | 0.0430 |
+| 63–83 days | −0.0704 | 0.0234 |
+
+IC falls 0.1498 from the first bucket to the last (3.8 sd) and is still positive out to
+41 days. **The weekly cadence is comfortably inside that bound** — the first thing this
+project has done that measurement actually supports rather than merely permits. It also sets
+the outer limit: a champion older than about six weeks is worse than nothing.
+
+**XJSE** — the curve goes the wrong way:
+
+| model age | IC | std err |
+|---|---|---|
+| 0–20 days | −0.1558 | 0.0526 |
+| 21–41 days | −0.1106 | 0.0396 |
+| 42–62 days | −0.1012 | 0.0407 |
+| 63–83 days | +0.0219 | 0.0372 |
+
+IC *rises* with age (2.8 sd) and is negative for the first two months. **A model that predicts
+worst when it is freshest is not stale** — whatever is wrong sits in the training window, not
+the cadence. This lines up with everything else measured on the JSE: it loses to a fit-free
+momentum rule, its full-model IC is inside its own noise, and its live information ratio is
+negative. Retraining it more often would not help; it is the wrong model for that market.
+
+Both curves are measured at `DEFAULT_PARAMS`, like the feature sweeps, for the same reason —
+retuning per origin would vary two things at once. The caveat carries over: this describes a
+fixed-parameter model, and the deployed one is tuned.
+
 ## Gaps, ranked by value per unit of effort
 
 1. ~~No simpler-model baseline~~ — **built, and momentum is now a standing competitor in
@@ -381,9 +422,9 @@ trees (0.062) against 0.050 at one tree. So candidates are also being cut short 
    cannot touch: it governs promotion, not incumbency. Withdrawing it is now a single
    command (`quantpulse demote`, built the same day) — but whether to pull it is a judgement
    call, not something the pipeline should make.
-2. **Model staleness unmeasured** (Model 4). The weekly retrain cadence is arbitrary. One
-   experiment — score a frozen champion forward and watch IC decay — turns it into a
-   measurement.
+2. ~~Model staleness unmeasured~~ — **measured 2026-08-23** (see above). NYSE skill lasts
+   about six weeks, so the weekly cadence is justified rather than arbitrary. The JSE curve
+   rises with age, which is a finding about that model rather than about any cadence.
 3. ~~No feature ablation~~ — **built and run 2026-08-22; the sweep is underpowered on one
    holdout.** Drop-one, single-feature and forward selection all exist, and all report the
    same thing: the seed-only noise floor (0.0375 XNYS, 0.0228 XJSE) is larger than any
@@ -391,9 +432,17 @@ trees (0.062) against 0.050 at one tree. So candidates are also being cut short 
    The next step is not a feature change but more resolution — repeated splits or several
    walk-forward windows, averaged, so the floor drops below the effects. Every feature
    decision waits on that.
-4. **Offline/online correlation** (Model 2). Cannot be closed by work, only by time; it is
-   what the live track record accrues toward.
-5. **No canary** (Infra 6). Genuinely low priority while the book is paper.
+4. **Offline/online correlation** (Model 2). Still open, and still not closeable by work —
+   only by time. The live record is 24 NYSE and 20 JSE sessions, which is far too short to
+   correlate against anything. Worth revisiting at roughly 250 sessions, and worth noting
+   that the strongest evidence gathered this year points the wrong way: the NYSE incumbent
+   scored 0.1777 on its holdout while the live book lost money, which is one data point
+   against holdout IC predicting live behaviour at all.
+5. **No canary** (Infra 6). Declined for now rather than merely deprioritised. A canary
+   answers "does the new model behave sanely on live traffic before it takes over", and
+   this book is paper — the promotion gate already re-scores both models on the same
+   holdout, and a bad promotion costs a paper drawdown and a `quantpulse demote`. Revisit
+   if real money is ever attached.
 
 ## What the rubric does not cover
 

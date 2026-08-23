@@ -198,6 +198,14 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding
   trees fixed, IC peaks near 10-25 trees. A stopping rule has to watch the metric the
   decision is made on.
+- **A model is useful for a measurable time, and it is not forever.** `quantpulse staleness`
+  freezes a model and scores it forward across rolling origins. NYSE IC is positive out to
+  ~41 days and negative by 63, so the weekly cadence is justified and a champion older than
+  about six weeks is worse than nothing. The JSE curve *rises* with age, which is not
+  staleness — a model predicting worst when freshest points at the training window. Roll the
+  origin when measuring this: one freeze point gives each age a single 21-day IC, which
+  swings on which three weeks it covers, and a first version quoting seed-to-seed error
+  reported those swings as significant decay.
 - **A green test run is not evidence.** Every serious bug in the incident log shipped with
   CI green and was found by reading data. Verify a new test by breaking the code it guards
   and watching it fail — and assert your sabotage actually applied, because a
