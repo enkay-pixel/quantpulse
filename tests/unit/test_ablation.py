@@ -160,47 +160,14 @@ def test_the_report_says_how_many_seeds_backed_it(report) -> None:  # type: igno
     assert table.attrs["full_ic"] == pytest.approx(0.010)
 
 
-# --- the measured floor ------------------------------------------------------------------
-
-
-def test_the_floor_is_two_sd_of_the_seed_reroll(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Borrowing a floor measured under a different procedure is what turns seed noise into
-    a ranked list, so this number has to come from re-rolling the seed here."""
-    import numpy as np
-
-    values = [0.01, 0.02, 0.03, 0.04, 0.05, 0.02, 0.03, 0.01, 0.04, 0.05]
-    seen = iter(values)
-    monkeypatch.setattr(ablation, "_score_subset", lambda *a, **k: next(seen))
-    floor = ablation.measured_noise_floor(pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig())
-    assert floor == pytest.approx(2 * np.std(values, ddof=1))
-
-
-def test_every_seed_is_actually_varied(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A floor measured with one seed reused is identically zero, which would pass every
-    feature as significant rather than none."""
-    seeds = []
-    monkeypatch.setattr(
-        ablation, "_score_subset", lambda f, c, p, cfg: (seeds.append(cfg.seed), 0.0)[1]
-    )
-    ablation.measured_noise_floor(pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig())
-    assert sorted(seeds) == sorted(ablation.NOISE_SEEDS)
-
-
-def test_a_floor_needs_at_least_two_fits(monkeypatch: pytest.MonkeyPatch) -> None:
-    """One surviving fit has no spread, and reporting 0.0 would call every delta significant."""
-    monkeypatch.setattr(ablation, "_score_subset", lambda *a, **k: float("nan"))
-    floor = ablation.measured_noise_floor(pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig())
-    assert floor != floor  # NaN
-
-
-# --- forward selection -------------------------------------------------------------------
+# --- forward selection ------------------------------------------------------------------
 
 
 @pytest.fixture
 def selector(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
-    """Drive selection from a table keyed by the chosen subset, fitting nothing."""
+    """Drive selection from a per-subset, per-seed IC table, fitting nothing."""
 
-    def _run(inner: dict[tuple[str, ...], float], cols: list[str], floor: float = 0.01):  # type: ignore[no-untyped-def]
+    def _run(inner, cols, seeds=(1, 2, 3, 4, 5), holdout=None):  # type: ignore[no-untyped-def]
         frame = pd.DataFrame({"x": range(100)})
         train = frame.iloc[:80]
         monkeypatch.setattr(ablation, "FEATURE_COLUMNS", tuple(cols))
@@ -208,7 +175,6 @@ def selector(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
         monkeypatch.setattr(
             "quantpulse.ml.training.split_by_date", lambda *a, **k: (train, frame.iloc[80:])
         )
-        monkeypatch.setattr(ablation, "measured_noise_floor", lambda *a, **k: floor)
         monkeypatch.setattr(ablation, "train_final_model", lambda *a, **k: (None, frame))
         monkeypatch.setattr(
             "quantpulse.ml.baselines.standing_competitor_metrics",
@@ -217,45 +183,105 @@ def selector(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
         scored_on = []
 
         def fake_score(f, subset, params, cfg):  # type: ignore[no-untyped-def]
-            scored_on.append((len(f), tuple(subset)))
-            return inner.get(tuple(subset), 0.0)
+            scored_on.append((len(f), tuple(sorted(subset))))
+            return inner.get((tuple(sorted(subset)), cfg.seed), 0.0)
 
         monkeypatch.setattr(ablation, "_score_subset", fake_score)
-        return ablation.forward_select(object(), "XNYS"), scored_on
+        monkeypatch.setattr(
+            ablation,
+            "_holdout_scores_by_seed",
+            lambda frame, c, cfg, hf, w, sds: {
+                s: (holdout or {}).get((tuple(sorted(c)), s), 0.0) for s in sds
+            },
+        )
+        return ablation.forward_select(object(), "XNYS", seeds=seeds), scored_on
 
     return _run
+
+
+SEL_COLS = ["good", "lucky", "dud"]
+SEL_SEEDS = (1, 2, 3, 4, 5)
+
+
+def _table(per_subset):  # type: ignore[no-untyped-def]
+    """{(subset tuple): [ic per seed]} -> the flat table the stub reads."""
+    return {
+        (sub, seed): vals[i] for sub, vals in per_subset.items() for i, seed in enumerate(SEL_SEEDS)
+    }
+
+
+def test_a_repeatable_improvement_is_selected(selector) -> None:  # type: ignore[no-untyped-def]
+    sel, _ = selector(_table({("good",): [0.05, 0.051, 0.049, 0.05, 0.05]}), SEL_COLS, SEL_SEEDS)
+    assert sel.chosen == ["good"]
+
+
+def test_a_feature_only_one_seed_likes_is_not_selected(selector) -> None:  # type: ignore[no-untyped-def]
+    """The regression this guards. `lucky` has a healthy mean but its scores swing, so the
+    improvement does not repeat. Judged as a single score against a global floor it would be
+    admitted on whichever seed drew well — which is how the drop-one sweep once reported
+    seven features as harmful that were not."""
+    sel, _ = selector(_table({("lucky",): [0.20, 0.01, -0.08, 0.02, 0.01]}), SEL_COLS, SEL_SEEDS)
+    assert sel.chosen == []
+
+
+def test_a_market_where_nothing_works_selects_nothing(selector) -> None:  # type: ignore[no-untyped-def]
+    """The empty set has no skill, so the first feature is measured against zero rather than
+    against a sentinel that would admit whatever scored best."""
+    sel, _ = selector(
+        _table({(c,): [0.0008, -0.0003, 0.0011, -0.0006, 0.0004] for c in SEL_COLS}),
+        SEL_COLS,
+        SEL_SEEDS,
+    )
+    assert sel.chosen == []
+    assert sel.pruned_ic != sel.pruned_ic  # NaN — nothing to measure
+
+
+def test_adding_stops_when_the_next_gain_does_not_repeat(selector) -> None:  # type: ignore[no-untyped-def]
+    """`good` is admitted; adding `lucky` on top raises the mean but not repeatably."""
+    sel, _ = selector(
+        _table(
+            {
+                ("good",): [0.05, 0.051, 0.049, 0.05, 0.05],
+                ("good", "lucky"): [0.20, 0.02, -0.02, 0.06, 0.03],
+                ("dud", "good"): [0.05, 0.051, 0.049, 0.05, 0.05],
+            }
+        ),
+        SEL_COLS,
+        SEL_SEEDS,
+    )
+    assert sel.chosen == ["good"]
 
 
 def test_selection_never_scores_against_the_holdout(selector) -> None:  # type: ignore[no-untyped-def]
     """Choosing features by holdout IC fits the choice to the holdout, and the final number
     would then describe that fit rather than out-of-sample behaviour."""
-    sel, scored_on = selector({("a",): 0.5, ("a", "b"): 0.9}, ["a", "b", "c"])
-    # Everything scored before the final evaluation must have seen the 80-row train split.
-    during_selection = [rows for rows, subset in scored_on if len(subset) < 3][:-1]
-    assert during_selection and all(rows == 80 for rows in during_selection)
-    assert sel.chosen == ["a", "b"]
-
-
-def test_a_market_where_nothing_works_selects_nothing(selector) -> None:  # type: ignore[no-untyped-def]
-    """The empty set has no skill, so the first feature must clear the floor above zero.
-    Seeding the running best at -inf admits it whatever it scored, and a market with no
-    signal would still report one 'selected' feature."""
-    sel, _ = selector({("a",): 0.005, ("b",): 0.004, ("c",): 0.001}, ["a", "b", "c"], floor=0.01)
-    assert sel.chosen == []
-    assert sel.pruned_ic != sel.pruned_ic  # NaN — nothing to measure
-
-
-def test_adding_stops_when_the_gain_is_inside_the_floor(selector) -> None:  # type: ignore[no-untyped-def]
-    """A feature is admitted on evidence, not on a positive-looking rounding error."""
-    sel, _ = selector(
-        {("a",): 0.5, ("a", "b"): 0.505, ("a", "c"): 0.502}, ["a", "b", "c"], floor=0.01
+    sel, scored_on = selector(
+        _table({("good",): [0.05, 0.051, 0.049, 0.05, 0.05]}), SEL_COLS, SEL_SEEDS
     )
-    assert sel.chosen == ["a"]  # +0.005 and +0.002 are both inside the floor
+    assert scored_on and all(rows == 80 for rows, _ in scored_on)
+    assert sel.chosen == ["good"]
 
 
-def test_the_selection_carries_both_floors(selector) -> None:  # type: ignore[no-untyped-def]
-    """The inner split is smaller and noisier than the holdout, so the two thresholds differ
-    and a reader checking either number needs the one it was judged against."""
-    sel, _ = selector({("a",): 0.5}, ["a", "b", "c"])
-    assert sel.noise_margin == pytest.approx(0.01)
-    assert sel.inner_margin == pytest.approx(0.01)
+def test_the_final_comparison_is_paired_on_the_holdout(selector) -> None:  # type: ignore[no-untyped-def]
+    """Both sets swing hugely with the seed but swing *together*, so the difference between
+    them is steady. Only a paired error sees that: subtracting two averages gives the same
+    mean but an error built from each set's own spread, which here is large enough to bury a
+    difference that is in fact perfectly consistent."""
+    full_scores = [0.03, 0.10, 0.01, 0.08, 0.02]
+    pruned_scores = [v + 0.06 for v in full_scores]
+    sel, _ = selector(
+        _table({("good",): [0.05, 0.051, 0.049, 0.05, 0.05]}),
+        SEL_COLS,
+        SEL_SEEDS,
+        holdout={
+            **{(("good",), s): v for s, v in zip(SEL_SEEDS, pruned_scores, strict=True)},
+            **{
+                (tuple(sorted(SEL_COLS)), s): v for s, v in zip(SEL_SEEDS, full_scores, strict=True)
+            },
+        },
+    )
+    assert sel.delta == pytest.approx(0.06, abs=1e-9)
+    # The paired error is what proves the pairing: each set alone has a standard error of
+    # roughly 0.017, so an unpaired comparison could not call this difference established.
+    assert sel.delta_se == pytest.approx(0.0, abs=1e-9)
+    assert sel.seeds == len(SEL_SEEDS)

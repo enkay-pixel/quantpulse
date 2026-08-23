@@ -233,6 +233,34 @@ too consistent for selection to explain it away — t +9.92 with ten of ten seed
 across four walk-forward folds — but the honest confirmation is a fresh panel period, not a
 re-read of this one.
 
+### Pruning, measured rather than inferred
+
+Drop-one deltas do not add up — removing several features that each look costly can land
+anywhere, because their effects interact. So `quantpulse prune` *selects* a set and then
+*measures* it. Selection runs by walk-forward folds within the training portion only, paired
+on the seed exactly as the drop-one sweep is, and a candidate is admitted only when its
+improvement repeats. The untouched holdout is used once at the end, also paired across seeds.
+
+| market | selected | pruned IC | full IC | paired delta | momentum |
+|---|---|---|---|---|---|
+| XNYS | vol_21 | 0.0675 | 0.0484 | **+0.0192** (t +4.20) | 0.0174 |
+| XJSE | vol_63, ret_21 | 0.0505 | 0.0180 | **+0.0325** (t +3.84) | 0.1094 |
+
+**A one- or two-feature model beats the thirteen-feature model on data neither had seen**, on
+both markets, with the difference measured under matched seeds.
+
+The two methods were built separately and agree. The drop-one sweep found `vol_63` *carries*
+signal on the JSE and *costs* it on the NYSE; forward selection, which never reads that
+result, picks `vol_63` first on the JSE and never picks it at all on the NYSE. Agreement
+between an exclusion test and an inclusion test is the closest thing here to independent
+confirmation.
+
+Two things this does not say. The selection still chose among thirteen candidates, so the
+identity of the winner is worth less than the size of the gap — a fresh panel period is what
+would confirm *which* feature rather than *that* pruning helps. And the JSE's pruned model,
+though far better than its full one, still scores 0.0505 against momentum's 0.1094: pruning
+improves that market without rescuing it.
+
 ### What actually survives as a finding
 
 Stripping out everything the noise floor now disallows, two results stand:

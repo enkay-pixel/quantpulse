@@ -204,7 +204,8 @@ def _prune(exchange: str | None) -> None:
     """Select a feature set from evidence and measure it against the full one."""
     from quantpulse.data.calendar import EXCHANGES
     from quantpulse.db import get_engine
-    from quantpulse.ml.ablation import forward_select
+    from quantpulse.features.engineering import FEATURE_COLUMNS
+    from quantpulse.ml.ablation import RESOLVES_AT_T, forward_select
 
     engine = get_engine()
     for code in [exchange] if exchange else sorted(EXCHANGES):
@@ -214,27 +215,35 @@ def _prune(exchange: str | None) -> None:
             logger.error("%s: %s", code, exc)
             continue
         logger.info(
-            "%s selected %d of 13: %s",
+            "%s selected %d of %d: %s",
             sel.exchange,
             len(sel.chosen),
-            ", ".join(sel.chosen) or "(none cleared the margin)",
+            len(FEATURE_COLUMNS),
+            ", ".join(sel.chosen) or "(nothing beat an empty model)",
         )
         logger.info(
-            "  holdout IC — pruned %.4f | full %.4f | momentum %.4f | margin %.4f",
+            "  holdout IC — pruned %.4f | full %.4f | momentum %.4f (paired over %d seeds)",
             sel.pruned_ic,
             sel.full_ic,
             sel.baseline_ic,
-            sel.noise_margin,
+            sel.seeds,
         )
-        delta = sel.pruned_ic - sel.full_ic
-        if delta != delta:
+        if sel.delta_t != sel.delta_t:
             verdict = "no set selected — nothing to compare"
-        elif delta >= sel.noise_margin:
-            verdict = f"pruning helps by {delta:+.4f}, beyond the noise margin"
-        elif delta <= -sel.noise_margin:
-            verdict = f"pruning hurts by {delta:+.4f} — keep the full set"
+        elif sel.delta_t >= RESOLVES_AT_T:
+            verdict = (
+                f"pruning helps: {sel.delta:+.4f} +/- {sel.delta_se:.4f} (t {sel.delta_t:+.2f})"
+            )
+        elif sel.delta_t <= -RESOLVES_AT_T:
+            verdict = (
+                f"pruning hurts: {sel.delta:+.4f} +/- {sel.delta_se:.4f} "
+                f"(t {sel.delta_t:+.2f}) — keep the full set"
+            )
         else:
-            verdict = f"pruning changes nothing measurable ({delta:+.4f} inside the margin)"
+            verdict = (
+                f"pruning changes nothing that repeats: {sel.delta:+.4f} "
+                f"+/- {sel.delta_se:.4f} (t {sel.delta_t:+.2f})"
+            )
         logger.info("  %s", verdict)
 
 
