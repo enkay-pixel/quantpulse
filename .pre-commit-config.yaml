@@ -46,3 +46,15 @@ repos:
     rev: v0.11.0
     hooks:
       - id: shellcheck
+
+  # Scans every tracked markdown file, not just the staged ones, because a link breaks when
+  # its *target* is renamed — the file that changed is rarely the file that now points at
+  # nothing. `files:` still limits it to running when markdown is touched.
+  - repo: local
+    hooks:
+      - id: doc-links
+        name: documentation links resolve, and no wikilinks
+        entry: python3 scripts/check_doc_links.py
+        language: system
+        pass_filenames: false
+        files: \.md$

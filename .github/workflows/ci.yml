@@ -161,6 +161,11 @@ jobs:
             exit 1
           fi
 
+      - name: Check documentation links
+        # Wikilinks render as literal brackets on GitHub, and relative links rot when docs
+        # move. Both are invisible until a reader hits one.
+        run: python3 scripts/check_doc_links.py
+
       - name: Lint markdown
         # The exclusions must be `**/`-prefixed: a bare `#node_modules` only matches the
         # top level, so `web/node_modules` and `transform/dbt_packages` would be linted —

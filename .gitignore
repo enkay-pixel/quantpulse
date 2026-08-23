@@ -54,3 +54,11 @@ web/dist/
 
 # dbt machine-local state
 transform/.user.yml
+
+# Obsidian: the repo root doubles as a vault (see docs/README.md). Shared settings are
+# committed so the link format and exclusions hold for anyone who opens it; per-machine
+# state is not. workspace*.json rewrites itself on every pane you move, and plugin
+# data.json is where plugins keep their credentials.
+.obsidian/workspace*.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
