@@ -1,13 +1,14 @@
 """Feature ablation, and the interpretation rule that makes its numbers readable.
 
-Thirteen deltas mean nothing on their own: refitting with only the seed changed already
-moves IC, so a small delta is indistinguishable from noise. The verdicts are drawn against
-a floor *measured under the same procedure*, and getting that comparison wrong turns noise
-into a ranked list of "important" features — a borrowed floor several times too small
-ranks every feature and reads as a finding.
+A single IC means nothing on its own: refitting with only the seed changed already moves it,
+on this panel by more than any one feature is worth. So every comparison here is *paired* on
+the seed — a subset is scored against the full model fitted with the same seed — and the
+verdict comes from the spread of those paired differences rather than from comparing one
+point estimate to one global threshold.
 
-The floor is stubbed to a known value in most tests so the verdict logic is what is under
-test; the measurement itself is covered separately.
+That distinction is the whole test surface. An unpaired sweep judged against a global floor
+reports a feature as harmful when one seed happened to favour it, which is a false positive
+that looks exactly like a finding.
 """
 
 import pandas as pd
@@ -17,99 +18,146 @@ from quantpulse.ml import ablation
 
 
 @pytest.fixture
-def stubbed(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
-    """Drive the sweep from a table of IC values, so no model is fitted."""
+def report(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
+    """Drive the sweep from per-seed IC tables, so no model is fitted."""
 
-    def _run(
-        full: float,
-        per_feature: dict[str, tuple[float, float]],
-        cols: list[str],
-        margin: float = 0.023,
-    ):  # type: ignore[no-untyped-def]
+    def _run(full: dict[int, float], drops: dict[str, dict[int, float]], cols: list[str]):  # type: ignore[no-untyped-def]
+        seeds = tuple(full)
         monkeypatch.setattr(ablation, "FEATURE_COLUMNS", tuple(cols))
         monkeypatch.setattr(
             "quantpulse.ml.pipeline.build_dataset", lambda *a, **k: pd.DataFrame({"x": [1]})
         )
 
-        def fake_score(frame, subset, params, cfg, width, holdout_fraction):  # type: ignore[no-untyped-def]
+        def fake_score(frame, subset, params, cfg):  # type: ignore[no-untyped-def]
             if len(subset) == len(cols):
-                return full
+                return full[cfg.seed]
             if len(subset) == 1:
-                return per_feature[subset[0]][1]
+                return 0.0
             (missing,) = [c for c in cols if c not in subset]
-            return per_feature[missing][0]
+            return drops[missing][cfg.seed]
 
         monkeypatch.setattr(ablation, "_score_subset", fake_score)
-        monkeypatch.setattr(ablation, "measured_noise_floor", lambda *a, **k: margin)
-        return ablation.ablation_report(object(), "XNYS")
+        return ablation.ablation_report(object(), "XNYS", seeds=seeds)
 
     return _run
 
 
-COLS = ["carries", "useless", "harmful"]
+COLS = ["steady", "flaky", "helpful"]
+SEEDS = (1, 2, 3, 4, 5)
+FULL = dict.fromkeys(SEEDS, 0.010)
 
 
-def test_verdicts_are_drawn_against_the_noise_margin(stubbed) -> None:  # type: ignore[no-untyped-def]
-    # The floor is stubbed to 0.006. Removing `carries` costs more than that; removing `useless`
-    # costs less than it; removing `harmful` improves IC by more than it.
-    table = stubbed(
-        0.100,
-        {"carries": (0.080, 0.05), "useless": (0.098, 0.01), "harmful": (0.110, 0.00)},
+def test_a_consistent_delta_is_called_a_finding(report) -> None:  # type: ignore[no-untyped-def]
+    """Dropping `steady` raises IC by the same amount whatever the seed, so the effect is the
+    feature and not the draw."""
+    table = report(
+        FULL,
+        {
+            "steady": dict(zip(SEEDS, [0.030, 0.031, 0.029, 0.030, 0.030], strict=True)),
+            "flaky": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+            "helpful": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+        },
         COLS,
-        margin=0.006,
     )
     verdicts = dict(zip(table["feature"], table["verdict"], strict=True))
-    assert verdicts["carries"] == "carries signal"
-    assert verdicts["useless"] == "within noise — not shown to contribute"
-    assert verdicts["harmful"] == "costs signal — removing it helps"
+    assert verdicts["steady"] == "costs signal — removing it helps"
 
 
-def test_a_delta_just_inside_the_margin_is_not_called_signal(stubbed) -> None:  # type: ignore[no-untyped-def]
-    """The boundary is the whole point. A feature whose removal costs slightly less than the
-    seed re-roll has not been shown to do anything, and calling it important would dress
-    noise as a finding."""
-    table = stubbed(
-        0.100,
-        {"carries": (0.0941, 0.05), "useless": (0.0995, 0.01), "harmful": (0.100, 0.0)},
+def test_a_sign_flipping_delta_is_not_a_finding(report) -> None:  # type: ignore[no-untyped-def]
+    """The regression this guards: `flaky` has a *positive mean* delta of the same order as
+    `steady`, but its per-seed differences change sign. One unpaired draw would report it as
+    harmful; paired across seeds it is nothing. This is exactly how a real feature was
+    misreported — the sweep had quoted its single most favourable seed."""
+    table = report(
+        FULL,
+        {
+            "steady": dict(zip(SEEDS, [0.030, 0.031, 0.029, 0.030, 0.030], strict=True)),
+            "flaky": dict(zip(SEEDS, [0.044, 0.032, 0.012, 0.001, 0.011], strict=True)),
+            "helpful": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+        },
         COLS,
-        margin=0.006,
+    )
+    rows = {r["feature"]: r for r in table.to_dict("records")}
+    # Both look similar on the mean; only the error separates them.
+    assert rows["flaky"]["delta"] > 0
+    assert rows["flaky"]["delta_se"] > rows["steady"]["delta_se"] * 3
+    assert rows["flaky"]["verdict"] == "within noise — not shown to contribute"
+
+
+def test_a_feature_that_carries_signal_is_named(report) -> None:  # type: ignore[no-untyped-def]
+    """Dropping it consistently *lowers* IC, which is the one case worth keeping a feature for."""
+    table = report(
+        FULL,
+        {
+            "steady": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+            "flaky": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+            "helpful": dict(zip(SEEDS, [-0.010, -0.011, -0.009, -0.010, -0.010], strict=True)),
+        },
+        COLS,
     )
     verdicts = dict(zip(table["feature"], table["verdict"], strict=True))
-    assert verdicts["carries"] == "within noise — not shown to contribute"  # 0.0059 < 0.006
+    assert verdicts["helpful"] == "carries signal"
 
 
-def test_rows_are_ordered_by_how_much_removal_hurts(stubbed) -> None:  # type: ignore[no-untyped-def]
-    """Most load-bearing first, so the useless tail is visible at the bottom."""
-    table = stubbed(
-        0.100,
-        {"carries": (0.080, 0.05), "useless": (0.098, 0.01), "harmful": (0.110, 0.00)},
+def test_the_comparison_is_paired_on_the_seed(report) -> None:  # type: ignore[no-untyped-def]
+    """Full-model IC swings hugely with the seed while every subset tracks it exactly. Paired,
+    the deltas are identically zero and nothing is reported. Comparing means instead would
+    carry that swing into every feature's verdict."""
+    swinging = dict(zip(SEEDS, [0.05, -0.03, 0.11, -0.06, 0.02], strict=True))
+    table = report(
+        swinging,
+        {c: dict(swinging) for c in COLS},
         COLS,
-        margin=0.006,
     )
-    assert list(table["feature"]) == ["carries", "useless", "harmful"]
+    assert set(table["verdict"]) == {"within noise — not shown to contribute"}
+    assert table["delta"].abs().max() == pytest.approx(0.0)
+    # The spread is what proves the pairing happened. Comparing against the mean full-model
+    # IC instead would leave every seed's swing in the differences, and the mean delta would
+    # still be zero — so only the standard error distinguishes the two.
+    assert table["delta_se"].max() == pytest.approx(0.0)
 
 
-def test_the_report_carries_the_margin_it_judged_against(stubbed) -> None:  # type: ignore[no-untyped-def]
-    """A reader cannot check a verdict without the threshold that produced it — and the
-    threshold is measured per run, so it cannot be looked up anywhere else."""
-    table = stubbed(0.1, dict.fromkeys(COLS, (0.1, 0.0)), COLS)
-    # Deliberately not 0.006 — that is XNYS's promotion margin, and a floor that silently
-    # fell back to it would pass this assertion by coincidence.
-    assert table.attrs["noise_margin"] == pytest.approx(0.023)
-    assert table.attrs["full_ic"] == pytest.approx(0.1)
-
-
-def test_a_subset_that_cannot_be_fitted_is_reported_not_ranked(stubbed) -> None:  # type: ignore[no-untyped-def]
+def test_a_subset_that_cannot_be_fitted_is_reported_not_ranked(report) -> None:  # type: ignore[no-untyped-def]
     """NaN must not sort as if it were a delta — a failed fit is missing evidence, not a
     feature that contributes nothing."""
-    table = stubbed(
-        0.100,
-        {"carries": (0.080, 0.05), "useless": (float("nan"), 0.01), "harmful": (0.110, 0.0)},
+    table = report(
+        FULL,
+        {
+            "steady": dict(zip(SEEDS, [0.030] * 5, strict=True)),
+            "flaky": dict.fromkeys(SEEDS, float("nan")),
+            "helpful": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+        },
         COLS,
-        margin=0.006,
     )
     verdicts = dict(zip(table["feature"], table["verdict"], strict=True))
-    assert verdicts["useless"] == "could not fit"
+    assert verdicts["flaky"] == "could not measure"
+
+
+def test_a_partly_unfittable_subset_is_judged_on_the_seeds_that_worked(report) -> None:  # type: ignore[no-untyped-def]
+    """One bad fit must not erase the evidence from the others. A NaN left in the differences
+    poisons the mean and the whole feature reads as unmeasurable, discarding seeds that
+    scored perfectly well."""
+    table = report(
+        FULL,
+        {
+            "steady": dict(zip(SEEDS, [0.030] * 5, strict=True)),
+            "flaky": dict(
+                zip(SEEDS, [0.030, float("nan"), 0.031, 0.029, float("nan")], strict=True)
+            ),
+            "helpful": dict(zip(SEEDS, [0.010] * 5, strict=True)),
+        },
+        COLS,
+    )
+    rows = {r["feature"]: r for r in table.to_dict("records")}
+    assert rows["flaky"]["verdict"] == "costs signal — removing it helps"
+    assert rows["flaky"]["delta"] == pytest.approx(0.020, abs=1e-3)
+
+
+def test_the_report_says_how_many_seeds_backed_it(report) -> None:  # type: ignore[no-untyped-def]
+    """A t-statistic is unreadable without knowing how many paired differences produced it."""
+    table = report(FULL, {c: dict(FULL) for c in COLS}, COLS)
+    assert table.attrs["seeds"] == len(SEEDS)
+    assert table.attrs["full_ic"] == pytest.approx(0.010)
 
 
 # --- the measured floor ------------------------------------------------------------------
@@ -120,12 +168,11 @@ def test_the_floor_is_two_sd_of_the_seed_reroll(monkeypatch: pytest.MonkeyPatch)
     a ranked list, so this number has to come from re-rolling the seed here."""
     import numpy as np
 
-    seen = iter([0.01, 0.02, 0.03, 0.04, 0.05])
+    values = [0.01, 0.02, 0.03, 0.04, 0.05, 0.02, 0.03, 0.01, 0.04, 0.05]
+    seen = iter(values)
     monkeypatch.setattr(ablation, "_score_subset", lambda *a, **k: next(seen))
-    floor = ablation.measured_noise_floor(
-        pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig(), 0.2, 0.15
-    )
-    assert floor == pytest.approx(2 * np.std([0.01, 0.02, 0.03, 0.04, 0.05], ddof=1))
+    floor = ablation.measured_noise_floor(pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig())
+    assert floor == pytest.approx(2 * np.std(values, ddof=1))
 
 
 def test_every_seed_is_actually_varied(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,20 +180,16 @@ def test_every_seed_is_actually_varied(monkeypatch: pytest.MonkeyPatch) -> None:
     feature as significant rather than none."""
     seeds = []
     monkeypatch.setattr(
-        ablation, "_score_subset", lambda f, c, p, cfg, w, h: (seeds.append(cfg.seed), 0.0)[1]
+        ablation, "_score_subset", lambda f, c, p, cfg: (seeds.append(cfg.seed), 0.0)[1]
     )
-    ablation.measured_noise_floor(
-        pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig(), 0.2, 0.15
-    )
+    ablation.measured_noise_floor(pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig())
     assert sorted(seeds) == sorted(ablation.NOISE_SEEDS)
 
 
 def test_a_floor_needs_at_least_two_fits(monkeypatch: pytest.MonkeyPatch) -> None:
     """One surviving fit has no spread, and reporting 0.0 would call every delta significant."""
     monkeypatch.setattr(ablation, "_score_subset", lambda *a, **k: float("nan"))
-    floor = ablation.measured_noise_floor(
-        pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig(), 0.2, 0.15
-    )
+    floor = ablation.measured_noise_floor(pd.DataFrame({"x": [1]}), ["a"], ablation.TrainConfig())
     assert floor != floor  # NaN
 
 
@@ -173,7 +216,7 @@ def selector(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
         )
         scored_on = []
 
-        def fake_score(f, subset, params, cfg, width, holdout_fraction):  # type: ignore[no-untyped-def]
+        def fake_score(f, subset, params, cfg):  # type: ignore[no-untyped-def]
             scored_on.append((len(f), tuple(subset)))
             return inner.get(tuple(subset), 0.0)
 
