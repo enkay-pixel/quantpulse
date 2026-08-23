@@ -60,14 +60,19 @@ def _fit_one(
     )
 
 
-def cross_validated_ic(
+def cross_validated_fold_ics(
     frame: pd.DataFrame,
     feature_cols: list[str],
     params: dict[str, Any],
     cfg: TrainConfig,
     splits: list[DateSplit] | None = None,
-) -> float:
-    """Mean out-of-fold information coefficient across purged walk-forward folds."""
+) -> list[float]:
+    """Out-of-fold information coefficient for each purged walk-forward fold.
+
+    The per-fold values are kept rather than collapsed, because their spread is the only
+    thing that says how well the mean is determined. A caller comparing two specifications
+    needs that spread; one that only wants a single number can average them.
+    """
     splits = splits or purged_walk_forward_splits(
         frame["date"].unique().tolist(), cfg.n_splits, cfg.embargo_days, cfg.min_train_dates
     )
@@ -84,7 +89,18 @@ def cross_validated_ic(
             fold_ics.append(ic)
     if not fold_ics:
         raise ValueError("Cross-validation produced no scorable folds")
-    return float(np.mean(fold_ics))
+    return fold_ics
+
+
+def cross_validated_ic(
+    frame: pd.DataFrame,
+    feature_cols: list[str],
+    params: dict[str, Any],
+    cfg: TrainConfig,
+    splits: list[DateSplit] | None = None,
+) -> float:
+    """Mean out-of-fold information coefficient across purged walk-forward folds."""
+    return float(np.mean(cross_validated_fold_ics(frame, feature_cols, params, cfg, splits)))
 
 
 def tune_hyperparameters(

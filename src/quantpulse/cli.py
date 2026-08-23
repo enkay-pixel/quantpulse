@@ -252,20 +252,27 @@ def _ablation(exchange: str | None) -> None:
             logger.error("%s: %s", code, exc)
             continue
         logger.info(
-            "%s full model IC %.4f | noise margin %.4f (deltas inside it mean nothing)",
+            "%s full model IC %.4f | deltas paired across %d seeds, |t| >= 2 to count",
             code,
             table.attrs["full_ic"],
-            table.attrs["noise_margin"],
+            table.attrs["seeds"],
         )
         logger.info(
-            "%-22s %-9s %-10s %-9s %s", "feature", "drop IC", "delta", "alone IC", "verdict"
+            "%-22s %-10s %-10s %-7s %-9s %s",
+            "feature",
+            "delta",
+            "std err",
+            "t",
+            "alone IC",
+            "verdict",
         )
         for row in table.to_dict("records"):
             logger.info(
-                "%-22s %-9.4f %+-10.4f %-9.4f %s",
+                "%-22s %+-10.4f %-10.4f %+-7.2f %-9.4f %s",
                 row["feature"],
-                row["drop_ic"],
                 row["delta"],
+                row["delta_se"],
+                row["delta_t"],
                 row["alone_ic"],
                 row["verdict"],
             )

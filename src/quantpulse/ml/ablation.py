@@ -4,8 +4,8 @@ Thirteen features were chosen up front and never pruned. Adding a feature that c
 nothing is not free — it widens the search space, adds a vendor field that can break, and
 makes every later "the model got worse" harder to attribute.
 
-Two questions, answered on the same holdout the promotion gate uses and scored by the same
-`pipeline.score_holdout`:
+Two questions, both scored as the mean information coefficient across purged walk-forward
+folds rather than on a single holdout:
 
 * **drop-one** — refit without each feature in turn. If IC does not fall, that feature is
   not contributing; if IC *rises*, it is actively costing something.
@@ -14,6 +14,11 @@ Two questions, answered on the same holdout the promotion gate uses and scored b
 
 Hyperparameters are held fixed rather than retuned per subset. Retuning would vary two
 things at once and the difference could no longer be attributed to the feature.
+
+One holdout is one draw, and on this panel its seed-to-seed spread is wider than any effect
+a single feature has — a sweep judged on it ranks noise however carefully the margin is set.
+Averaging folds shrinks that spread roughly with the square root of the fold count, which is
+what lets the comparison resolve anything.
 
 Deltas are only meaningful against the noise floor, and the floor is measured here rather
 than borrowed. Refitting one specification with just the seed changed already moves IC, by
@@ -37,35 +42,53 @@ from quantpulse.ml.training import DEFAULT_PARAMS, TrainConfig, train_final_mode
 logger = logging.getLogger(__name__)
 
 
+def _fold_ics(
+    frame: pd.DataFrame,
+    cols: list[str],
+    params: dict[str, Any],
+    cfg: TrainConfig,
+) -> list[float]:
+    """Out-of-fold IC per walk-forward fold, or empty if the subset cannot be fitted."""
+    from quantpulse.ml.training import cross_validated_fold_ics
+
+    try:
+        return cross_validated_fold_ics(frame, cols, params, cfg)
+    except Exception as exc:
+        logger.warning("subset %s failed to fit: %s", cols, exc)
+        return []
+
+
 def _score_subset(
     frame: pd.DataFrame,
     cols: list[str],
     params: dict[str, Any],
     cfg: TrainConfig,
-    width: float,
-    holdout_fraction: float,
 ) -> float:
-    """Fit on `cols` and return holdout IC, or NaN if the subset cannot be fitted."""
-    from quantpulse.ml.pipeline import score_holdout
+    """Mean out-of-fold IC for `cols`, or NaN if the subset cannot be fitted.
 
-    try:
-        _, holdout = train_final_model(frame, cols, params, cfg, holdout_fraction)
-    except Exception as exc:
-        logger.warning("subset %s failed to fit: %s", cols, exc)
-        return float("nan")
-    return score_holdout(holdout, width)["holdout_ic"]
+    Scored across walk-forward folds rather than on one holdout. A single holdout is a
+    single draw, and on this panel its seed-to-seed spread is wider than any effect a
+    feature has — so a sweep judged on it ranks noise however carefully the margin is set.
+    Averaging folds shrinks that spread roughly with the square root of the fold count,
+    which is what makes the comparison able to resolve anything at all.
+    """
+    import numpy as np
+
+    ics = _fold_ics(frame, cols, params, cfg)
+    return float(np.mean(ics)) if ics else float("nan")
 
 
-#: Seeds used to measure how much holdout IC moves when nothing but the RNG changes.
-NOISE_SEEDS = (42, 7, 123, 2024, 99)
+#: Seeds re-rolled to separate a feature's effect from the noise of refitting.
+NOISE_SEEDS = (42, 7, 123, 2024, 99, 5, 777, 31, 1000, 64)
+
+#: |t| at which a paired difference is treated as telling apart from zero (~two sigma).
+RESOLVES_AT_T = 2.0
 
 
 def measured_noise_floor(
     frame: pd.DataFrame,
     cols: list[str],
     cfg: TrainConfig,
-    width: float,
-    holdout_fraction: float,
 ) -> float:
     """Two standard deviations of holdout IC across seeds, for this exact procedure.
 
@@ -82,9 +105,7 @@ def measured_noise_floor(
 
     ics = []
     for seed in NOISE_SEEDS:
-        ic = _score_subset(
-            frame, cols, DEFAULT_PARAMS, replace(cfg, seed=seed), width, holdout_fraction
-        )
+        ic = _score_subset(frame, cols, DEFAULT_PARAMS, replace(cfg, seed=seed))
         if ic == ic:
             ics.append(ic)
     if len(ics) < 2:
@@ -92,60 +113,108 @@ def measured_noise_floor(
     return float(2 * np.std(ics, ddof=1))
 
 
+def _paired_delta(
+    frame: pd.DataFrame,
+    subset: list[str],
+    full_by_seed: dict[int, float],
+    cfg: TrainConfig,
+) -> tuple[float, float, float]:
+    """Mean change in IC from using `subset` instead of the full set, with its own error.
+
+    Paired on the seed: each subset is compared against the full model fitted with the *same*
+    seed, so the seed cancels instead of being carried into the comparison as noise. Judging
+    a single unpaired score against one global floor is what lets an unusually favourable
+    draw read as a feature effect — the difference is large enough in practice to flip a
+    verdict, so the pairing is the measurement, not a refinement of it.
+
+    Returns (mean delta, standard error of that mean, t). A positive delta means dropping to
+    this subset *raised* IC.
+    """
+    import numpy as np
+
+    deltas = []
+    for seed, full_ic in full_by_seed.items():
+        ic = _score_subset(frame, subset, DEFAULT_PARAMS, replace(cfg, seed=seed))
+        if ic == ic and full_ic == full_ic:
+            deltas.append(ic - full_ic)
+    if len(deltas) < 2:
+        return float("nan"), float("nan"), float("nan")
+    arr = np.array(deltas)
+    se = float(arr.std(ddof=1) / np.sqrt(len(arr)))
+    mean = float(arr.mean())
+    if se > 0:
+        return mean, se, mean / se
+    # Zero spread is not missing evidence, so it must not be reported as such. Every seed
+    # agreed: either there is no difference at all, or the difference is perfectly repeatable.
+    return mean, se, 0.0 if mean == 0 else float(np.sign(mean)) * float("inf")
+
+
 def ablation_report(
     engine: object,
     exchange: str = DEFAULT_EXCHANGE,
     cfg: TrainConfig | None = None,
-    holdout_fraction: float = 0.15,
+    seeds: tuple[int, ...] = NOISE_SEEDS,
 ) -> pd.DataFrame:
-    """Drop-one and alone IC for every feature, against the full model on one holdout.
+    """Drop-one and alone IC for every feature, as paired differences against the full set.
 
-    Returns a frame with one row per feature carrying `drop_ic` (IC without it),
-    `delta` (drop_ic minus full_ic, so negative means removing it hurt), `alone_ic`, and
-    `verdict`. `frame.attrs` holds the full-model IC and the market's noise margin.
+    Each figure is a mean over walk-forward folds *and* over seeds, and every comparison is
+    paired on the seed so that a favourable draw cannot pass as a feature effect. Returns one
+    row per feature with `drop_ic`, `delta`, its standard error `delta_se`, `delta_t`,
+    `alone_ic`, and a `verdict` drawn from `delta_t`.
+
+    Nothing is selected here, so every fold's validation block can be scored and averaged.
     """
+    import numpy as np
+
     from quantpulse.ml.pipeline import build_dataset
 
     cfg = cfg or TrainConfig()
     cols = list(FEATURE_COLUMNS)
-    width = get_exchange(exchange).quantile_width
     frame = build_dataset(engine, cfg, exchange)  # type: ignore[arg-type]
 
-    margin = measured_noise_floor(frame, cols, cfg, width, holdout_fraction)
-    full_ic = _score_subset(frame, cols, DEFAULT_PARAMS, cfg, width, holdout_fraction)
+    full_by_seed = {
+        seed: _score_subset(frame, cols, DEFAULT_PARAMS, replace(cfg, seed=seed)) for seed in seeds
+    }
+    usable = [v for v in full_by_seed.values() if v == v]
+    full_ic = float(np.mean(usable)) if usable else float("nan")
     logger.info(
-        "%s full model holdout IC %.4f (measured noise floor %.4f)", exchange, full_ic, margin
+        "%s full model IC %.4f over %d folds x %d seeds",
+        exchange,
+        full_ic,
+        cfg.n_splits,
+        len(usable),
     )
 
     rows = []
     for col in cols:
         remaining = [c for c in cols if c != col]
-        drop_ic = _score_subset(frame, remaining, DEFAULT_PARAMS, cfg, width, holdout_fraction)
-        alone_ic = _score_subset(frame, [col], DEFAULT_PARAMS, cfg, width, holdout_fraction)
-        delta = drop_ic - full_ic
-        if delta != delta:  # NaN
-            verdict = "could not fit"
-        elif delta <= -margin:
+        delta, se, t = _paired_delta(frame, remaining, full_by_seed, cfg)
+        alone_ic = _score_subset(frame, [col], DEFAULT_PARAMS, cfg)
+        if t != t:
+            verdict = "could not measure"
+        elif t <= -RESOLVES_AT_T:
             verdict = "carries signal"
-        elif delta >= margin:
+        elif t >= RESOLVES_AT_T:
             verdict = "costs signal — removing it helps"
         else:
             verdict = "within noise — not shown to contribute"
         rows.append(
             {
                 "feature": col,
-                "drop_ic": drop_ic,
+                "drop_ic": full_ic + delta,
                 "delta": delta,
+                "delta_se": se,
+                "delta_t": t,
                 "alone_ic": alone_ic,
                 "verdict": verdict,
             }
         )
-        logger.info("  %-22s drop %.4f (%+.4f) alone %.4f", col, drop_ic, delta, alone_ic)
+        logger.info("  %-22s delta %+.4f +/- %.4f (t %+.2f)", col, delta, se, t)
 
     out = pd.DataFrame(rows).sort_values("delta").reset_index(drop=True)
     out.attrs["exchange"] = exchange
     out.attrs["full_ic"] = full_ic
-    out.attrs["noise_margin"] = margin
+    out.attrs["seeds"] = len(usable)
     return out
 
 
@@ -195,8 +264,8 @@ def forward_select(
     frame = build_dataset(engine, cfg, exchange)  # type: ignore[arg-type]
     train, _ = split_by_date(frame, holdout_fraction, cfg.embargo_days)
 
-    inner_margin = measured_noise_floor(train, cols, cfg, width, holdout_fraction)
-    margin = measured_noise_floor(frame, cols, cfg, width, holdout_fraction)
+    inner_margin = measured_noise_floor(train, cols, cfg)
+    margin = measured_noise_floor(frame, cols, cfg)
     logger.info("%s noise floor — inner %.4f | holdout %.4f", exchange, inner_margin, margin)
 
     chosen: list[str] = []
@@ -208,10 +277,7 @@ def forward_select(
         candidates = [c for c in cols if c not in chosen]
         if not candidates:
             break
-        scored = [
-            (_score_subset(train, [*chosen, c], DEFAULT_PARAMS, cfg, width, holdout_fraction), c)
-            for c in candidates
-        ]
+        scored = [(_score_subset(train, [*chosen, c], DEFAULT_PARAMS, cfg), c) for c in candidates]
         scored = [(ic, c) for ic, c in scored if ic == ic]  # drop NaN fits
         if not scored:
             break
@@ -225,12 +291,8 @@ def forward_select(
     if not chosen:
         logger.warning("%s: no feature cleared the margin on its own", exchange)
 
-    full_ic = _score_subset(frame, cols, DEFAULT_PARAMS, cfg, width, holdout_fraction)
-    pruned_ic = (
-        _score_subset(frame, chosen, DEFAULT_PARAMS, cfg, width, holdout_fraction)
-        if chosen
-        else float("nan")
-    )
+    full_ic = _score_subset(frame, cols, DEFAULT_PARAMS, cfg)
+    pruned_ic = _score_subset(frame, chosen, DEFAULT_PARAMS, cfg) if chosen else float("nan")
     _, holdout = train_final_model(frame, cols, DEFAULT_PARAMS, cfg, holdout_fraction)
     baseline_ic = standing_competitor_metrics(holdout, width)["holdout_ic"]
     return Selection(exchange, chosen, full_ic, pruned_ic, baseline_ic, margin, inner_margin)

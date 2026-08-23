@@ -175,31 +175,63 @@ is smaller and therefore noisier than the full panel.
 
 ### What the corrected sweep shows
 
-Re-run against measured floors, **25 of 26 feature verdicts are "within noise — not shown to
-contribute"**. The single exception is XJSE `vol_21` (+0.0317 against a 0.0228 floor) — one
-marginal result across 26 tests at a two-sigma threshold, which is the false-positive rate
-those tests are expected to produce.
+Two changes made the sweep able to resolve anything:
 
-So the sweep does not show that the features are harmful. It shows this panel cannot resolve
-feature-level effects at all: the effect being looked for is smaller than the noise of the
-procedure used to look for it.
+1. **Score across walk-forward folds, not one holdout.** A single holdout is one draw. Its
+   seed-to-seed spread on this panel was wider than any effect a feature has, so a sweep
+   judged on it ranks noise however carefully the margin is set. Averaging over the four
+   purged folds shrinks that spread roughly with the square root of the fold count.
+2. **Pair every comparison on the seed.** Each subset is scored against the full model
+   fitted with the *same* seed, so the seed cancels rather than being carried into the
+   comparison. Each feature then gets its own standard error instead of being judged against
+   one global floor.
 
-### Pruning, measured rather than inferred
+The second mattered more than the first. Fold-averaging alone dropped the floor from 0.0375
+to 0.0136 on the NYSE, but it still reported **seven of thirteen** JSE features as
+"costing signal" — and pairing showed **none of them** were. `ma_ratio_63` was the headline
+of that list at +0.0238; paired across ten seeds it is +0.0032 ± 0.0033 (t +0.97), and its
+per-seed differences change sign. The +0.0238 was simply the seed-42 draw, the largest of ten.
 
-Drop-one deltas do not add up — removing several features that each look costly can land
-anywhere, because their effects interact. So `quantpulse prune` *selects* a set and then
-*measures* it. Selection runs on an inner split carved from training data only; the holdout
-is used once at the end. Choosing features by holdout IC would fit the choice to the holdout
-and the final number would describe that fit rather than out-of-sample behaviour.
+**A global floor cannot catch that.** It asks whether a point estimate is large; pairing asks
+whether the difference is repeatable. Those come apart exactly when a draw is lucky, which is
+the case the whole exercise is trying to detect.
 
-| market | selected | pruned IC | full IC | momentum | floor | verdict |
-|---|---|---|---|---|---|---|
-| XNYS | none of 13 | — | 0.0382 | 0.0174 | 0.0375 | nothing cleared the bar |
-| XJSE | ma_ratio_63 | −0.0176 | 0.0028 | 0.1094 | 0.0228 | pruning changes nothing measurable |
+### Results (paired, 4 folds x 10 seeds)
 
-Nothing survives pruning on the NYSE, and the one feature that does on the JSE produces a
-model no better than the full set. **The answer to "prune to what survives" is that nothing
-does.**
+**XNYS** — full-model IC 0.0121. Three features actively hurt, and they are all the
+long-horizon ones:
+
+| feature | delta | std err | t | verdict |
+|---|---|---|---|---|
+| vol_63 | **+0.0234** | 0.0024 | **+9.92** | costs signal |
+| ma_ratio_63 | +0.0100 | 0.0033 | +3.06 | costs signal |
+| mom_63 | +0.0076 | 0.0029 | +2.60 | costs signal |
+| *(other ten)* | −0.0015 to +0.0035 | | \|t\| < 1.7 | within noise |
+
+Dropping `vol_63` alone takes fold-mean IC from 0.0121 to **0.0355**, with all ten seeds
+agreeing. Dropping all three together gives +0.0189 (t +4.67) — *less* than dropping
+`vol_63` by itself, because the deltas interact and do not add.
+
+**XJSE** — full-model IC 0.0114. No feature costs signal; two carry it:
+
+| feature | delta | std err | t | verdict |
+|---|---|---|---|---|
+| vol_63 | **−0.0096** | 0.0031 | **−3.12** | carries signal |
+| ret_21_cs_rank | −0.0065 | 0.0023 | −2.85 | carries signal |
+| *(other eleven)* | −0.0039 to +0.0032 | | \|t\| < 1.6 | within noise |
+
+**The markets disagree about the same feature, strongly and in opposite directions.**
+`vol_63` is the most harmful feature on the NYSE (t +9.92) and a genuinely useful one on the
+JSE (t −3.12). A single shared feature list cannot be right for both. That is the first
+result from this project that argues for a per-market feature set rather than a shared one,
+and it is the kind of decision `Exchange` already exists to carry — it holds
+`quantile_width` and `ic_promotion_margin` for exactly this reason.
+
+One caveat on `vol_63`: it was singled out *because* it had the largest delta in this
+measurement, so that particular figure is selection-inflated. The effect is far too large and
+too consistent for selection to explain it away — t +9.92 with ten of ten seeds agreeing,
+across four walk-forward folds — but the honest confirmation is a fresh panel period, not a
+re-read of this one.
 
 ### What actually survives as a finding
 
