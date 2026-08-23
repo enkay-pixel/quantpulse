@@ -20,24 +20,37 @@ promotion; everything before that is an in-sample replay, kept separate on purpo
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
-| Live sessions | 21 (from 2026-07-20) | 17 (from 2026-07-23) |
-| Total return | **−1.17%** | +0.01% |
-| Sharpe | **−1.43** | withheld below 20 sessions |
-| Alpha (annualized) | **−22.6%** | withheld |
-| Information ratio | **−4.05** | withheld |
-| Beta / R² | 0.11 / 0.02 | withheld |
-| Win rate | 47.6% | withheld |
+| Live sessions | 24 (from 2026-07-20) | 20 (from 2026-07-23) |
+| Total return | **−1.15%** | **+1.70%** |
+| Sharpe | **−1.27** | **+2.68** |
+| Alpha (annualized) | −17.5% ± 30.6% | +24.7% ± 30.3% |
+| Alpha t-statistic | **−0.57** | **+0.81** |
+| Information ratio | −2.60 | −3.17 |
+| Beta / R² | 0.07 / 0.011 | −0.09 / 0.033 |
+| Win rate | 45.8% | 50.0% |
 
-**The model is losing money out-of-sample.** Twenty-one sessions annualize into very wide
-error bars — the −22.6% alpha is a −1.17% total return scaled up, not a rate anything has
-sustained — but the sign is the sign, and it is the opposite of what the in-sample replay
-suggests (NYSE replay Sharpe +0.74, JSE +1.94). That gap between replay and live is the
-single most useful thing this project has produced, and separating the two is why the
-distinction exists at all.
+**Neither market has produced a result yet.** The two look opposite — the NYSE is down, the
+JSE is up — and neither difference is big enough to tell from zero. Each alpha carries a
+standard error larger than the estimate itself (t of −0.57 and +0.81, against the ~2 that
+would make either distinguishable), so the honest reading after roughly a month live is that
+the record does not yet separate skill from noise in either direction.
 
-Beta 0.11 and R² 0.02 confirm the book is genuinely market-neutral, so the negative alpha
-is the signal rather than disguised market exposure. Ratios stay withheld below 20 sessions
-because a handful of days annualizes into a confident-looking number that is pure noise.
+That is a deliberately weaker claim than this table made before. An earlier version quoted
+a −22.6% alpha and argued "the sign is the sign" — but a sign is only a sign once it clears
+its own error bar, and this one does not. The annualized figures are a total return of about
+a percent scaled up by 252, not a rate anything has sustained.
+
+Beta 0.07 and −0.09 with R² near zero do confirm the book is genuinely market-neutral, so
+whatever these returns are, they are not disguised market exposure. Note the information
+ratio is negative on **both** markets including the one that made money: it is
+benchmark-relative and not beta-adjusted, so a market-neutral book that sits out a rising
+index scores badly on it by construction. Alpha and the information ratio answer different
+questions and are expected to disagree here.
+
+Ratios stay withheld below 20 sessions because a handful of days annualizes into a
+confident-looking number that is pure noise — the JSE crosses that floor for the first time
+in this table. The floor is necessary and not sufficient, which is what the standard error
+column is for: clearing 20 days does not make an estimate mean anything.
 
 The replay figures below are in-sample throughout. They describe a fit, not a forecast.
 
@@ -54,7 +67,8 @@ The CAPM decomposition is what makes the record readable: **a low beta and near-
 confirm the book is genuinely market-neutral**, so comparing its raw return to SPY was never
 the right test. The screenshot predates the live phase and shows the in-sample replay, where
 alpha is positive and the information ratio is already negative. The live decomposition —
-now published, and negative on both — is in the table at the top of this page.
+now published for both markets, and resolving on neither — is in the table at the top of
+this page.
 
 Below it, the two-book panel shows what rebalancing frequency actually costs, then signal
 quintiles slope the right way (Q1 highest → Q5 lowest: real ranking skill, modest in size)

@@ -1,5 +1,11 @@
 import type { AlphaBeta, AlphaBetaStats } from "../api/types";
-import { deltaColor, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
+import {
+  deltaColor,
+  formatNumber,
+  formatPercent,
+  formatSignedPercent,
+} from "../lib/format";
+import { MIN_DAYS_FOR_RATIOS, RESOLVES_AT_T } from "../lib/thresholds";
 
 function Metric({
   label,
@@ -31,13 +37,17 @@ function Metric({
 }
 
 /**
- * Plain-English read of the decomposition. Two rules keep it honest:
+ * Plain-English read of the decomposition. Three rules keep it honest:
  *
- * 1. Alpha and the information ratio can disagree in sign — one is market-adjusted, the
+ * 1. An alpha the window cannot tell apart from zero is not a return. Check that first:
+ *    every other sentence here describes a number, and describing one that has not
+ *    resolved dresses noise as a result. A day count does not establish this — a window
+ *    can hold enough days to regress and still carry an error larger than the estimate.
+ * 2. Alpha and the information ratio can disagree in sign — one is market-adjusted, the
  *    other benchmark-relative — so when they do, say so instead of quoting whichever
  *    flatters. Claiming "it earns positive alpha" next to a negative IR reads as a
  *    verdict the numbers haven't reached.
- * 2. An in-sample window describes a fit, never skill. Label it that way every time.
+ * 3. An in-sample window describes a fit, never skill. Label it that way every time.
  */
 function verdict(s: AlphaBetaStats, benchmark: string): string {
   const neutral = s.beta !== null && Math.abs(s.beta) < 0.2;
@@ -49,8 +59,17 @@ function verdict(s: AlphaBetaStats, benchmark: string): string {
     : `Beta ${formatNumber(s.beta)} means a real share of this return is the market moving, not the signal working.`;
 
   const te = formatPercent(s.tracking_error, 1);
+  const resolved =
+    s.alpha_t_stat !== null && Math.abs(s.alpha_t_stat) >= RESOLVES_AT_T;
+
   let skill: string;
-  if (alpha > 0 && ir < 0) {
+  if (!resolved) {
+    const give =
+      s.alpha_std_error_annualized === null
+        ? "an error this window cannot pin down"
+        : `give or take ${formatPercent(s.alpha_std_error_annualized, 1)}`;
+    skill = `Strip the market out and ${formatSignedPercent(alpha)} a year is left — but ${give}, so this window does not tell that apart from zero. There is no return to claim here yet, in either direction.`;
+  } else if (alpha > 0 && ir < 0) {
     skill = `Strip the market out and ${formatSignedPercent(alpha)} a year is left — but against ${te} of tracking error the information ratio is negative (${formatNumber(ir)}), so it still trails the benchmark for the risk it takes. The two measure different things and here they point opposite ways, so neither one settles it.`;
   } else if (alpha > 0) {
     skill = `Strip the market out and ${formatSignedPercent(alpha)} a year is left, and against ${te} of tracking error the information ratio agrees at ${formatNumber(ir)}.`;
@@ -74,21 +93,27 @@ export function AlphaBetaCard({
 }) {
   if (data.phases.length === 0) {
     return (
-      <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+      <p
+        className="py-8 text-center text-sm"
+        style={{ color: "var(--text-muted)" }}
+      >
         Appears after the first dbt transform run.
       </p>
     );
   }
   // Prefer the live phase once it has enough days to regress; else show the replay.
-  const live = data.phases.find((p) => p.phase === "live" && p.n_days >= 20);
-  const shown = live ?? data.phases.find((p) => p.phase === "replay") ?? data.phases[0];
+  const live = data.phases.find(
+    (p) => p.phase === "live" && p.n_days >= MIN_DAYS_FOR_RATIOS,
+  );
+  const shown =
+    live ?? data.phases.find((p) => p.phase === "replay") ?? data.phases[0];
 
   return (
     <div>
       <p className="mb-3 text-xs" style={{ color: "var(--text-secondary)" }}>
         {shown.phase === "live"
           ? `Live out-of-sample, ${shown.n_days} days.`
-          : `In-sample replay, ${shown.n_days} days — the live decomposition appears once it has ~20 days.`}
+          : `In-sample replay, ${shown.n_days} days — the live decomposition appears once it has ~${MIN_DAYS_FOR_RATIOS} days.`}
       </p>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -99,9 +124,20 @@ export function AlphaBetaCard({
         />
         <Metric
           label="Alpha (annualized)"
-          value={formatSignedPercent(shown.alpha_annualized)}
-          color={deltaColor(shown.alpha_annualized)}
-          hint="what's left once market moves are removed"
+          value={
+            shown.alpha_std_error_annualized === null
+              ? formatSignedPercent(shown.alpha_annualized)
+              : `${formatSignedPercent(shown.alpha_annualized)} ± ${formatPercent(shown.alpha_std_error_annualized, 1)}`
+          }
+          // Coloring an unresolved estimate green or red asserts a direction the window has
+          // not established, and the color is read before the number it decorates.
+          color={
+            shown.alpha_t_stat !== null &&
+            Math.abs(shown.alpha_t_stat) >= RESOLVES_AT_T
+              ? deltaColor(shown.alpha_annualized)
+              : undefined
+          }
+          hint="what's left once market moves are removed, and how far that could be off"
         />
         <Metric
           label="Information ratio"

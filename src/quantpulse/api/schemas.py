@@ -194,6 +194,12 @@ class AlphaBetaStats(BaseModel):
     beta: float | None
     alpha_daily: float | None
     alpha_annualized: float | None
+    #: Uncertainty on the alpha estimate. Alpha quoted without it is a point estimate
+    #: presented as a measurement, and over a short window the error exceeds the estimate.
+    alpha_std_error_annualized: float | None
+    #: Alpha over its standard error. Below ~2 in absolute value the window has not
+    #: separated the alpha from zero, whatever the headline number reads.
+    alpha_t_stat: float | None
     r_squared: float | None
     correlation: float | None
     tracking_error: float | None

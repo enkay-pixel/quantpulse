@@ -51,24 +51,36 @@ time. They are negative.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
-| Live sessions | 21 (from 2026-07-20) | 17 (from 2026-07-23) |
-| Total return | **−1.17%** | +0.01% |
-| Sharpe | **−1.43** | withheld (< 20 sessions) |
-| Annualized vol | 9.6% | withheld |
-| Win rate | 47.6% | withheld |
-| Beta / R² | 0.11 / 0.02 | withheld |
-| Alpha (annualized) | **−22.6%** | withheld |
-| Information ratio | **−4.05** | withheld |
+| Live sessions | 24 (from 2026-07-20) | 20 (from 2026-07-23) |
+| Total return | **−1.15%** | **+1.70%** |
+| Sharpe | **−1.27** | **+2.68** |
+| Annualized vol | 9.2% | 8.1% |
+| Win rate | 45.8% | 50.0% |
+| Beta / R² | 0.07 / 0.011 | −0.09 / 0.033 |
+| Alpha (annualized) | −17.5% ± 30.6% | +24.7% ± 30.3% |
+| Alpha t-statistic | **−0.57** | **+0.81** |
+| Information ratio | −2.60 | −3.17 |
 
-Against the in-sample replay — NYSE Sharpe **+0.74**, JSE **+1.94** — the live record is the
-opposite sign. That gap is the most useful output this project has produced, and keeping the
-two phases apart is the reason it is visible at all rather than blended into one flattering
-number.
+The two markets point opposite ways and neither one resolves. Each alpha carries a standard
+error larger than the estimate itself, so both t-statistics sit well inside the ~2 that would
+make either distinguishable from zero. After roughly a month live, the record does not
+separate skill from noise on either market — in either direction.
 
-Read the annualized figures with their sample in mind: −22.6% alpha is a −1.17% total return
-over 21 sessions scaled up, not a rate anything has sustained. The sign is meaningful; the
-magnitude is not yet. Beta 0.11 and R² 0.02 confirm the book is market-neutral as designed,
-so the negative alpha is the signal rather than hidden market exposure.
+This is a weaker claim than this table used to make. It previously read "the sign is
+meaningful; the magnitude is not yet", quoting a −22.6% alpha. A sign is only meaningful once
+it clears its own error bar, and neither of these does. The annualized figures are a total
+return of about a percent scaled up by 252, not a rate anything has sustained.
+
+The replay comparison still stands as the useful part — NYSE Sharpe **+0.74**, JSE **+1.94**
+in-sample against a live record that resolves to nothing — because the point was never the
+live sign but the size of the gap between a fit and a forecast. Keeping the phases apart is
+why that is visible at all rather than blended into one flattering number.
+
+Beta 0.07 and −0.09 with R² near zero confirm the book is market-neutral as designed, so
+whatever these returns are, they are not hidden market exposure. The information ratio is
+negative on both markets including the one that made money: it is benchmark-relative rather
+than beta-adjusted, so a market-neutral book that sits out a rising index scores badly on it
+by construction. It and alpha answer different questions and are expected to disagree here.
 
 Books trail prices by one session by construction.
 
