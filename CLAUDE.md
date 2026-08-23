@@ -90,7 +90,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `uv lock`). The **pre-commit hook rev must match that pin**, and CI fails on drift:
   dependabot updates pyproject but has no pre-commit ecosystem configured, so the hook
   silently stays behind and you get commits the hook reformats and CI then rejects. Same
-  guard as markdownlint, whose rev is likewise mirrored in ci.yml.
+  guard as markdownlint, whose rev is likewise mirrored in ci.yml. `uv` is guarded the
+  same way: CI pins `setup-uv` and the rev must match the `uv-pre-commit` hook, or the
+  two write lock files in formats the other did not expect. Note the locally installed
+  uv is a third version and is nobody's to pin — keep it near the other two by hand.
 - mypy strict-ish; pytest markers: `integration` needs live Postgres.
 - dbt: `transform/`, profiles via env vars, tests use the `arguments:` nesting,
   package pins in `transform/package-lock.yml` (committed). Marts join the Dagster
