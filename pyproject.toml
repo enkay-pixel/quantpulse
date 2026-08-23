@@ -61,6 +61,10 @@ dev = [
     "pandas-stubs>=2.2",
     "scipy-stubs>=1.14",
     "types-pyyaml>=6.0.12.20260724",
+    # Starlette's TestClient warns that driving it with httpx is deprecated and will be
+    # removed. Production still fetches with httpx (data/ingest.py); this is the client the
+    # test harness picks up, so installing it fixes the deprecation rather than muting it.
+    "httpx2>=2.12",
 ]
 
 [project.urls]
@@ -129,6 +133,30 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
     "integration: tests that need a running Postgres (deselect with '-m \"not integration\"')",
+]
+# Warnings are errors, so a deprecation in this project's own code fails the run that
+# introduces it rather than scrolling past in a wall of third-party noise. Anything ignored
+# below is upstream and unfixable from here; each needs the reason and a way out.
+filterwarnings = [
+    "error",
+    # exchange_calendars builds numpy timedeltas without an explicit unit, which numpy 2.5
+    # deprecates. 4.13.2 is the latest release and still does it, so there is no version to
+    # move to. Scoped to the message and the module so our own timedelta misuse still fails.
+    "ignore:The 'generic' unit for NumPy timedelta is deprecated:DeprecationWarning",
+    # Raised inside mlflow.types.type_hints while it infers a schema from one of its own
+    # pydantic models that carries an Any field. Nothing this project passes to log_model
+    # changes it — an explicit ModelSignature does not silence it — and it fires on every
+    # model logged. Re-check when mlflow moves off 3.15.
+    # The leading `.*` is load-bearing: mlflow colorizes the text, so the message starts
+    # with an ANSI escape and a prefix-anchored pattern never matches it.
+    "ignore:.*Any type hint is inferred as AnyType:UserWarning",
+    # dbt_common's logger opens transform/logs/dbt.log and never closes it, so running dbt
+    # in-process leaks the handle and the interpreter reports it at collection. Both entries
+    # are the same leak seen twice: once as the ResourceWarning, once as pytest surfacing the
+    # unraisable exception from the finalizer. Scoped to that path so an unclosed file
+    # anywhere else in this project still fails.
+    "ignore:unclosed file .*dbt\\.log:ResourceWarning",
+    "ignore:.*dbt\\.log.*:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]
