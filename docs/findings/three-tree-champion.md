@@ -50,6 +50,9 @@ stops mattering. Both are modelling changes.
 
 ## Related
 
+- [Can the round count be chosen well?](round-count.md) — both fixes proposed here were
+  tested there, and neither works in general
+
 - [Why nothing could beat the NYSE incumbent](unbeatable-incumbent.md) — the stall this
   was found while investigating
 - [Feature ablation and pruning](feature-ablation-and-pruning.md) — re-run after the

@@ -104,6 +104,7 @@ notebook. The method they share is stated once in
 | [Why nothing could beat the NYSE incumbent](findings/unbeatable-incumbent.md) | The promotion stall was a training-panel artifact, not skill |
 | [Model staleness](findings/model-staleness.md) | NYSE skill lasts about six weeks, so the weekly cadence is justified |
 | [Why the champion has three trees](findings/three-tree-champion.md) | Early stopping works; the split it validates on does not predict the holdout |
+| [Can the round count be chosen well?](findings/round-count.md) | Not in general — it is a per-market quantity, like quantile width and the promotion margin |
 
 ## Gaps, ranked by value per unit of effort
 
