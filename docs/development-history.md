@@ -91,14 +91,16 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
 - **Two markets.** NYSE: 50 tickers, 108,240 bars, 105,090 feature rows, 566,646 option
   quotes over 19 snapshot days. JSE: 29 Top-40 tickers, 60,334 bars, 58,507 feature rows, no
   options (no free chain data). Both from 2018-01-02.
-- **Champions**: XNYS v1, XJSE v3 — unchanged since 2026-07-25. Registered
+- **Champions**: XNYS v9 (2026-08-23), XJSE v3 (2026-07-25). XNYS v1 held the alias until
+  2026-08-23 and was demoted as an artifact of the pre-backfill panel. Registered
   `quantpulse-lgbm-<exchange>`, MLflow alias and audit trail reconciled by an asset check.
   The figures each was promoted on are **not comparable across models**; the gate re-scores
   the incumbent on the candidate's exact holdout rather than trusting stored metrics.
-- **Promotion has stalled on both markets** — three consecutive retrains, nothing promoted,
-  for opposite reasons. XNYS: nothing beat the champion (best 0.0852 vs 0.1000), so the gate
-  is right and the model is stuck. XJSE: a challenger beat its champion (0.0684 vs 0.0625)
-  and lost to the momentum baseline anyway.
+- **The NYSE stall is resolved; the JSE one is not.** Five NYSE retrains were rejected
+  because the incumbent had been fitted to a shorter panel and specialised on the evaluation
+  window — not because nothing was good enough. Demoting it and retraining promoted v9 on
+  2026-08-23. The JSE has five rejections outstanding and a different cause: challengers lose
+  to the fit-free momentum baseline, which the champion also loses to.
 - **A simpler model beats the JSE champion.** `quantpulse baseline` scores every champion
   against noise, momentum, reversal and a linear ridge on one shared holdout. On the JSE,
   plain 63-day momentum takes IC 0.1167 and Sharpe 2.28 against the champion's 0.0681 and
@@ -629,12 +631,12 @@ branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` t
 
 ## Testing architecture
 
-513 checks total: 391 pytest (232 unit on synthetic data; 140 integration against a
+559 checks total: 429 pytest (269 unit on synthetic data; 141 integration against a
 disposable `market_test` DB created/migrated/dropped per session, truncated per test —
 evidence tests seed raw data then run a real `dbt build` in that DB, MLflow registry tests
-use a throwaway sqlite backend; 19 Dagster definition/sensor tests), 59 Vitest
-(components + formatters, empty states, market switcher), 63 dbt tests (59 data + 4
-unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 59), plus
+use a throwaway sqlite backend; 19 Dagster definition/sensor tests), 66 Vitest
+(components + formatters, empty states, market switcher), 64 dbt tests (60 data + 4
+unit — `dbt ls --resource-type test` counts both; `dbt build` runs the 60), plus
 mypy/ruff/eslint/tsc, shellcheck, markdownlint, `alembic check` for model/migration
 drift, and compose validation — all enforced in CI. Line coverage 83%.
 

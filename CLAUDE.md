@@ -46,13 +46,18 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   Since 2026-08-14 a candidate must also beat a **standing competitor** — a fit-free
   63-day momentum rule scored on the same holdout — by the same margin, first champions
   included, because a lineage can beat each other while all losing to a one-line rule.
-  Measured: XJSE momentum IC 0.1167 vs champion v3's 0.0681, so the JSE champion does
-  not currently earn its place; the gate stops the next one repeating it but cannot
-  demote the incumbent. `quantpulse baseline` reports the comparison on demand.
-  Champions: XNYS v1 (IC 0.026 / Sharpe 0.21), XJSE v3 (IC 0.063 / Sharpe 1.51). Those are
-  **what each was promoted on, not comparable across models** — both predate the gate fix,
-  and on 2026-08-01 XNYS v1 re-scored 2.570 on that run's holdout against its stored 0.205.
-  Never compare a stored Sharpe to a fresh one; the gate re-scores instead.
+  Measured 2026-08-23: XJSE momentum IC 0.1094 vs champion v3's 0.0569, so the JSE champion
+  still does not earn its place on the backtest; the gate stops the next one repeating it
+  but cannot demote the incumbent. It is deliberately left running — that case rests on
+  holdout IC, which does not predict live behaviour here (see below). `quantpulse baseline`
+  reports the comparison on demand; reasoning and reopen trigger in docs/roadmap.md.
+  Champions: **XNYS v9** (promoted 2026-08-23, IC 0.059 / Sharpe 1.65), XJSE v3 (IC 0.063 /
+  Sharpe 1.51). XNYS v1 was **demoted 2026-08-23**: it was fitted two days before a backfill
+  tripled the panel, so it specialised on the evaluation window, re-scored at IC 0.1777 and
+  blocked five retrains while the live book lost money
+  ([findings/unbeatable-incumbent.md](docs/findings/unbeatable-incumbent.md)). Promotion
+  figures are **not comparable across models**; never compare a stored metric to a fresh
+  one — the gate re-scores instead.
 - Quantile width is per-market, set from breadth so books hold a comparable NUMBER of
   positions: 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. The
   promotion gate backtests at the market's own width, or it judges a book nobody runs.
