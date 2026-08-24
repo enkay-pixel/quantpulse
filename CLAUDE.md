@@ -105,7 +105,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   runs it unreviewed.
 - Frontend: palette/roles as CSS vars in `web/src/index.css` (dataviz method: legends
   for ≥2 series, status colors always icon+label, vendor chunks split).
-- Docs live in `docs/`, indexed by [docs/README.md](docs/README.md). The repo root is also
+- Docs live in `docs/`, indexed by [docs/README.md](docs/README.md). Measurement
+  write-ups live in [docs/findings/](docs/findings/README.md), one per investigation;
+  `ml-test-score.md` is the scorecard that links to them, not the lab notebook. Before
+  measuring anything, read [docs/measurement.md](docs/measurement.md) — the gotchas
+  below record individual mistakes; that file records the rules that would have
+  caught them. The repo root is also
   an Obsidian vault (`.obsidian/app.json` committed, per-machine state gitignored). Write
   **markdown links, never `[[wikilinks]]`** — they render as literal brackets on GitHub,
   which is where this is actually read. `scripts/check_doc_links.py` fails CI on a wikilink
