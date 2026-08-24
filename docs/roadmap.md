@@ -33,21 +33,21 @@ give investment advice, and the disclaimer stays.
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 
-**Quality gates:** 391 Python tests (232 unit + 140 integration against a disposable
-database that runs a real `dbt build` + 19 Dagster), 59 Vitest, 63 dbt tests (59 data +
-4 unit), plus mypy / ruff / eslint / tsc, shellcheck, markdownlint,
+**Quality gates:** 429 Python tests (269 unit + 141 integration against a disposable
+database that runs a real `dbt build` + 19 Dagster), 66 Vitest, 60 dbt data tests, plus
+mypy / ruff / eslint / tsc, shellcheck, markdownlint, a documentation link check,
 `alembic check` for model/migration drift, and compose validation — all enforced in CI.
 
 Read that with the caveat the log earns: every serious bug found so far shipped with CI
 fully green. The tests catch regressions in what has already gone wrong; the bugs that
 matter have been found by reading the data and asking whether it makes sense.
 
-## Current state (2026-08-19)
+## Current state (2026-08-24)
 
 ### The live record — the only numbers worth judging
 
-XNYS crossed the 20-session floor on 2026-08-18, so its ratios are published for the first
-time. They are negative.
+Both markets are past the 20-session floor, so both publish ratios. Data runs through
+2026-08-21; the NYSE champion is v9, promoted 2026-08-23 after v1 was demoted.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
