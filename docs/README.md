@@ -13,6 +13,8 @@ Start here. Everything below is plain markdown, readable on GitHub and in Obsidi
 | What a column means and where it came from | [data-dictionary.md](data-dictionary.md) |
 | Why it was built this way — the incident log | [development-history.md](development-history.md) |
 | How the ML holds up against a published rubric | [ml-test-score.md](ml-test-score.md) |
+| What we measured, and what it did and didn't show | [findings/](findings/README.md) |
+| How to measure anything here without fooling yourself | [measurement.md](measurement.md) |
 | Decisions that would be expensive to revisit | [adr/](adr/) |
 | Working context for coding agents | [../CLAUDE.md](../CLAUDE.md) |
 
