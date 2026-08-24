@@ -10,6 +10,7 @@ what came back, and what the result does *not* support.
 | [Why nothing could beat the NYSE incumbent](unbeatable-incumbent.md) | Why were five retrains rejected? | The champion was trained two days before a backfill tripled the panel. Not skill. |
 | [Model staleness](model-staleness.md) | How fast does a model go stale? | NYSE skill lasts ~6 weeks, so the weekly cadence is justified. The JSE curve rises with age. |
 | [Why the champion has three trees](three-tree-champion.md) | Is early stopping broken? | No — the inner-validation split does not predict holdout performance. |
+| [Can the round count be chosen well?](round-count.md) | Is there a fix for that? | No general one. The round count is a per-market quantity; a fixed 25 rounds beats early stopping on the JSE only. |
 
 The method these share is written down once in
 [How to measure things here](../measurement.md). It is worth reading first: most of these

@@ -338,6 +338,40 @@ plain 63-day momentum beats the champion on every metric** (IC 0.117 vs 0.068, S
 (IC 0.191 vs momentum's 0.016). Read the JSE replay numbers accordingly: they may be
 measuring momentum rather than the model. Detail in [ml-test-score.md](ml-test-score.md).
 
+## Decisions standing, and what would change them (2026-08-24)
+
+Each of these is measured and settled as far as measurement can settle it. None is acted on,
+and each names the evidence that would reopen it. Write-ups in [findings/](findings/README.md).
+
+**Keep running the JSE model, despite it losing to momentum.** The case against it is
+holdout IC — momentum 0.1094 against champion v3's 0.0569 — plus a staleness curve that is
+negative at every model age. That case rests entirely on a backtest metric this project has
+just shown does not predict live behaviour: the NYSE incumbent scored 0.1777 on its holdout
+while the live book lost money. Demoting on that basis would repeat the error documented in
+[the incumbent finding](findings/unbeatable-incumbent.md). The JSE live record is positive
+(+1.70%, Sharpe 2.68) but unresolved at 20 sessions, alpha t +0.81. *Reopen at 60 live
+sessions, or sooner if live Sharpe turns negative or alpha resolves either way.* Withdrawing
+it is one command (`quantpulse demote`) whenever that call is made.
+
+**Do not prune the NYSE feature set**, though pruning to `vol_21` resolves at t +3.00 across
+sixteen tuned seeds. `vol_21` was selected on this panel, so the result supports "pruning
+helps here" rather than "`vol_21` is the column", and +0.0133 is smaller than the
+round-to-round spread early stopping already contributes. *Reopen on confirmation from a
+fresh panel period.*
+
+**Do not set a per-market round count**, though a fixed 25 rounds beats early stopping on the
+JSE at t +3.43. Nothing resolves on the NYSE, and the count that looks best there is worst on
+the JSE. *Reopen on confirmation from a fresh panel period.*
+
+**Offline/online correlation stays open by construction.** It cannot be closed by work, only
+by time — 24 NYSE and 20 JSE live sessions is far too short to correlate against anything.
+*Revisit near 250 sessions.*
+
+**Keep recharts on 2.x.** The 2.x branch is end-of-life upstream and `npm ci` says so on every
+install, but 3.x changes the chart API across six components, `npm audit` reports no
+vulnerabilities, and nothing in 3.x is needed. The Dependabot major-ignore stays. *Reopen on
+a security advisory, or when a 3.x-only feature is actually wanted.*
+
 ## Next
 
 1. **Let it run.** The live track record and the options history only accrue with time;
