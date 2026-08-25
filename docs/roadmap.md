@@ -515,6 +515,17 @@ high on 29 names with ~8 years of history was signal or a favourable draw.
   they cannot fabricate a number. Ad-hoc questions belong in DBeaver against the
   `analytics` marts. If it is ever revisited, the ADR fixes the order of work.
 - **Spark / Databricks in this repo** — see item 6 above; the data does not justify it.
+- **Switching to OrbStack.** Considered 2026-08-25 and declined for now. Measured first: the
+  six containers idle at ~2.27 GB against the 2.5 GB budget, Docker Desktop's host processes
+  add 0.59 GB, and the VM sits at 1.83 GB RSS. OrbStack would plausibly trim the runtime's
+  share, which is the constraint that actually binds on a 16 GB machine — but most of the CPU
+  is the Dagster daemon polling and its Postgres (7.8% and 8.6%), and that follows the stack
+  to any runtime. Against that: the 10.89 GB build cache does not migrate, and twenty launchd
+  jobs resolve `docker` from `/opt/homebrew/bin` symlinked into `Docker.app`, where a runtime
+  swap re-points the thing that fails *silently* under launchd. OrbStack is also free only for
+  personal use, so the zero-cost constraint holds on usage rather than on the tool. Reopen if
+  the idle budget starts binding for real, or on a day when a slow first rebuild costs
+  nothing — not before a Saturday retrain.
 
 ## Why options work the way they do
 
