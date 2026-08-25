@@ -69,11 +69,13 @@ fi
 # Streak length alone does not say what to do, because two opposite situations produce the
 # same number:
 #
-#   nothing beat the champion       the gate is right and the model is stuck
-#   a candidate beat it anyway      some other criterion is binding, momentum among them
+#   loses to the momentum baseline  not beating a trivial competitor
+#   beat the champion anyway        some other criterion is binding
+#   beat neither                    the gate is right and the model is stuck
 #
-# So the best rejected candidate is carried alongside the champion it failed to displace and
-# the two cases are named, rather than collapsed into a count nobody can act on.
+# Judged on the LATEST rejection, because the verdict describes where things stand now.
+# Quoting the best of the streak instead let a near-miss from three weeks and four rejections
+# ago stand in for today; it is still carried, dated, and only when it beats the current one.
 #
 # Demotions are excluded: run_type='demotion' also records decision='rejected', and counting
 # a rollback as a failed challenge would inflate the streak with the opposite kind of event.
@@ -96,24 +98,40 @@ STALL=$(psql_q "
         SELECT DISTINCT ON (m.exchange) m.exchange, m.model_version, m.created_at,
                (m.metrics->>'holdout_ic')::numeric AS ic
         FROM promoted m JOIN promo p ON p.exchange = m.exchange AND p.ts = m.created_at),
-    streak AS (
-        SELECT m.exchange, count(*) AS n,
-               max((m.metrics->>'holdout_ic')::numeric) AS best_ic
+    rej AS (
+        SELECT m.exchange, m.created_at,
+               (m.metrics->>'holdout_ic')::numeric AS ic,
+               (m.metrics->>'baseline_momentum_ic')::numeric AS mom
         FROM model_runs m LEFT JOIN promo p ON p.exchange = m.exchange
         WHERE m.run_type = 'train' AND m.decision = 'rejected'
-          AND (p.ts IS NULL OR m.created_at > p.ts)
-        GROUP BY m.exchange)
+          AND (p.ts IS NULL OR m.created_at > p.ts)),
+    streak AS (SELECT exchange, count(*) AS n FROM rej GROUP BY exchange),
+    -- The verdict describes the CURRENT position, so it reads the newest rejection. The best
+    -- of the streak is carried separately as dated context: quoting the maximum alone let a
+    -- near-miss from three weeks and four rejections ago stand in for today.
+    latest AS (SELECT DISTINCT ON (exchange) exchange, ic, mom, created_at
+               FROM rej ORDER BY exchange, created_at DESC),
+    best AS (SELECT DISTINCT ON (exchange) exchange, ic, created_at
+             FROM rej ORDER BY exchange, ic DESC)
     SELECT s.exchange || '|' || s.n
            || '|' || coalesce((current_date - c.created_at::date)::text, '9999')
            || '|' || coalesce(to_char(c.created_at, 'YYYY-MM-DD'), 'never')
            || '|' || coalesce('v' || c.model_version, 'none')
            || '|' || coalesce(round(c.ic, 4)::text, 'n/a')
-           || '|' || coalesce(round(s.best_ic, 4)::text, 'n/a')
-    FROM streak s LEFT JOIN champ c ON c.exchange = s.exchange
+           || '|' || coalesce(round(l.ic, 4)::text, 'n/a')
+           || '|' || coalesce(round(l.mom, 4)::text, 'n/a')
+           || '|' || coalesce(round(b.ic, 4)::text, 'n/a')
+           || '|' || coalesce(to_char(b.created_at, 'MM-DD'), '-')
+    FROM streak s
+    LEFT JOIN champ c ON c.exchange = s.exchange
+    LEFT JOIN latest l ON l.exchange = s.exchange
+    LEFT JOIN best b ON b.exchange = s.exchange
     ORDER BY s.exchange;")
 
 STALLED=0
-while IFS='|' read -r ex n age since ver champ_ic best_ic; do
+gt() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a > b) }'; }
+
+while IFS='|' read -r ex n age since ver champ_ic last_ic last_mom best_ic best_on; do
     [ -n "${ex:-}" ] || continue
     [ "${n:-0}" -ge "$STALL_RUNS" ] || [ "${age:-0}" -gt "$STALL_DAYS" ] || continue
     STALLED=$((STALLED + 1))
@@ -121,11 +139,21 @@ while IFS='|' read -r ex n age since ver champ_ic best_ic; do
         # A market added but never promoted anything: no champion exists to have been
         # beaten, and the age bound is what fires.
         verdict="no champion has ever been promoted for this market"
-    elif [ "$champ_ic" != "n/a" ] && [ "$best_ic" != "n/a" ] \
-       && awk -v a="$best_ic" -v b="$champ_ic" 'BEGIN { exit !(a > b) }'; then
-        verdict="a candidate beat the champion (ic $best_ic vs $champ_ic) and was rejected anyway — another criterion is binding"
+    elif [ "$last_mom" != "n/a" ] && [ "$last_ic" != "n/a" ] && gt "$last_mom" "$last_ic"; then
+        # Momentum is a standing competitor in the gate, and where it is recorded it has been
+        # the binding constraint — roughly double every candidate. Checked before the
+        # incumbent because losing to a trivial baseline says something the champion
+        # comparison does not, and the value sits in the same row.
+        verdict="the latest candidate loses to the momentum baseline (ic $last_ic vs $last_mom) — it is not beating a trivial competitor"
+    elif [ "$champ_ic" != "n/a" ] && [ "$last_ic" != "n/a" ] && gt "$last_ic" "$champ_ic"; then
+        verdict="the latest candidate beat the champion (ic $last_ic vs $champ_ic) and was rejected anyway — another criterion is binding"
     else
-        verdict="nothing has beaten the champion (best $best_ic vs $champ_ic) — the gate is right and the model is stuck"
+        verdict="the latest candidate has not beaten the champion (ic $last_ic vs $champ_ic) — the gate is right and the model is stuck"
+    fi
+    # Only when the streak once did better than it is doing now, so a live near-miss is not
+    # restated as history.
+    if [ "$best_ic" != "n/a" ] && [ "$last_ic" != "n/a" ] && gt "$best_ic" "$last_ic"; then
+        verdict="$verdict; best in this streak was $best_ic on $best_on"
     fi
     printf '  STALL %s: %s rejection(s) since %s, champion %s is %sd old — %s\n' \
         "$ex" "$n" "$since" "$ver" "$age" "$verdict"
