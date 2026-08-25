@@ -50,10 +50,34 @@ if [ -z "$gb" ]; then
     exit 0
 fi
 
+raw_mb() {
+    du -m "$HOME/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw" \
+        2>/dev/null | cut -f1
+}
+
 if awk -v a="$gb" -v b="$CEILING_GB" 'BEGIN { exit !(a > b) }'; then
     log "build cache ${gb} GB exceeds ${CEILING_GB} GB — pruning (uv wheel cache kept)"
-    docker builder prune --force --filter "type!=exec.cachemount"
-    docker image prune --force
+    raw_before=$(raw_mb)
+
+    # Each step's own total, attributed. Left to print for themselves, the last line of the
+    # run was `docker image prune`'s "Total reclaimed space: 0B" — true of the images and
+    # nothing to do with the several GB of build cache freed immediately above it. Anyone
+    # reading the log without `docker system df` beside it would conclude the prune did
+    # nothing.
+    cache_out=$(docker builder prune --force --filter "type!=exec.cachemount" 2>&1)
+    cache_freed=$(printf '%s\n' "$cache_out" | awk '/^Total:/ { print $2; exit }')
+    image_out=$(docker image prune --force 2>&1)
+    image_freed=$(printf '%s\n' "$image_out" | awk '/Total reclaimed space:/ { print $4; exit }')
+
+    log "build cache freed ${cache_freed:-unknown}; dangling images freed ${image_freed:-0B}"
+
+    # The host-side number is the one that changed meaning. Under the containerd snapshotter
+    # a prune returns blocks to the sparse file; under overlay2 it never did, and a log that
+    # only reports what was freed inside the VM cannot tell those apart.
+    raw_after=$(raw_mb)
+    if [ -n "$raw_before" ] && [ -n "$raw_after" ]; then
+        log "Docker.raw ${raw_before} -> ${raw_after} MB on the host ($(( raw_before - raw_after )) MB returned)"
+    fi
     docker system df
 else
     log "build cache ${gb} GB is under ${CEILING_GB} GB — keeping it so builds stay warm"
