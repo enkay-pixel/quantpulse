@@ -46,6 +46,10 @@ repos:
     rev: v0.11.0
     hooks:
       - id: shellcheck
+        # -x makes shellcheck follow `# shellcheck source=` directives. Without it every
+        # script sourcing lib/dedup.sh fails SC1091, which went unnoticed only because the
+        # hook runs on changed files and those scripts had stopped changing.
+        args: [-x]
 
   # Scans every tracked markdown file, not just the staged ones, because a link breaks when
   # its *target* is renamed — the file that changed is rarely the file that now points at
