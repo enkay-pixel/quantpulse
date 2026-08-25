@@ -78,15 +78,24 @@ fi
 # Demotions are excluded: run_type='demotion' also records decision='rejected', and counting
 # a rollback as a failed challenge would inflate the streak with the opposite kind of event.
 STALL=$(psql_q "
-    WITH promo AS (
-        SELECT exchange, max(created_at) AS ts
-        FROM model_runs WHERE run_type = 'train' AND decision = 'promoted'
-        GROUP BY exchange),
+    WITH promoted AS (
+        -- A promotion that was later withdrawn is not a champion. Deriving the champion from
+        -- promotions alone reported a demoted version as the incumbent: XNYS v2 was promoted
+        -- and demoted the same day, and this said \"champion v2\" for four weeks while the
+        -- alias pointed at v1. Drop any promotion whose version was demoted afterwards.
+        SELECT m.exchange, m.model_version, m.created_at, m.metrics
+        FROM model_runs m
+        WHERE m.run_type = 'train' AND m.decision = 'promoted'
+          AND NOT EXISTS (
+              SELECT 1 FROM model_runs d
+              WHERE d.run_type = 'demotion' AND d.exchange = m.exchange
+                AND d.model_version = m.model_version AND d.created_at > m.created_at)),
+    promo AS (
+        SELECT exchange, max(created_at) AS ts FROM promoted GROUP BY exchange),
     champ AS (
         SELECT DISTINCT ON (m.exchange) m.exchange, m.model_version, m.created_at,
                (m.metrics->>'holdout_ic')::numeric AS ic
-        FROM model_runs m JOIN promo p ON p.exchange = m.exchange AND p.ts = m.created_at
-        WHERE m.run_type = 'train' AND m.decision = 'promoted'),
+        FROM promoted m JOIN promo p ON p.exchange = m.exchange AND p.ts = m.created_at),
     streak AS (
         SELECT m.exchange, count(*) AS n,
                max((m.metrics->>'holdout_ic')::numeric) AS best_ic
