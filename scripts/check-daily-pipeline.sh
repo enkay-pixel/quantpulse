@@ -48,15 +48,25 @@ fi
 # failure mode this script exists to catch.
 psql_q() { docker compose exec -T postgres psql -U quantpulse -d market -tAc "$1" </dev/null 2>/dev/null; }
 
-# The last session each exchange has actually *finished*, in its own calendar. Not
-# last_trading_day() alone: run at 08:00 SAST that is 02:00 in New York, so it would name a
-# session the NYSE has not opened yet, and every market would look stalled every morning.
+# The last session each exchange has actually *finished* and had its ingest run for, in its
+# own calendar. Not last_trading_day() alone: run at 08:00 SAST that is 02:00 in New York, so
+# it would name a session the NYSE has not opened yet, and every market would look stalled
+# every morning.
+#
+# is_post_close is necessary but not sufficient. Between the close and the ingest — two hours
+# for both markets — the session is finished while its data legitimately has not arrived, and
+# expecting it there reports a stall against a schedule that has not had its turn. Same
+# distinction check-jse-close.sh draws, and ingest_overdue is the same clock predicate it
+# uses. It can only be true where is_post_close already is, so this narrows that window and
+# leaves the 08:00 run, where both are false and the previous session is named, untouched.
 EXPECTED=$(docker compose exec -T dagster-daemon python -c '
 import datetime as dt
 from quantpulse.data.calendar import EXCHANGES, is_post_close, is_trading_day, last_trading_day, market_today
+from quantpulse.orchestration.catchup import ingest_overdue
 for code in sorted(EXCHANGES):
     day = market_today(code)
-    if not (is_trading_day(day, code) and is_post_close(exchange=code)):
+    ready = is_trading_day(day, code) and is_post_close(exchange=code) and ingest_overdue(exchange=code)
+    if not ready:
         day = last_trading_day(day - dt.timedelta(days=1), code)
     print(f"{code} {day}")
 ' 2>/dev/null | tr -d '\r')
