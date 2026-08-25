@@ -33,17 +33,22 @@ class OffHoursSnapshotError(RuntimeError):
     """
 
 
-class VendorOutageError(RuntimeError):
-    """The vendor returned no chain for any ticker in the universe.
+class EmptyUniverseSnapshotError(RuntimeError):
+    """No chain came back for any ticker in the universe.
 
-    The case the docstring above names as the ambiguity, closed from the other side. One
-    ticker without a chain is ordinary; the whole universe without one is the feed being
-    down, and the two are indistinguishable in a return value of 0.
+    The case OffHoursSnapshotError's docstring names as the ambiguity, closed from the other
+    side. One ticker without a chain is ordinary; the whole universe without one is not, and
+    the two are indistinguishable in a return value of 0.
 
-    Worth an exception rather than a warning because option marks are the one thing here
-    that cannot be refetched: a session missed is a session gone. Failing the run puts the
-    outage in pipeline_alerts and turns the asset red the same night, instead of leaving a
-    clean exit for the watchdog to re-run against a feed that has nothing to give.
+    Names the observation, not a cause. An unreachable network, a vendor outage and a
+    credential problem are identical from inside the loop, and the incident log records
+    exactly that trap: the loss on 2026-08-11 was a local internet outage, and an error that
+    blamed the feed would have sent the reader to check the wrong thing.
+
+    Worth an exception rather than a warning because option marks cannot be refetched: a
+    session missed is a session gone. Failing puts it in pipeline_alerts and turns the asset
+    red the same night, instead of the clean exit that let three repair runs report SUCCESS
+    having captured zero rows.
     """
 
 
@@ -262,10 +267,11 @@ def snapshot_option_chains(
     # Guarded on `tickers` so an empty universe stays a legitimate no-op rather than an
     # outage — there is nothing to be served when nothing was asked for.
     if tickers and not fetched:
-        raise VendorOutageError(
+        raise EmptyUniverseSnapshotError(
             f"No option chain returned for any of {len(tickers)} tickers on "
-            f"{snapshot_date} — the vendor is serving nothing, not this universe. "
-            "Nothing was written, and these marks cannot be captured later."
+            f"{snapshot_date}. Nothing was written, and these marks cannot be captured "
+            "later. Cause is not determined here — connectivity, the vendor and credentials "
+            "all look the same from inside the loop; check the network first."
         )
 
     logger.info("Snapshot %s: wrote %d option quotes", snapshot_date, total)

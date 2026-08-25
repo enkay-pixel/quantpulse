@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from quantpulse.options import ingest
 from quantpulse.options.ingest import (
+    EmptyUniverseSnapshotError,
     OffHoursSnapshotError,
-    VendorOutageError,
     _rows_for_ticker,
     dedupe_rows,
     snapshot_option_chains,
@@ -169,28 +169,28 @@ def test_force_bypasses_the_gate(monkeypatch: pytest.MonkeyPatch) -> None:
     assert snapshot_option_chains(_exploding_session, [], force=True) == 0
 
 
-# --------------------------------------------------------------------- vendor outage
+# ------------------------------------------------------------------- empty universe
 
 
 def test_whole_universe_returning_nothing_is_an_outage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The three-session loss this exists for: every ticker empty, exit code 0.
+    """The loss this exists for: every ticker empty, exit code 0.
 
-    yfinance answers with no expiries for every symbol when Yahoo rate-limits or moves an
-    endpoint. Each ticker then takes the `continue` path, the run writes nothing and
-    returns cleanly, and the watchdog re-runs it nightly against a feed with nothing to
-    give. Option marks cannot be captured after the session, so a quiet 0 costs the day.
+    Whatever the cause — the recorded one was a local internet outage — each ticker takes
+    the `continue` path, the run writes nothing and returns cleanly. Repair runs then report
+    SUCCESS having captured zero rows. Option marks cannot be captured after the session, so
+    a quiet 0 costs the day.
     """
     monkeypatch.setattr(ingest, "is_post_close", lambda: True)
     monkeypatch.setattr(ingest, "_fetch_ticker_chain", lambda t, n: (None, []))
 
-    with pytest.raises(VendorOutageError, match="serving nothing"):
+    with pytest.raises(EmptyUniverseSnapshotError, match="cannot be captured later"):
         snapshot_option_chains(_exploding_session, ["AAPL", "MSFT", "NVDA"])
 
 
 def test_outage_is_raised_when_every_fetch_throws(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The other shape of the same outage: the vendor raises rather than returning empty."""
+    """The other shape: the fetch raises rather than returning empty."""
     monkeypatch.setattr(ingest, "is_post_close", lambda: True)
 
     def boom(ticker: str, n_expiries: int) -> object:
@@ -198,7 +198,7 @@ def test_outage_is_raised_when_every_fetch_throws(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(ingest, "_fetch_ticker_chain", boom)
 
-    with pytest.raises(VendorOutageError):
+    with pytest.raises(EmptyUniverseSnapshotError):
         snapshot_option_chains(_exploding_session, ["AAPL", "MSFT"])
 
 
@@ -207,8 +207,7 @@ def test_one_ticker_without_a_chain_is_not_an_outage(
 ) -> None:
     """A symbol with no listed options is ordinary and must not fail the run.
 
-    This is the line between the two: some tickers empty is normal, all of them is the
-    feed being down.
+    This is the line: some tickers empty is normal, all of them is not.
     """
     monkeypatch.setattr(ingest, "is_post_close", lambda: True)
     monkeypatch.setattr(
