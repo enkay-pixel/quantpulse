@@ -20,6 +20,12 @@ cd "$REPO" || exit 0
 STALL_RUNS="${RETRAIN_STALL_RUNS:-3}"
 STALL_DAYS="${RETRAIN_STALL_DAYS:-28}"
 
+# training_schedule is cron "0 9 * * 6" on America/New_York, so an absent retrain is only
+# suspicious on a Saturday there. Read in the exchange's zone rather than locally: the two
+# disagree either side of midnight, and reading a boundary in the wrong zone is what incident
+# 30 cost. 6 means Saturday to both cron and `date +%u`.
+TRAIN_DOW="${RETRAIN_TRAIN_DOW:-6}"
+
 stamp() { date '+%Y-%m-%d %H:%M:%S'; }
 
 RUNNING=$(docker ps --filter "name=quantpulse-" --format '{{.Names}}' 2>/dev/null | wc -l | tr -d ' ')
@@ -45,11 +51,16 @@ ROWS=$(psql_q "
     ORDER BY exchange, id;")
 
 if [ -z "$ROWS" ]; then
-    # Not an exit: a champion ages just as fast whether it was challenged or forgotten, so
-    # this is exactly when the stall check below matters.
-    printf '%s no retrain recorded today — the schedule may not have fired\n' "$(stamp)"
-    osascript -e "display notification \"no retrain recorded today\" \
-        with title \"QuantPulse: retrain check\"" 2>/dev/null || true
+    # Not an exit either way: a champion ages just as fast whether it was challenged or
+    # forgotten, so this is exactly when the stall check below matters.
+    if [ "$(TZ=America/New_York date +%u)" = "$TRAIN_DOW" ]; then
+        printf '%s no retrain recorded today — the schedule may not have fired\n' "$(stamp)"
+        osascript -e "display notification \"no retrain recorded today\" \
+            with title \"QuantPulse: retrain check\"" 2>/dev/null || true
+    else
+        # Nothing is wrong and nothing is owed, so this neither warns nor notifies.
+        printf '%s not a training day in New York — no retrain expected\n' "$(stamp)"
+    fi
 else
     printf '%s retrain outcome:\n' "$(stamp)"
     printf '  %s\n' "$ROWS"
