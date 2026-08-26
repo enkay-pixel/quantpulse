@@ -522,6 +522,21 @@ def portfolio_books(session: SessionDep, exchange: ExchangeDep) -> schemas.BookC
     return schemas.BookComparison(books=books)
 
 
+@router.get("/portfolio/champions", response_model=schemas.ChampionRecordOut)
+def champion_records(session: SessionDep, exchange: ExchangeDep) -> schemas.ChampionRecordOut:
+    """Live record per deployed model — what each champion earned, not what the market did."""
+    rows = _mart_rows(
+        session,
+        "SELECT model_version, n_days, start_date, end_date, total_return, "
+        "avg_daily_return, max_drawdown, sharpe, win_rate, is_current "
+        "FROM analytics.fct_champion_record WHERE exchange = :ex ORDER BY start_date",
+        {"ex": exchange},
+    )
+    return schemas.ChampionRecordOut(
+        champions=[schemas.ChampionRecord(**dict(r)) for r in rows or []]
+    )
+
+
 @router.get("/track-record", response_model=schemas.TrackRecord)
 def track_record(session: SessionDep, exchange: ExchangeDep) -> schemas.TrackRecord:
     live_since = session.scalar(

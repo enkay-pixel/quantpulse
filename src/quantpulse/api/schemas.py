@@ -175,6 +175,26 @@ class TrackRecord(BaseModel):
     phases: list[PhaseStats]
 
 
+class ChampionRecord(BaseModel):
+    """One deployed model's live record, apart from the market's."""
+
+    model_version: str
+    n_days: int
+    start_date: dt.date
+    end_date: dt.date
+    total_return: float
+    avg_daily_return: float
+    max_drawdown: float | None
+    sharpe: float | None
+    win_rate: float | None
+    #: Holds the most recent live day. Decided by date, not version number.
+    is_current: bool
+
+
+class ChampionRecordOut(BaseModel):
+    champions: list[ChampionRecord]
+
+
 class AlertEntry(BaseModel):
     timestamp: str
     job_name: str
