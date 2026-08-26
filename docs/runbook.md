@@ -110,6 +110,29 @@ To restore into a running stack:
 gzcat ~/quantpulse-backups/market-YYYY-MM-DD.sql.gz | docker exec -i quantpulse-postgres psql -U quantpulse -d market
 ```
 
+## When a build fails with `DeadlineExceeded`
+
+BuildKit routes registry metadata through Docker Desktop's proxy
+(`http.docker.internal:3128`), and that path stalls while everything else works — `curl` to
+the registry answers in under a second and running containers reach it fine.
+
+```bash
+docker pull ghcr.io/astral-sh/uv:0.11.29   # the FROM images, from docker/*.Dockerfile
+docker pull python:3.12-slim
+docker compose build <service>
+```
+
+With the base images local, metadata resolves without the proxy and the build runs. Restarting
+Docker Desktop is *not* a reliable fix — it appeared to work once and did nothing the next
+time — and `DOCKER_BUILDKIT=0` hangs on the same lookup.
+
+Always read the build output. A build piped to `/dev/null` fails indistinguishably from a
+cache hit, and the stale image keeps serving. Confirm the change actually shipped:
+
+```bash
+docker compose exec -T api grep -c "some_new_symbol" /app/src/quantpulse/api/routes.py
+```
+
 ## Host agents (launchd)
 
 Seven scheduled jobs on the dev machine. Each keeps only its *schedule* in

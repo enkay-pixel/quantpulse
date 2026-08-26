@@ -294,13 +294,26 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `readlink -f /opt/homebrew/bin/docker` after upgrading. Checked 2026-08-23 on 4.87.0:
   `docker` and `docker-credential-osxkeychain` both still resolve, `hub-tool` has gone from
   PATH and nothing uses it.
-- **BuildKit can hang resolving registry metadata while the network is fine.** Symptom is
-  `failed to solve: DeadlineExceeded` on the `FROM` lines and `docker pull` hanging
-  indefinitely, while `curl https://ghcr.io/v2/` returns 401 in under a second — so
-  connectivity and the credential helper are both red herrings. Restarting Docker Desktop
-  clears it; `make down` first, since quitting with a run in flight strands it. And never
-  pipe a build to `/dev/null`: a failure is otherwise indistinguishable from a cache hit,
-  so the stale image keeps serving while you believe you deployed.
+- **BuildKit hangs resolving registry metadata while the network is fine.** Symptom is
+  `failed to solve: DeadlineExceeded` on the `FROM` lines. Connectivity and the credential
+  helper are both red herrings: `curl https://ghcr.io/v2/` returns 401 in under a second,
+  and a *running container* reaches ghcr.io in 0.3s. The difference is the path — `docker
+  info` shows builds routed through Docker Desktop's own proxy at
+  `http.docker.internal:3128`, and that is what stalls.
+  **Fix: `docker pull` the base images named in the `FROM` lines**, then build. With them
+  local, BuildKit resolves metadata without the proxy round-trip and the build runs normally.
+  Two things that did *not* work, both tried on 2026-08-26: restarting Docker Desktop, which
+  had appeared to fix it on 08-23 and did nothing on 08-26 — so the earlier advice here to
+  restart was wrong, or at best a coincidence; and `DOCKER_BUILDKIT=0`, which hangs on the
+  same lookup. Note `docker pull` itself hung on 08-23 and worked on 08-26, so try it first
+  and treat a hang there as the same fault rather than a different one.
+  (`UseContainerdSnapshotter` is on, which changes how BuildKit resolves images — a plausible
+  contributor, never confirmed.)
+- **Never pipe a build to `/dev/null`.** A failed build is otherwise indistinguishable from a
+  cache hit, so the stale image keeps serving while you believe you deployed. This has now
+  cost time twice: once on 08-23 for an hour, and again on 08-26 immediately after being
+  written down here. Grep the container for the change instead of trusting the build ran:
+  `docker compose exec -T <svc> grep -c '<new symbol>' /app/src/...`.
 - `pre-commit run gitleaks --all-files` is a **no-op that always passes** — the hook's entry
   is `gitleaks git --staged` with `pass_filenames: false`, so pre-commit's file list is
   discarded and an empty index scans nothing. Verify it with a real scan
