@@ -315,6 +315,25 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     stayed green while the two wall-clock assertions failed. When a library ignores part
     of a value, test the part it reads.
 
+31. **The shared venv cannot be rebuilt from its own manifest (2026-08-26)**: quantpulse
+    installs editable into `~/nathan_playground/.venv`, a venv shared with the other projects
+    in that monorepo and fed from two sources — `requirements.txt` for everything else and
+    `make install` for this package. Attempting a clean rebuild showed `requirements.txt`
+    does not resolve on python 3.13 at all: `pyppeteer` pins `websockets<11`, which has no
+    wheels for 3.13 and contradicts every other consumer of websockets, and an unpinned
+    `tokenizers` resolves back to 0.10.3 — no wheel, needs a Rust toolchain — where the live
+    venv carries 0.21.4. `hnswlib` is declared and was never installed at all. The file is
+    not a manifest; it is a list of names accumulated over time, and the environment was
+    built incrementally under resolutions a single resolve can no longer reproduce.
+    Consequence for this repo: `make install` is safe and repeatable, but the venv underneath
+    it is not reconstructible, so a lost venv is a rebuild project rather than a command. A
+    `pip freeze` is currently the only faithful record. The three packages that prompted the
+    attempt — `datashader`, its transitive `numba`, and `httpx-cache`, none imported anywhere
+    and none in `uv.lock` — were removed from `requirements.txt` and uninstalled instead,
+    which is what the goal actually needed.
+    Lesson: a dependency file that has only ever been appended to is not a manifest until a
+    clean resolve has been run against it. Nothing here would have surfaced short of trying.
+
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
 Prompted by "what else needs to fail hard before this is ready to present?". Counting the
