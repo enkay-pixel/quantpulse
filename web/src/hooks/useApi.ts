@@ -5,10 +5,18 @@ import { api } from "../api/client";
 const REFRESH_MS = 60_000; // dashboards refresh themselves once a minute
 
 export const useExchanges = () =>
-  useQuery({ queryKey: ["exchanges"], queryFn: api.exchanges, staleTime: Infinity });
+  useQuery({
+    queryKey: ["exchanges"],
+    queryFn: api.exchanges,
+    staleTime: Infinity,
+  });
 
 export const useHealth = () =>
-  useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: REFRESH_MS });
+  useQuery({
+    queryKey: ["health"],
+    queryFn: api.health,
+    refetchInterval: REFRESH_MS,
+  });
 
 export const usePredictions = (exchange: string) =>
   useQuery({
@@ -50,6 +58,12 @@ export const useTrackRecord = (exchange: string) =>
     queryKey: ["track-record", exchange],
     queryFn: () => api.trackRecord(exchange),
     refetchInterval: REFRESH_MS,
+  });
+
+export const useChampions = (exchange: string) =>
+  useQuery({
+    queryKey: ["champions", exchange],
+    queryFn: () => api.champions(exchange),
   });
 
 export const useAlphaBeta = (exchange: string) =>

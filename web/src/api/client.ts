@@ -1,6 +1,7 @@
 import type {
   AlphaBeta,
   BookComparison,
+  ChampionRecordOut,
   Exchange,
   DriftStatus,
   EquityCurve,
@@ -22,7 +23,8 @@ import type {
 } from "./types";
 
 export const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  "http://localhost:8000";
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
@@ -43,20 +45,31 @@ export const api = {
     getJson<SignalSeries>(`/signals/history/${encodeURIComponent(ticker)}`),
   latestPredictions: (ex: string) =>
     getJson<Predictions>(`/predictions/latest?exchange=${ex}`),
-  currentModel: (ex: string) => getJson<ModelInfo>(`/models/current?exchange=${ex}`),
-  latestDrift: (ex: string) => getJson<DriftStatus>(`/drift/latest?exchange=${ex}`),
+  currentModel: (ex: string) =>
+    getJson<ModelInfo>(`/models/current?exchange=${ex}`),
+  latestDrift: (ex: string) =>
+    getJson<DriftStatus>(`/drift/latest?exchange=${ex}`),
   exchanges: () => getJson<Exchange[]>("/exchanges"),
   // Market-scoped: the backend defaults to XNYS, but the dashboard is always explicit
   // so a switch can never silently fall back to another market's numbers.
-  equityCurve: (ex: string) => getJson<EquityCurve>(`/portfolio/equity-curve?exchange=${ex}`),
-  alphaBeta: (ex: string) => getJson<AlphaBeta>(`/portfolio/alpha-beta?exchange=${ex}`),
-  books: (ex: string) => getJson<BookComparison>(`/portfolio/books?exchange=${ex}`),
+  equityCurve: (ex: string) =>
+    getJson<EquityCurve>(`/portfolio/equity-curve?exchange=${ex}`),
+  alphaBeta: (ex: string) =>
+    getJson<AlphaBeta>(`/portfolio/alpha-beta?exchange=${ex}`),
+  champions: (ex: string) =>
+    getJson<ChampionRecordOut>(`/portfolio/champions?exchange=${ex}`),
+  books: (ex: string) =>
+    getJson<BookComparison>(`/portfolio/books?exchange=${ex}`),
   freshness: (ex: string) => getJson<Freshness>(`/freshness?exchange=${ex}`),
-  trackRecord: (ex: string) => getJson<TrackRecord>(`/track-record?exchange=${ex}`),
-  quintiles: (ex: string) => getJson<Quintiles>(`/signals/quintiles?exchange=${ex}`),
+  trackRecord: (ex: string) =>
+    getJson<TrackRecord>(`/track-record?exchange=${ex}`),
+  quintiles: (ex: string) =>
+    getJson<Quintiles>(`/signals/quintiles?exchange=${ex}`),
   risk: (ex: string) => getJson<Risk>(`/portfolio/risk?exchange=${ex}`),
-  positions: (ex: string) => getJson<Positions>(`/portfolio/positions?exchange=${ex}`),
-  modelHistory: (ex: string) => getJson<ModelRunEntry[]>(`/models/history?exchange=${ex}`),
+  positions: (ex: string) =>
+    getJson<Positions>(`/portfolio/positions?exchange=${ex}`),
+  modelHistory: (ex: string) =>
+    getJson<ModelRunEntry[]>(`/models/history?exchange=${ex}`),
   optionSummary: (ticker: string) =>
     getJson<OptionSummary>(`/options/${encodeURIComponent(ticker)}/summary`),
   optionChain: (ticker: string, expiry?: string) =>

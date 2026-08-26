@@ -193,6 +193,23 @@ export interface TrackRecord {
   phases: PhaseStats[];
 }
 
+export interface ChampionRecord {
+  model_version: string;
+  n_days: number;
+  start_date: string;
+  end_date: string;
+  total_return: number;
+  avg_daily_return: number;
+  max_drawdown: number | null;
+  sharpe: number | null;
+  win_rate: number | null;
+  is_current: boolean;
+}
+
+export interface ChampionRecordOut {
+  champions: ChampionRecord[];
+}
+
 export interface AlphaBetaStats {
   phase: "replay" | "live";
   n_days: number;

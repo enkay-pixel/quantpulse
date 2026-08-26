@@ -153,6 +153,30 @@ models:
           Alpha over its standard error. Above ~2 in absolute value the alpha is
           distinguishable from zero at roughly two sigma.
 
+  - name: fct_champion_record
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [exchange, model_version]
+    description: >
+      Live-phase record per deployed model, so a champion's own performance can be read
+      apart from the market's. fct_track_record pools every champion that has held the
+      alias, which after a demotion is dominated for months by the model that was
+      withdrawn. Replay is excluded: in-sample days say nothing about the model that
+      happens to be attached to them. Ratios are nulled below min_days_for_ratios.
+    columns:
+      - name: exchange
+        tests: [not_null]
+      - name: model_version
+        tests: [not_null]
+      - name: n_days
+        tests: [not_null]
+      - name: is_current
+        description: >
+          True for the model holding the most recent live day. Decided by date rather than
+          by version number, because model_version is text and 'v9' sorts above 'v10'.
+        tests: [not_null]
+
   - name: fct_option_summary
     description: >
       Per-(ticker, snapshot) option-market read: ATM implied volatility and the

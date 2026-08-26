@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
+import { ChampionRecordCard } from "./components/ChampionRecordCard";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
 import { BookComparisonCard } from "./components/BookComparisonCard";
 import { DriftPanel } from "./components/DriftPanel";
@@ -20,6 +21,7 @@ import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
 import {
   useAlphaBeta,
+  useChampions,
   useBooks,
   useCurrentModel,
   useDrift,
@@ -48,7 +50,10 @@ const TABS = ["Overview", "Evidence", "Options", "Model & Book"];
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
-      <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+      <h2
+        className="mb-3 text-sm font-semibold"
+        style={{ color: "var(--text-primary)" }}
+      >
         {title}
       </h2>
       {children}
@@ -57,7 +62,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function Placeholder({ height = "h-64" }: { height?: string }) {
-  return <div className={`${height} animate-pulse rounded-lg`} style={{ background: "var(--grid)" }} />;
+  return (
+    <div
+      className={`${height} animate-pulse rounded-lg`}
+      style={{ background: "var(--grid)" }}
+    />
+  );
 }
 
 function OverviewTab({ exchange }: { exchange: string }) {
@@ -82,7 +92,9 @@ function OverviewTab({ exchange }: { exchange: string }) {
         <LiveStats live={live} />
         <StatCard
           label="Champion model"
-          value={model.data?.model_version ? `v${model.data.model_version}` : "—"}
+          value={
+            model.data?.model_version ? `v${model.data.model_version}` : "—"
+          }
           sub={
             model.data?.metrics?.holdout_ic !== undefined
               ? `holdout IC ${formatNumber(model.data.metrics.holdout_ic, 3)}`
@@ -92,18 +104,29 @@ function OverviewTab({ exchange }: { exchange: string }) {
       </div>
 
       <div className="mb-4">
-        {trackRecord.data ? <TrackRecordCard record={trackRecord.data} /> : <Placeholder height="h-24" />}
+        {trackRecord.data ? (
+          <TrackRecordCard record={trackRecord.data} />
+        ) : (
+          <Placeholder height="h-24" />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Section title="Paper equity vs benchmark buy & hold">
-            {equity.data ? <BenchmarkEquityChart curve={equity.data} /> : <Placeholder />}
+            {equity.data ? (
+              <BenchmarkEquityChart curve={equity.data} />
+            ) : (
+              <Placeholder />
+            )}
           </Section>
           <Section title={activeTicker ? `Price — ${activeTicker}` : "Price"}>
             {activeTicker ? (
               <>
-                <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="mb-2 text-xs"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   {rotation.isPinned
                     ? "Pinned — rotation resumes in a few minutes."
                     : "Auto-rotating through today's signals · click a ticker to pin it."}
@@ -135,7 +158,11 @@ function OverviewTab({ exchange }: { exchange: string }) {
             )}
           </Section>
           <Section title="Feature drift">
-            {drift.data ? <DriftPanel drift={drift.data} /> : <Placeholder height="h-24" />}
+            {drift.data ? (
+              <DriftPanel drift={drift.data} />
+            ) : (
+              <Placeholder height="h-24" />
+            )}
           </Section>
         </div>
       </div>
@@ -143,16 +170,24 @@ function OverviewTab({ exchange }: { exchange: string }) {
   );
 }
 
-function EvidenceTab({ exchange, benchmark }: { exchange: string; benchmark?: string }) {
+function EvidenceTab({
+  exchange,
+  benchmark,
+}: {
+  exchange: string;
+  benchmark?: string;
+}) {
   const quintiles = useQuintiles(exchange);
   const risk = useRisk(exchange);
   const alphaBeta = useAlphaBeta(exchange);
+  const champions = useChampions(exchange);
   const books = useBooks(exchange);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="lg:col-span-2">
         <Section title="How much of this is the market, and how much is the signal?">
+          {champions.data ? <ChampionRecordCard data={champions.data} /> : null}
           {alphaBeta.data ? (
             <AlphaBetaCard data={alphaBeta.data} benchmark={benchmark} />
           ) : (
@@ -162,14 +197,26 @@ function EvidenceTab({ exchange, benchmark }: { exchange: string; benchmark?: st
       </div>
       <div className="lg:col-span-2">
         <Section title="What does trading more often cost?">
-          {books.data ? <BookComparisonCard data={books.data} /> : <Placeholder height="h-32" />}
+          {books.data ? (
+            <BookComparisonCard data={books.data} />
+          ) : (
+            <Placeholder height="h-32" />
+          )}
         </Section>
       </div>
       <Section title="Does the ranking work? Signal quintiles vs next-day returns">
-        {quintiles.data ? <QuintileChart quintiles={quintiles.data} /> : <Placeholder height="h-56" />}
+        {quintiles.data ? (
+          <QuintileChart quintiles={quintiles.data} />
+        ) : (
+          <Placeholder height="h-56" />
+        )}
       </Section>
       <Section title="Risk">
-        {risk.data ? <RiskCharts risk={risk.data} /> : <Placeholder height="h-56" />}
+        {risk.data ? (
+          <RiskCharts risk={risk.data} />
+        ) : (
+          <Placeholder height="h-56" />
+        )}
       </Section>
     </div>
   );
@@ -188,7 +235,10 @@ function OptionsTab({ exchange }: { exchange: string }) {
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+        <label
+          className="flex items-center gap-2 text-xs"
+          style={{ color: "var(--text-muted)" }}
+        >
           Ticker
           <select
             value={ticker ?? ""}
@@ -206,9 +256,11 @@ function OptionsTab({ exchange }: { exchange: string }) {
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           {ticker ? (
             <>
-              {rotation.isPinned ? "Pinned — rotation resumes shortly." : "Auto-rotating."} Chains
-              are daily snapshots (no free history exists, so this dataset builds forward from
-              the first run).
+              {rotation.isPinned
+                ? "Pinned — rotation resumes shortly."
+                : "Auto-rotating."}{" "}
+              Chains are daily snapshots (no free history exists, so this
+              dataset builds forward from the first run).
             </>
           ) : (
             "Signals load momentarily…"
@@ -221,7 +273,8 @@ function OptionsTab({ exchange }: { exchange: string }) {
           label="ATM implied vol"
           value={formatPercent(summary.data?.atm_iv)}
           sub={
-            summary.data?.atm_days !== null && summary.data?.atm_days !== undefined
+            summary.data?.atm_days !== null &&
+            summary.data?.atm_days !== undefined
               ? `${summary.data.atm_days}d to expiry`
               : "awaiting snapshot"
           }
@@ -233,13 +286,21 @@ function OptionsTab({ exchange }: { exchange: string }) {
         />
         <StatCard
           label="Contracts captured"
-          value={summary.data?.n_contracts ? String(summary.data.n_contracts) : "—"}
-          sub={summary.data?.snapshot_date ? `as of ${formatDate(summary.data.snapshot_date)}` : "—"}
+          value={
+            summary.data?.n_contracts ? String(summary.data.n_contracts) : "—"
+          }
+          sub={
+            summary.data?.snapshot_date
+              ? `as of ${formatDate(summary.data.snapshot_date)}`
+              : "—"
+          }
         />
         <StatCard
           label="Underlying"
           value={
-            summary.data?.underlying_close ? `$${formatNumber(summary.data.underlying_close)}` : "—"
+            summary.data?.underlying_close
+              ? `$${formatNumber(summary.data.underlying_close)}`
+              : "—"
           }
           sub={ticker ?? "—"}
         />
@@ -247,13 +308,27 @@ function OptionsTab({ exchange }: { exchange: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Volatility smile / skew">
-          {chain.data ? <IvSkewChart chain={chain.data} /> : <Placeholder height="h-56" />}
+          {chain.data ? (
+            <IvSkewChart chain={chain.data} />
+          ) : (
+            <Placeholder height="h-56" />
+          )}
         </Section>
         <Section title="If the model's view were expressed in options">
-          {idea.data ? <OptionIdeaCard idea={idea.data} /> : <Placeholder height="h-56" />}
+          {idea.data ? (
+            <OptionIdeaCard idea={idea.data} />
+          ) : (
+            <Placeholder height="h-56" />
+          )}
         </Section>
-        <Section title={`Chain with Greeks${chain.data?.expiry ? ` — ${chain.data.expiry}` : ""}`}>
-          {chain.data ? <OptionChainTable chain={chain.data} /> : <Placeholder height="h-40" />}
+        <Section
+          title={`Chain with Greeks${chain.data?.expiry ? ` — ${chain.data.expiry}` : ""}`}
+        >
+          {chain.data ? (
+            <OptionChainTable chain={chain.data} />
+          ) : (
+            <Placeholder height="h-40" />
+          )}
         </Section>
       </div>
     </>
@@ -267,10 +342,18 @@ function ModelTab({ exchange }: { exchange: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Section title="Training history — every challenger, promoted or not">
-        {history.data ? <ModelHistoryTable runs={history.data} /> : <Placeholder height="h-40" />}
+        {history.data ? (
+          <ModelHistoryTable runs={history.data} />
+        ) : (
+          <Placeholder height="h-40" />
+        )}
       </Section>
       <Section title="Current paper book">
-        {positions.data ? <PositionsTable positions={positions.data} /> : <Placeholder height="h-40" />}
+        {positions.data ? (
+          <PositionsTable positions={positions.data} />
+        ) : (
+          <Placeholder height="h-40" />
+        )}
       </Section>
     </div>
   );
@@ -287,7 +370,8 @@ export default function App() {
   const market = exchanges.data?.find((e) => e.code === exchange);
   // No free JSE chain data exists, so the Options tab is hidden rather than shown empty —
   // an empty tab reads as a bug, a missing one reads as a deliberate limit.
-  const tabs = market && !market.has_options ? TABS.filter((t) => t !== "Options") : TABS;
+  const tabs =
+    market && !market.has_options ? TABS.filter((t) => t !== "Options") : TABS;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -295,17 +379,23 @@ export default function App() {
         <div>
           <h1 className="text-xl font-bold">QuantPulse</h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Self-adapting ML investing platform · educational project, not investment advice
+            Self-adapting ML investing platform · educational project, not
+            investment advice
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
+        <div
+          className="flex items-center gap-3 text-xs"
+          style={{ color: "var(--text-muted)" }}
+        >
           <ExchangePicker
             exchanges={exchanges.data ?? []}
             selected={exchange}
             onSelect={setExchange}
           />
           {apiDown ? (
-            <span style={{ color: "var(--status-critical)" }}>⚠ API unreachable</span>
+            <span style={{ color: "var(--status-critical)" }}>
+              ⚠ API unreachable
+            </span>
           ) : (
             <>data through {formatDate(freshness.data?.latest_price_date)}</>
           )}
@@ -326,7 +416,9 @@ export default function App() {
       {tab === "Evidence" ? (
         <EvidenceTab exchange={exchange} benchmark={market?.benchmark} />
       ) : null}
-      {tab === "Options" && tabs.includes("Options") ? <OptionsTab exchange={exchange} /> : null}
+      {tab === "Options" && tabs.includes("Options") ? (
+        <OptionsTab exchange={exchange} />
+      ) : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
     </div>
   );
