@@ -39,6 +39,38 @@ Both curves are measured at `DEFAULT_PARAMS`, like the feature sweeps, for the s
 retuning per origin would vary two things at once. The caveat carries over: this describes a
 fixed-parameter model, and the deployed one is tuned.
 
+## The round count is not the cause (2026-08-26)
+
+[Can the round count be chosen well?](round-count.md) found that a fixed 25 rounds beats early
+stopping outright on the JSE (+0.0166, t +3.43) and that early stopping picks badly there. The
+curve above is measured at `DEFAULT_PARAMS`, which uses that same early stopping, so the
+inversion had an obvious mechanical explanation: the frozen models are simply fit wrong.
+
+They are not. Same harness, same five origins and five seeds, only the round count replaced —
+25 rounds with a patience larger than that, so early stopping cannot fire:
+
+| model age | early stopping | fixed 25 rounds |
+|---|---|---|
+| 0–20 days | −0.1682 | −0.1866 |
+| 21–41 days | −0.0892 | −0.0927 |
+| 42–62 days | −0.0913 | −0.1106 |
+| 63–83 days | +0.0190 | +0.0135 |
+
+Every pair sits well inside the standard errors above, and the fixed count is marginally worse
+rather than better. **The inversion is not an artifact of the fitting procedure.** It survives a
+different round count, five freeze points spanning 2022–2026, and five seeds.
+
+That was the strongest mechanical candidate, so ruling it out narrows the question rather than
+answering it. What remains is the shape: a model with no skill scores IC ≈ 0, and a consistent
+−0.17 means it ranks systematically backwards on the three weeks after its training data, with
+the anti-signal decaying to nothing by 63–83 days. Something learned is actively wrong for
+about two months. The candidates left — label overlap at the embargo boundary, or a regime that
+reverses just past the training window — need an experiment designed for them rather than a
+config change.
+
+The first run of this comparison also reproduced the published curve to within a standard error
+on every bucket, three days after it was written.
+
 ## Related
 
 - [Why nothing could beat the NYSE incumbent](unbeatable-incumbent.md) — an incumbent
