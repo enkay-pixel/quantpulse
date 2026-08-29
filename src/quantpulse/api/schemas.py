@@ -180,10 +180,13 @@ class ChampionRecord(BaseModel):
 
     model_version: str
     n_days: int
-    start_date: dt.date
-    end_date: dt.date
-    total_return: float
-    avg_daily_return: float
+    #: Null until the model has scored a live session. A champion promoted on a non-trading
+    #: day holds the alias with no record at all, and omitting it would leave the card
+    #: showing only withdrawn models with nothing marking the one actually running.
+    start_date: dt.date | None
+    end_date: dt.date | None
+    total_return: float | None
+    avg_daily_return: float | None
     max_drawdown: float | None
     sharpe: float | None
     win_rate: float | None

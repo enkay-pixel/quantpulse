@@ -21,7 +21,20 @@ import { MIN_DAYS_FOR_RATIOS } from "../lib/thresholds";
  */
 function verdict(rows: ChampionRecord[]): string {
   const current = rows.find((r) => r.is_current);
-  if (!current) return "No model has scored a live session yet.";
+  if (!current) return "No model holds the alias for this market.";
+  const prior = rows
+    .filter((r) => !r.is_current)
+    .reduce((a, r) => a + r.n_days, 0);
+  if (current.n_days === 0) {
+    // Promoted but not yet scored — the case a Saturday retrain produces. Saying nothing
+    // would leave the table looking like the newest withdrawn model is still running.
+    return (
+      `v${current.model_version} was promoted and has not scored a live session yet.` +
+      (prior > 0
+        ? ` Everything below belongs to earlier champions — ${prior} session${prior === 1 ? "" : "s"} of them.`
+        : "")
+    );
+  }
   if (current.n_days < MIN_DAYS_FOR_RATIOS) {
     const prior = rows
       .filter((r) => !r.is_current)
@@ -105,7 +118,9 @@ export function ChampionRecordCard({ data }: { data: ChampionRecordOut }) {
                     className="py-1.5 text-xs"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    {formatDate(r.start_date)} – {formatDate(r.end_date)}
+                    {r.start_date && r.end_date
+                      ? `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`
+                      : "not yet scored"}
                   </td>
                   <td className="tabular py-1.5 text-right">{r.n_days}</td>
                   {/* Return and day count are honest at any sample size; the ratios are not,

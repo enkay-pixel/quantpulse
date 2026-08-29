@@ -173,9 +173,17 @@ models:
         tests: [not_null]
       - name: is_current
         description: >
-          True for the model holding the most recent live day. Decided by date rather than
-          by version number, because model_version is text and 'v9' sorts above 'v10'.
+          True for the model holding the alias now, taken from the promotion audit trail.
+          Not from max(model_version), which is text and ranks 'v9' above 'v10'; and not
+          from the most recent live day either, because a champion promoted on a
+          non-trading day has none — v10 was promoted on a Saturday, and dating it that way
+          would have labelled the previous champion current until Monday.
         tests: [not_null]
+      - name: start_date
+        description: >
+          Null until the model has scored a live session. A newly promoted champion appears
+          with n_days 0 rather than being dropped, since omitting it leaves the table
+          showing only withdrawn models with nothing marking the one running.
 
   - name: fct_option_summary
     description: >
