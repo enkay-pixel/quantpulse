@@ -196,10 +196,11 @@ export interface TrackRecord {
 export interface ChampionRecord {
   model_version: string;
   n_days: number;
-  start_date: string;
-  end_date: string;
-  total_return: number;
-  avg_daily_return: number;
+  // Null until the model has scored a live session.
+  start_date: string | null;
+  end_date: string | null;
+  total_return: number | null;
+  avg_daily_return: number | null;
   max_drawdown: number | null;
   sharpe: number | null;
   win_rate: number | null;

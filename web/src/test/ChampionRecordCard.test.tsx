@@ -76,6 +76,39 @@ describe("ChampionRecordCard", () => {
     ).toBeInTheDocument();
   });
 
+  it("names a champion promoted but not yet scored", () => {
+    // A Saturday retrain promotes with no trading day to score on. Dropping that row left
+    // the table showing only withdrawn models, with nothing marking the one actually running.
+    const unscored = {
+      model_version: "10",
+      n_days: 0,
+      start_date: null,
+      end_date: null,
+      total_return: null,
+      avg_daily_return: null,
+      max_drawdown: null,
+      sharpe: null,
+      win_rate: null,
+      is_current: true,
+    };
+    const v9 = { ...CURRENT_ONE_DAY, is_current: false };
+    render(
+      <ChampionRecordCard data={{ champions: [WITHDRAWN, v9, unscored] }} />,
+    );
+    expect(
+      screen.getByText(
+        /v10 was promoted and has not scored a live session yet/,
+      ),
+    ).toBeInTheDocument();
+    const rows = screen.getAllByRole("row");
+    const row10 = rows.find((r) => r.textContent?.includes("v10"));
+    expect(row10?.textContent).toContain("not yet scored");
+    // v9 must not read as current just because it holds the most recent live day.
+    expect(
+      rows.find((r) => r.textContent?.includes("v9"))?.textContent,
+    ).toContain("withdrawn");
+  });
+
   it("shows an empty state before any champion has scored live", () => {
     render(<ChampionRecordCard data={{ champions: [] }} />);
     expect(
