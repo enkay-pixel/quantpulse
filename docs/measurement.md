@@ -1,8 +1,12 @@
 # How to measure things here
 
 Every number in this project is small relative to its own noise. The same mistake has been
-made five separate ways, each time by a different route, each time producing a confident
+made six separate ways, each time by a different route, each time producing a confident
 finding that later reversed. These are the rules that would have caught each one.
+
+The sixth reversed two published findings at once and is the reason this page now says the
+seed is not a sample of the market — so read that rule as the most recently earned, not the
+most settled.
 
 ## A noise floor belongs to the procedure that produced it
 
@@ -32,6 +36,32 @@ reported swings of 0.3 as significant decay; the windows were the dominant term,
 the origin was what made the curve readable.
 
 Ask which quantity is varying in the question being asked, and let the error describe that.
+
+### The seed is not a sample of the market
+
+This rule was written after seed error was quoted across single windows, and the fix at the
+time was to roll the origin. That was right and it was not enough. The staleness curves rolled
+five origins, then pooled 25 (origin, seed) fits into one error bar — which counts each origin
+five times, because **re-drawing the fit does not re-draw the market**. The JSE inversion read
+as t −3.2 pooled that way and t −1.3 across the five origins, with two of five origins the
+opposite sign; at 46 origins it was zero. The NYSE six-week decay went the same way. Both had
+stood for a week and both had investigations built on them.
+
+The unit of generalisation is the **window**, not the fit. Concretely:
+
+- Average within an origin first, then take the error across origins. Seeds reduce fit noise
+  inside a cell; they do not add sample size.
+- A quick check on whether the pooling is lying: compare the spread of the origin means with
+  the spread of all the fits. If they are similar, the seeds carry no independent information
+  and pooling has inflated n by the seed count.
+- Five origins is not enough for anything with this much period-to-period variation. The JSE
+  per-origin IC ranges −0.53 to +0.35. Tile the period with a short stride instead of sampling
+  a few points in it, and check the autocorrelation of the resulting series rather than
+  assuming independence.
+
+One holdout is the degenerate case of the same error, and three findings on this page's
+sibling pages were measured on one: seed error on a single window says only how much refitting
+moves that window's number.
 
 ## An unresolved result is not a null result
 
@@ -72,3 +102,4 @@ here carries its date and its window for that reason.
 - [Why nothing could beat the NYSE incumbent](findings/unbeatable-incumbent.md)
 - [Why the champion has three trees](findings/three-tree-champion.md)
 - [Baseline comparison](findings/baseline-comparison.md)
+- [Can the round count be chosen well?](findings/round-count.md)

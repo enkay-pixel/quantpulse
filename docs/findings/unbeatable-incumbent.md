@@ -46,7 +46,11 @@ not comparable, and the gate has no way to know.
 ## The early-stopping mismatch is fixed, and it invalidates the sweeps above
 
 `_fit_one` now early-stops on IC — the metric the gate decides on — instead of RMSE. Measured
-paired across ten seeds:
+paired across ten seeds on **one holdout**, so this table carries the weakness described in
+[the seed-is-not-a-sample rule](../measurement.md#the-seed-is-not-a-sample-of-the-market) and
+has not been re-measured across origins. The panel finding above does not: it is a mechanical
+reproduction, not a statistical estimate — the short-panel refit matches the champion to
+within 0.0015 IC, and no error bar is doing any work in that claim.
 
 | market | trees (median) | paired IC delta | seeds better |
 |---|---|---|---|

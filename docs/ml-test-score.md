@@ -102,9 +102,9 @@ notebook. The method they share is stated once in
 | [Baseline comparison](findings/baseline-comparison.md) | The JSE model loses to a one-line momentum rule; momentum is now a standing competitor in the gate |
 | [Feature ablation and pruning](findings/feature-ablation-and-pruning.md) | The markets disagree about the same feature; pruning helps the NYSE under tuning |
 | [Why nothing could beat the NYSE incumbent](findings/unbeatable-incumbent.md) | The promotion stall was a training-panel artifact, not skill |
-| [Model staleness](findings/model-staleness.md) | NYSE skill lasts about six weeks, so the weekly cadence is justified |
+| [Model staleness](findings/model-staleness.md) | **Corrected 2026-08-30** — no decay on either market at 46 origins; the original six-week result was a five-origin artifact |
 | [Why the champion has three trees](findings/three-tree-champion.md) | Early stopping works; the split it validates on does not predict the holdout |
-| [Can the round count be chosen well?](findings/round-count.md) | Not in general — it is a per-market quantity, like quantile width and the promotion margin |
+| [Can the round count be chosen well?](findings/round-count.md) | **Corrected 2026-08-30** — the per-market result was one holdout's draw; no round count is shown to suit either market |
 
 ## Gaps, ranked by value per unit of effort
 
@@ -115,9 +115,12 @@ notebook. The method they share is stated once in
    cannot touch: it governs promotion, not incumbency. Withdrawing it is now a single
    command (`quantpulse demote`, built the same day) — but whether to pull it is a judgement
    call, not something the pipeline should make.
-2. ~~Model staleness unmeasured~~ — **measured 2026-08-23** (see above). NYSE skill lasts
-   about six weeks, so the weekly cadence is justified rather than arbitrary. The JSE curve
-   rises with age, which is a finding about that model rather than about any cadence.
+2. **Model staleness still unmeasured** — measured 2026-08-23, **retracted 2026-08-30**. The
+   six-week NYSE bound and the rising JSE curve were both artifacts of a five-origin sample;
+   at 46 origins neither market decays. The weekly cadence has no measured support and no
+   measured objection. Re-opening this is cheap — the harness is right, it simply needs the
+   origin rolled across the period rather than sampled at five points — and it is worth doing
+   before any cadence change is argued from evidence.
 3. ~~No feature ablation~~ — **built and run 2026-08-22; the sweep is underpowered on one
    holdout.** Drop-one, single-feature and forward selection all exist, and all report the
    same thing: the seed-only noise floor (0.0375 XNYS, 0.0228 XJSE) is larger than any

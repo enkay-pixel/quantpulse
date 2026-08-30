@@ -1,5 +1,13 @@
 # Why the champion has three trees (2026-08-23)
 
+> **Unconfirmed — audited 2026-08-30** against [the seed-is-not-a-sample
+> rule](../measurement.md#the-seed-is-not-a-sample-of-the-market). Every figure here quotes
+> error across three or five *seeds* on
+> **one holdout**. That measures how much refitting moves the number, not whether the effect
+> holds across periods. The two findings measured that way on sibling pages — the staleness
+> curves and the round-count headline — both collapsed when the origin was rolled. Nothing
+> here has been re-measured, so treat these numbers as describing one window until it is.
+
 XNYS v9 was promoted with three trees, which looked like the early-stopping fix having gone
 wrong. It had not. Early stopping followed its signal correctly; the signal is the problem.
 

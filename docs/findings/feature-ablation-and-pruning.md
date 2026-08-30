@@ -165,6 +165,29 @@ repeated splits or several walk-forward windows, averaging IC across them so the
 below the effects being tested. That is the prerequisite for any feature decision, and it is
 worth more than any change to the current feature list.
 
+## Audit note (2026-08-30)
+
+Checked against
+[the seed-is-not-a-sample rule](../measurement.md#the-seed-is-not-a-sample-of-the-market)
+after it refuted two sibling findings. **This page holds up better than any of them**, and for
+the reason it states itself: it scores across four walk-forward folds rather than one holdout,
+and pairs every comparison on the seed. That is most of the fix, arrived at independently.
+
+Two limits remain, neither of which is a reason to discard anything here:
+
+- The four folds are **fixed**. Averaging over them shrinks the noise floor but still describes
+  one partition of one panel; it is not the same as rolling an origin across the period. The
+  errors quoted are across seeds of a fold-averaged quantity, so they inherit the same
+  weakness in weaker form.
+- `vol_63` now has **two measurements pointing opposite ways**. This page has it carrying
+  signal on the JSE (t −5.35) and costing it on the NYSE (t +9.14); scored as a univariate
+  forward signal across 46 rolling origins it is
+  [+0.0018 (t +0.0) on the JSE and +0.0878 (t +2.5) on the NYSE](model-staleness.md#what-the-jse-model-actually-learns).
+  These are different quantities — marginal contribution inside a fitted model versus
+  standalone forward IC — and they are not required to agree. But the same feature cannot be
+  the one the JSE model most needs *and* carry no forward signal there, so one of the two is
+  measuring something other than what it is being read as. Reconciling them is open work.
+
 ## Related
 
 - [How to measure things here](../measurement.md) — the noise-floor and pairing rules

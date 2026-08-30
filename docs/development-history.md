@@ -334,6 +334,29 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     Lesson: a dependency file that has only ever been appended to is not a manifest until a
     clean resolve has been run against it. Nothing here would have surfaced short of trying.
 
+32. **Two published findings were sampling artifacts, and the error bar hid it (2026-08-30)**:
+    the staleness curves were measured at **five origins**, with the error taken across 25
+    (origin, seed) fits. That counts each origin five times, because re-drawing the seed
+    re-draws the fit and not the market. Rolled across 46 origins tiling 2022–2026, the JSE
+    inversion (published −0.1558 at age 0–20) becomes **+0.0058 ± 0.0289** and the NYSE
+    six-week decay disappears entirely — the NYSE model holds ~+0.04 out to 83 days instead of
+    falling through zero. Both runs are correct and agree at the five original origins; those
+    five had simply landed on negative stretches of a series that swings from −0.53 to +0.35.
+    The tell was available without re-running anything: the spread of the five origin means
+    (0.309) was as large as the spread of all 25 fits (0.283), so the seeds were adding no
+    independent information while multiplying the apparent n by five. The same audit refuted
+    the round-count headline — "25 rounds beats early stopping on the JSE", +0.0166 (t +3.43)
+    on one holdout, is **−0.0004 (t −0.10)** across 46 origins, winning in 12 of them.
+    Consequence: the weekly retrain cadence loses its evidence (it is unmeasured, not wrong),
+    and two investigations — the round count and the embargo boundary — were correctly finding
+    nothing because there was nothing there. `docs/measurement.md` already carried the rule
+    ("use the error that matches the question") and already recorded a staleness curve failing
+    it once before by quoting seed error; rolling the origin was the fix then, five origins was
+    not enough of it, and the pooled error bar made the shortfall invisible.
+    Lesson: **the unit of generalisation is the window, not the fit.** Average within an origin
+    before taking the error, and when a claim is about the market, count origins. A finding
+    that survives many seeds at few origins has been shown to be reproducible, not true.
+
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
 Prompted by "what else needs to fail hard before this is ready to present?". Counting the

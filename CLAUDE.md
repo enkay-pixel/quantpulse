@@ -224,14 +224,16 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding
   trees fixed, IC peaks near 10-25 trees. A stopping rule has to watch the metric the
   decision is made on.
-- **A model is useful for a measurable time, and it is not forever.** `quantpulse staleness`
-  freezes a model and scores it forward across rolling origins. NYSE IC is positive out to
-  ~41 days and negative by 63, so the weekly cadence is justified and a champion older than
-  about six weeks is worse than nothing. The JSE curve *rises* with age, which is not
-  staleness — a model predicting worst when freshest points at the training window. Roll the
-  origin when measuring this: one freeze point gives each age a single 21-day IC, which
-  swings on which three weeks it covers, and a first version quoting seed-to-seed error
-  reported those swings as significant decay.
+- **How long a model stays useful is still unmeasured, and one wrong answer has already been
+  retracted.** `quantpulse staleness` freezes a model and scores it forward across rolling
+  origins. Measured at five origins it showed NYSE skill dying at six weeks and the JSE curve
+  *rising* with age; at 46 origins **both effects vanish** — NYSE holds ~+0.04 out to 83 days,
+  JSE sits at zero throughout. The weekly cadence is therefore not justified by measurement,
+  and not shown to be wrong either. Roll the origin *far enough*: the failure was five origins
+  plus an error bar pooling 25 (origin, seed) fits, which counts each origin five times because
+  the seed re-draws the fit and not the market. Averaging within an origin before taking the
+  error is the rule — see
+  [measurement.md](docs/measurement.md#the-seed-is-not-a-sample-of-the-market).
 - **A green test run is not evidence.** Every serious bug in the incident log shipped with
   CI green and was found by reading data. Verify a new test by breaking the code it guards
   and watching it fail — and assert your sabotage actually applied, because a
