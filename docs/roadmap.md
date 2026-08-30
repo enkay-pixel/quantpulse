@@ -344,8 +344,11 @@ Each of these is measured and settled as far as measurement can settle it. None 
 and each names the evidence that would reopen it. Write-ups in [findings/](findings/README.md).
 
 **Keep running the JSE model, despite it losing to momentum.** The case against it is
-holdout IC — momentum 0.1094 against champion v3's 0.0569 — plus a staleness curve that is
-negative at every model age. That case rests entirely on a backtest metric this project has
+holdout IC — momentum 0.1094 against champion v3's 0.0569. The staleness curve that once
+also formed part of this case has been **withdrawn** (incident 32): measured across 46 origins
+the JSE model sits at zero at every age rather than negative, so it has no skill rather than
+negative skill, and that half of the argument is gone.
+That case rests entirely on a backtest metric this project has
 just shown does not predict live behaviour: the NYSE incumbent scored 0.1777 on its holdout
 while the live book lost money. Demoting on that basis would repeat the error documented in
 [the incumbent finding](findings/unbeatable-incumbent.md). The JSE live record is positive
@@ -362,6 +365,16 @@ fresh panel period.*
 **Do not set a per-market round count**, though a fixed 25 rounds beats early stopping on the
 JSE at t +3.43. Nothing resolves on the NYSE, and the count that looks best there is worst on
 the JSE. *Reopen on confirmation from a fresh panel period.*
+
+**Options history analytics are descriptive only, for now.** The snapshot capture reached 27
+days on 2026-08-30, which was enough to answer one question — [is there a variance risk
+premium](findings/variance-risk-premium.md) — and the answer is that this panel cannot
+resolve one. Three related pieces are deliberately not built: IV rank/percentile, because
+over 27 observations a percentile is a min-max scaler; IV-change against next-day returns,
+because 27 observations is the sample size that produced three reversed findings in the week
+of 2026-08-23; and forward-looking implied-versus-realised, which needs the realisation window
+to close. *Reopen the first two at ~250 snapshot days (about a year, so mid-2027); the third
+accrues on its own and is usable from around 2026-10.*
 
 **Offline/online correlation stays open by construction.** It cannot be closed by work, only
 by time — 24 NYSE and 20 JSE live sessions is far too short to correlate against anything.
