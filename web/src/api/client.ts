@@ -2,6 +2,7 @@ import type {
   AlphaBeta,
   BookComparison,
   ChampionRecordOut,
+  IvSurface,
   Exchange,
   DriftStatus,
   EquityCurve,
@@ -56,6 +57,8 @@ export const api = {
     getJson<EquityCurve>(`/portfolio/equity-curve?exchange=${ex}`),
   alphaBeta: (ex: string) =>
     getJson<AlphaBeta>(`/portfolio/alpha-beta?exchange=${ex}`),
+  ivSurface: (ticker: string) =>
+    getJson<IvSurface>(`/options/${ticker}/surface`),
   champions: (ex: string) =>
     getJson<ChampionRecordOut>(`/portfolio/champions?exchange=${ex}`),
   books: (ex: string) =>

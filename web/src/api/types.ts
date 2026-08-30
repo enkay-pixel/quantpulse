@@ -193,6 +193,25 @@ export interface TrackRecord {
   phases: PhaseStats[];
 }
 
+export interface IvTermPoint {
+  days_to_expiry: number;
+  expiry: string;
+  avg_iv: number;
+  n_contracts: number;
+}
+
+export interface IvHistoryPoint {
+  snapshot_date: string;
+  avg_iv: number;
+}
+
+export interface IvSurface {
+  ticker: string;
+  snapshot_date: string | null;
+  term_structure: IvTermPoint[];
+  history: IvHistoryPoint[];
+}
+
 export interface ChampionRecord {
   model_version: string;
   n_days: number;
