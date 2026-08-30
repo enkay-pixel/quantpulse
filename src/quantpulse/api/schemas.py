@@ -175,6 +175,29 @@ class TrackRecord(BaseModel):
     phases: list[PhaseStats]
 
 
+class IvTermPoint(BaseModel):
+    """At-the-money IV at one maturity, for the latest snapshot."""
+
+    days_to_expiry: int
+    expiry: dt.date
+    avg_iv: float
+    n_contracts: int
+
+
+class IvHistoryPoint(BaseModel):
+    """At-the-money IV near the 30-day mark, one snapshot."""
+
+    snapshot_date: dt.date
+    avg_iv: float
+
+
+class IvSurfaceOut(BaseModel):
+    ticker: str
+    snapshot_date: dt.date | None
+    term_structure: list[IvTermPoint]
+    history: list[IvHistoryPoint]
+
+
 class ChampionRecord(BaseModel):
     """One deployed model's live record, apart from the market's."""
 

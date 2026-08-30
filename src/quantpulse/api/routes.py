@@ -179,6 +179,59 @@ def option_summary(ticker: str, session: SessionDep) -> schemas.OptionSummary:
     )
 
 
+@router.get("/options/{ticker}/surface", response_model=schemas.IvSurfaceOut)
+def iv_surface(ticker: str, session: SessionDep) -> schemas.IvSurfaceOut:
+    """The two readings the chain endpoint cannot give: IV across maturities, and over time.
+
+    `/chain` returns one expiry of the latest snapshot, which is the smile. Reading across
+    expiries is the term structure, and reading across snapshots is what the forward-only
+    capture has been accruing since 2026-07-20 — neither was surfaced anywhere.
+
+    Buckets 4 and 5 straddle at-the-money (mean moneyness -0.025 and +0.024), so both are
+    taken rather than one: a single bucket is a strike offset, not the money. Contracts with
+    under a week to run are excluded, matching fct_option_summary — the feed's IV for those is
+    unreliable, and an opening junk point invites reading a slope that is not there.
+    """
+    ticker = ticker.upper()
+    snapshot = session.scalar(
+        select(func.max(OptionQuote.snapshot_date)).where(OptionQuote.ticker == ticker)
+    )
+    if snapshot is None:
+        return schemas.IvSurfaceOut(
+            ticker=ticker, snapshot_date=None, term_structure=[], history=[]
+        )
+    term = _mart_rows(
+        session,
+        "SELECT days_to_expiry, expiry, avg(avg_iv) AS avg_iv, "
+        "sum(n_contracts)::int AS n_contracts FROM analytics.fct_iv_surface "
+        "WHERE ticker = :t AND snapshot_date = :d AND moneyness_bucket IN (4, 5) "
+        # Same ">= 7 days" rule fct_option_summary uses. The feed reports unreliable IV for
+        # contracts expiring within the week, and a term structure that opens on a junk point
+        # invites reading a slope that is not there. Consistency with the existing ATM
+        # convention matters more than a complete front end.
+        "AND days_to_expiry >= 7 "
+        "GROUP BY days_to_expiry, expiry ORDER BY days_to_expiry",
+        {"t": ticker, "d": snapshot},
+    )
+    # Nearest to 30 days per snapshot, matching the ATM convention fct_option_summary uses,
+    # so the history line and the headline ATM IV describe the same contract.
+    history = _mart_rows(
+        session,
+        "SELECT DISTINCT ON (snapshot_date) snapshot_date, avg_iv FROM ("
+        "  SELECT snapshot_date, days_to_expiry, avg(avg_iv) AS avg_iv "
+        "  FROM analytics.fct_iv_surface WHERE ticker = :t AND moneyness_bucket IN (4, 5) "
+        "    AND days_to_expiry >= 7 GROUP BY snapshot_date, days_to_expiry) s "
+        "ORDER BY snapshot_date, abs(days_to_expiry - 30)",
+        {"t": ticker},
+    )
+    return schemas.IvSurfaceOut(
+        ticker=ticker,
+        snapshot_date=snapshot,
+        term_structure=[schemas.IvTermPoint(**dict(r)) for r in term or []],
+        history=[schemas.IvHistoryPoint(**dict(r)) for r in history or []],
+    )
+
+
 @router.get("/options/{ticker}/chain", response_model=schemas.OptionChainOut)
 def option_chain(
     ticker: str,

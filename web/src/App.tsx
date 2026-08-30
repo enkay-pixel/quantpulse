@@ -7,6 +7,7 @@ import { BookComparisonCard } from "./components/BookComparisonCard";
 import { DriftPanel } from "./components/DriftPanel";
 import { FreshnessStrip } from "./components/FreshnessStrip";
 import { IvSkewChart } from "./components/IvSkewChart";
+import { IvSurfaceChart } from "./components/IvSurfaceChart";
 import { ModelHistoryTable } from "./components/ModelHistoryTable";
 import { OptionChainTable } from "./components/OptionChainTable";
 import { OptionIdeaCard } from "./components/OptionIdeaCard";
@@ -31,6 +32,7 @@ import {
   useHealth,
   useModelHistory,
   useOptionChain,
+  useIvSurface,
   useOptionIdea,
   useOptionSummary,
   usePositions,
@@ -230,6 +232,7 @@ function OptionsTab({ exchange }: { exchange: string }) {
 
   const summary = useOptionSummary(ticker);
   const chain = useOptionChain(ticker);
+  const surface = useIvSurface(ticker);
   const idea = useOptionIdea(ticker);
 
   return (
@@ -305,6 +308,14 @@ function OptionsTab({ exchange }: { exchange: string }) {
           sub={ticker ?? "—"}
         />
       </div>
+
+      <Section title="Term structure and IV history">
+        {surface.data ? (
+          <IvSurfaceChart data={surface.data} />
+        ) : (
+          <Placeholder height="h-56" />
+        )}
+      </Section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Volatility smile / skew">

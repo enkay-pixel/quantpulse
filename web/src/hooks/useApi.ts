@@ -60,6 +60,13 @@ export const useTrackRecord = (exchange: string) =>
     refetchInterval: REFRESH_MS,
   });
 
+export const useIvSurface = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["ivSurface", ticker],
+    queryFn: () => api.ivSurface(ticker as string),
+    enabled: Boolean(ticker),
+  });
+
 export const useChampions = (exchange: string) =>
   useQuery({
     queryKey: ["champions", exchange],
