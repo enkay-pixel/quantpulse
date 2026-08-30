@@ -185,6 +185,34 @@ models:
           with n_days 0 rather than being dropped, since omitting it leaves the table
           showing only withdrawn models with nothing marking the one running.
 
+  - name: fct_iv_vs_realized
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, snapshot_date]
+    description: >
+      Implied volatility beside trailing realised volatility per (ticker, snapshot), and
+      their difference — the variance risk premium. Backward-looking on purpose: comparing
+      implied to *subsequent* realised volatility needs the realisation window to close,
+      which only the earliest snapshots satisfy while this has a month of history.
+      Descriptive only; one month says what the premium has been, not what it predicts.
+    columns:
+      - name: realized_vol_21d
+        description: >
+          Annualised. fct_daily_returns.volatility_21d is a daily standard deviation, so it
+          is scaled by sqrt(252) here to match atm_iv, which the vendor supplies annualised.
+          Subtracting them unscaled reports a premium of 0.30 at t 80 with every ticker-day
+          positive — a unit mismatch that reads exactly like a strong result.
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
+              config:
+                where: "realized_vol_21d is not null"
+      - name: variance_premium
+        description: atm_iv minus annualised realised vol; positive means options cost more
+          than the underlying delivered.
+
   - name: fct_option_summary
     description: >
       Per-(ticker, snapshot) option-market read: ATM implied volatility and the

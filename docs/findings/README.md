@@ -11,6 +11,7 @@ what came back, and what the result does *not* support.
 | [Model staleness](model-staleness.md) | How fast does a model go stale? | NYSE skill lasts ~6 weeks, so the weekly cadence is justified. The JSE curve rises with age, and the round count is not why. |
 | [Why the champion has three trees](three-tree-champion.md) | Is early stopping broken? | No — the inner-validation split does not predict holdout performance. |
 | [Can the round count be chosen well?](round-count.md) | Is there a fix for that? | No general one. The round count is a per-market quantity; a fixed 25 rounds beats early stopping on the JSE only. |
+| [Is there a variance risk premium?](variance-risk-premium.md) | Did options cost more than the underlying delivered? | Not measurably — IV 32.5% against realised 32.2%, t 0.80 at day level. A unit error first reported it at t 80. |
 
 The method these share is written down once in
 [How to measure things here](../measurement.md). It is worth reading first: most of these
