@@ -103,7 +103,7 @@ notebook. The method they share is stated once in
 | [Feature ablation and pruning](findings/feature-ablation-and-pruning.md) | The markets disagree about the same feature; pruning helps the NYSE under tuning |
 | [Why nothing could beat the NYSE incumbent](findings/unbeatable-incumbent.md) | The promotion stall was a training-panel artifact, not skill |
 | [Model staleness](findings/model-staleness.md) | **Corrected 2026-08-30** — no decay on either market at 46 origins; the original six-week result was a five-origin artifact |
-| [Why the champion has three trees](findings/three-tree-champion.md) | Early stopping works; the split it validates on does not predict the holdout |
+| [Why the champion has three trees](findings/three-tree-champion.md) | **Re-measured 2026-08-30** — the inner split neither predicts nor anti-predicts the holdout; stopping on it is indistinguishable from picking a round at random |
 | [Can the round count be chosen well?](findings/round-count.md) | **Corrected 2026-08-30** — the per-market result was one holdout's draw; no round count is shown to suit either market |
 
 ## Gaps, ranked by value per unit of effort
