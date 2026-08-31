@@ -353,6 +353,12 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     ("use the error that matches the question") and already recorded a staleness curve failing
     it once before by quoting seed error; rolling the origin was the fix then, five origins was
     not enough of it, and the pooled error bar made the shortfall invisible.
+    The audit was then finished against the remaining one-holdout findings, and all of them
+    moved: the three-tree page's inner-validation/holdout curve correlation (published −0.555
+    on the NYSE and +0.436 on the JSE, "the markets disagree") is −0.008 and +0.080 across
+    origins, its ~0.025 "IC given up" is matched by picking a round at random, and neither
+    early stopping nor CV stopping beats a random round on either market. Its conclusion — the
+    round choice is arbitrary — survived; every mechanism it offered did not.
     Lesson: **the unit of generalisation is the window, not the fit.** Average within an origin
     before taking the error, and when a claim is about the market, count origins. A finding
     that survives many seeds at few origins has been shown to be reproducible, not true.

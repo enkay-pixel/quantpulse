@@ -6,7 +6,9 @@
 > disagree, the NYSE inner-validation IC is not negative, and the cost is not a cost** — see
 > [what the rolling measurement found](#what-the-rolling-measurement-found-2026-08-30). The
 > page's conclusion that the tree count is close to arbitrary survives; its stated mechanism
-> and its cost figure do not.
+> and its cost figure do not. The CV-stopping table was re-measured too: neither rule beats a
+> random round, so CV stopping does not "help one market and hurt the other" either. Every
+> figure on this page has now been re-run across origins.
 
 XNYS v9 was promoted with three trees, which looked like the early-stopping fix having gone
 wrong. It had not. Early stopping followed its signal correctly; the signal is the problem.
@@ -75,22 +77,44 @@ uninformative, which is a different thing and points at a different fix.
 Two limits on the re-measurement. The window is 21 days where the original used ~313 sessions,
 so the **magnitudes above are not comparable to the published ones** — a shorter window makes
 both the spread and the oracle gap larger by construction. What is comparable is the
-picker-versus-control contrast and the correlations, since those hold the window fixed. And the
-CV-stopping table below has **not** been re-measured; it carries the original one-holdout
-weakness.
+picker-versus-control contrast and the correlations, since those hold the window fixed.
 
 ## No available stopping rule recovers it
 
 The obvious alternative is to pick the round from purged walk-forward folds of the training
-portion, which does not leak. Measured over three seeds:
+portion, which does not leak. Originally measured over three seeds on one holdout:
 
 | market | inner-val pick | CV pick | oracle |
 |---|---|---|---|
 | XNYS | +0.0372 | +0.0456 | +0.0699 |
 | XJSE | +0.0548 | +0.0368 | +0.0778 |
 
-CV stopping helps one market and hurts the other, and both stay far below the oracle. **The
-holdout-optimal round is not predictable from training data here.**
+~~CV stopping helps one market and hurts the other~~ — **re-measured across the same 49 rolling
+origins, it does neither.** Holdout IC achieved by each rule, with two rules that use no signal
+at all included as controls:
+
+| rule | XNYS | XJSE |
+|---|---|---|
+| inner-validation pick | +0.0316 ± 0.0239 | +0.0013 ± 0.0280 |
+| CV pick | +0.0305 ± 0.0252 | +0.0074 ± 0.0261 |
+| *a random round* | +0.0245 ± 0.0237 | +0.0041 ± 0.0269 |
+| *the median round* | +0.0248 ± 0.0237 | +0.0073 ± 0.0272 |
+| oracle (peeks at the holdout) | +0.0866 ± 0.0247 | +0.0681 ± 0.0274 |
+
+**Neither rule beats a random round on either market.** Paired against the random control:
+the inner-validation pick is +0.0072 (t +1.0) on the NYSE and −0.0028 (t −0.5) on the JSE; the
+CV pick is +0.0060 (t +0.9) and +0.0033 (t +0.5). Compared directly with each other, CV minus
+inner-validation is −0.0011 (t −0.2) on the NYSE and +0.0061 (t +0.9) on the JSE — both
+unresolved, and both the *opposite* sign to the published per-market split. There is no
+disagreement between the markets to explain.
+
+The oracle is the one column that separates, by +0.0621 (t +9.2) and +0.0640 (t +11.8) over
+random. That gap is what a maximum over many noisy evaluations is worth; it is not skill any
+rule could capture, which is precisely why no rule captures it.
+
+**The holdout-optimal round is not predictable from training data here.** That conclusion is
+unchanged and now rests on a stronger test: two independent picking rules, across 49 origins,
+neither distinguishable from choosing a round at random.
 
 ## What this means
 

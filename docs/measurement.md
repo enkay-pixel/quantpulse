@@ -61,7 +61,21 @@ The unit of generalisation is the **window**, not the fit. Concretely:
 
 One holdout is the degenerate case of the same error, and three findings on this page's
 sibling pages were measured on one: seed error on a single window says only how much refitting
-moves that window's number.
+moves that window's number. All three have now been re-run across rolling origins. **Every one
+changed**, two of them reversing outright — so treat "measured across n seeds on the holdout"
+as an unmeasured claim, not a weak one.
+
+### Give a picker a control that cannot be using any signal
+
+The round-count work reported that following the inner-validation split costs ~0.025 IC against
+an oracle. It costs nothing: a round chosen *at random* gives up the same amount, because the
+oracle is a maximum over many noisy evaluations and is biased upward whatever the picker does.
+The number was real, reproducible, and measuring the oracle rather than the rule.
+
+Whenever a selection rule is scored against a best-case, score a rule that cannot be selecting
+on anything — a random choice, or the median — on the same curves. If the real rule matches it,
+the rule is uninformative; if the best-case beats both by the same margin, that margin is the
+maximum's bias. This is the noise-floor rule applied to selection instead of to effects.
 
 ## An unresolved result is not a null result
 
