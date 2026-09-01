@@ -362,9 +362,12 @@ helps here" rather than "`vol_21` is the column", and +0.0133 is smaller than th
 round-to-round spread early stopping already contributes. *Reopen on confirmation from a
 fresh panel period.*
 
-**Do not set a per-market round count**, though a fixed 25 rounds beats early stopping on the
-JSE at t +3.43. Nothing resolves on the NYSE, and the count that looks best there is worst on
-the JSE. *Reopen on confirmation from a fresh panel period.*
+**Do not set a per-market round count.** The reason changed on 2026-08-30: the JSE result that
+motivated one — a fixed 25 rounds beating early stopping at t +3.43 — was a single holdout's
+draw, and is **−0.0004 (t −0.10)** across 49 rolling origins, winning at 12 of them. Neither
+market has a demonstrated preference, and no round-picking rule yet tested beats choosing a
+round at random. *Reopen only on a measurement that rolls the origin, not on a fresh single
+window.*
 
 **Options history analytics are descriptive only, for now.** The snapshot capture reached 27
 days on 2026-08-30, which was enough to answer one question — [is there a variance risk

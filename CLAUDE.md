@@ -210,15 +210,18 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   when the incumbent predates the tag. It warns rather than refuses: whether a mismatch
   should block a promotion is a judgement nobody has made yet, and a gate that silently
   refuses is its own kind of stall.
-- **The early-stopping split does not predict holdout performance.** Fixed 2026-08-23 to stop
-  on IC rather than RMSE, which was right — RMSE stopped after one round — but it did not fix
-  the underlying problem. Inner-validation IC is negative at every round on XNYS, and the
-  inner-val and holdout curves correlate **−0.555** there (all seeds negative) against +0.436
-  on XJSE. Following either costs ~0.025 IC versus an oracle round, which is the size of the
-  whole model's IC. Picking the round from CV folds instead helps one market and hurts the
-  other. So the tree count is near-arbitrary with respect to the gate, and round-to-round
-  spread (~0.03) is another noise source under every IC figure, alongside the seed. Do not
-  "fix" it by stopping on the holdout — that is the leak the inner split exists to prevent.
+- **The early-stopping split carries no information about holdout performance.** Fixed
+  2026-08-23 to stop on IC rather than RMSE, which was right — RMSE stopped after one round —
+  but it did not fix the underlying problem. Re-measured across 49 rolling origins
+  (2026-08-30), the inner-val and holdout curves correlate **−0.008** on XNYS and **+0.080** on
+  XJSE: the split neither predicts the holdout nor anti-predicts it. **Neither it nor CV
+  stopping beats picking a round at random** — the ~0.025 once reported as the cost of
+  following it is given up by a random round too, because the oracle it is measured against is
+  a maximum over noisy evaluations and is biased upward for any picker. So the tree count is
+  near-arbitrary with respect to the gate, and round-to-round spread is another noise source
+  under every IC figure, alongside the seed. Do not "fix" it by stopping on the holdout — that
+  is the leak the inner split exists to prevent. The earlier numbers here (−0.555/+0.436, "CV
+  helps one market and hurts the other") came from three or five seeds on one window.
 - **Early stopping validates on RMSE while the gate scores IC.** On the full panel the final
   fit stops after a single boosting round in seven of eight seeds — RMSE on noisy 21-day
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding
