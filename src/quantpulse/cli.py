@@ -370,6 +370,58 @@ def _staleness(exchange: str | None) -> None:
             )
 
 
+def _retrain_value(exchange: str | None) -> None:
+    """Report whether a freshly fitted model beats an older one on the same window."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.retrain_value import retrain_value
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            table = retrain_value(engine, code)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        if table.empty:
+            logger.warning("%s: no lag had enough shared windows to compare", code)
+            continue
+        logger.info(
+            "%s retrain value: %d origins x %d seeds",
+            code,
+            table.attrs["origins"],
+            table.attrs["seeds"],
+        )
+        logger.info(
+            "%-12s %-11s %-10s %-7s %s", "lag (days)", "fresh-stale", "std err", "t", "favour fresh"
+        )
+        for row in table.to_dict("records"):
+            se = row["std_error"]
+            logger.info(
+                "%-12d %+-11.4f %-10.4f %-+7.2f %d/%d",
+                row["lag_days"],
+                row["mean_delta"],
+                se,
+                row["mean_delta"] / se if se else float("nan"),
+                row["n_favour_fresh"],
+                row["n_windows"],
+            )
+        worst = min(table.to_dict("records"), key=lambda r: r["mean_delta"])
+        if worst["mean_delta"] + 2 * worst["std_error"] < 0:
+            logger.info(
+                "  retraining costs %+.4f IC at a lag of %d days and the window resolves it — "
+                "a fresher model is not automatically a better one, so the cadence rests on "
+                "the promotion gate rather than on freshness",
+                worst["mean_delta"],
+                worst["lag_days"],
+            )
+        else:
+            logger.info(
+                "  no lag shows a difference this window can resolve — retraining is not "
+                "measurably better than leaving the model alone"
+            )
+
+
 def _baseline(exchange: str | None) -> None:
     """Compare the champion against simpler models on one shared holdout.
 
@@ -507,6 +559,10 @@ def main(argv: list[str] | None = None) -> None:
     base = sub.add_parser("baseline", help="Compare the champion against simpler models")
     stale = sub.add_parser("staleness", help="Report how fast a frozen model loses skill")
     stale.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    retr = sub.add_parser(
+        "retrain-value", help="Report whether retraining beats leaving a model alone"
+    )
+    retr.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     abl = sub.add_parser("ablation", help="Report which features earn their place")
     prn = sub.add_parser("prune", help="Select a feature set from evidence and measure it")
     prn.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
@@ -550,6 +606,8 @@ def main(argv: list[str] | None = None) -> None:
         _prune(args.exchange)
     elif args.command == "staleness":
         _staleness(args.exchange)
+    elif args.command == "retrain-value":
+        _retrain_value(args.exchange)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":
