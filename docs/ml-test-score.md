@@ -100,7 +100,7 @@ notebook. The method they share is stated once in
 | Finding | What it settled |
 |---|---|
 | [Baseline comparison](findings/baseline-comparison.md) | The JSE model loses to a one-line momentum rule; momentum is now a standing competitor in the gate |
-| [Feature ablation and pruning](findings/feature-ablation-and-pruning.md) | The markets disagree about the same feature; pruning helps the NYSE under tuning |
+| [Feature ablation and pruning](findings/feature-ablation-and-pruning.md) | Pruning helps the NYSE under tuning. The "markets disagree about vol_63" half was **withdrawn 2026-08-30** — neither drop-one delta survives rolling origins |
 | [Why nothing could beat the NYSE incumbent](findings/unbeatable-incumbent.md) | The promotion stall was a training-panel artifact, not skill |
 | [Model staleness](findings/model-staleness.md) | **Corrected 2026-08-30** — no decay on either market at 46 origins; the original six-week result was a five-origin artifact |
 | [Why the champion has three trees](findings/three-tree-champion.md) | **Re-measured 2026-08-30** — the inner split neither predicts nor anti-predicts the holdout; neither it nor CV stopping beats picking a round at random |

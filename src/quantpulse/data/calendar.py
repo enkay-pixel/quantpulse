@@ -42,12 +42,16 @@ class Exchange:
     # Features this market trains on. Empty means every engineered column, which is what
     # both markets currently use.
     #
-    # The field exists because the markets measurably disagree about the same feature at
-    # fixed hyperparameters: a drop-one sweep and an independent forward selection both
-    # found `vol_63` helps one market and hurts the other. Both sweeps hold parameters
-    # fixed on purpose, so that a difference can be attributed to the feature rather than
-    # to retuning, so their result needs re-checking against a tuned model before it can be
-    # acted on. Re-checked at sixteen seeds, pruning XNYS to vol_21 does hold up: paired
+    # The field was added because a drop-one sweep and a forward selection both found
+    # `vol_63` helping one market and hurting the other at fixed hyperparameters. That
+    # premise did not survive re-measurement (2026-08-30): re-run across 49 rolling
+    # origins rather than four fixed folds, the drop-one delta for `vol_63` is +0.0100
+    # (t +0.7) on XNYS and +0.0030 (t +0.2) on XJSE, down from t +9.14 and t -5.35. The
+    # markets are not shown to disagree about it, or about any feature. The field still
+    # earns its place for the pruning result below, which was measured with tuning in the
+    # loop, but not for the disagreement it was named after.
+    #
+    # Re-checked at sixteen seeds, pruning XNYS to vol_21 does hold up: paired
     # +0.0133 +/- 0.0044 (t +3.00), eleven of sixteen seeds positive. XJSE is unresolved at
     # t +1.16 and would need about twenty-four.
     #

@@ -6,7 +6,7 @@ what came back, and what the result does *not* support.
 | Finding | Question | Outcome |
 |---|---|---|
 | [Baseline comparison](baseline-comparison.md) | Does the model beat a one-line momentum rule? | Not on the JSE. Momentum became a standing competitor in the gate. |
-| [Feature ablation and pruning](feature-ablation-and-pruning.md) | Do the thirteen features earn their place? | The markets disagree about the same feature. Pruning helps the NYSE under tuning (t +3.00); not acted on. |
+| [Feature ablation and pruning](feature-ablation-and-pruning.md) | Do the thirteen features earn their place? | Not shown either way. Pruning helps the NYSE under tuning (t +3.00); the "markets disagree about `vol_63`" result was **withdrawn 2026-08-30**. Ranking on `vol_63` raw beats every fitted model on the NYSE (t −3.1). |
 | [Why nothing could beat the NYSE incumbent](unbeatable-incumbent.md) | Why were five retrains rejected? | The champion was trained two days before a backfill tripled the panel. Not skill. |
 | [Model staleness](model-staleness.md) | How fast does a model go stale? | **Corrected 2026-08-30** — not measurably, on either market. The six-week NYSE bound and the rising JSE curve were both five-origin artifacts; across 46 origins neither decays. The cadence is unmeasured, not justified. |
 | [Does retraining buy anything?](retrain-value.md) | Is a freshly fitted model better than an older one? | No — every resolvable lag has the wrong sign (XNYS 21d −0.0173, t −2.86). The cadence rests on the promotion gate, not on freshness. |

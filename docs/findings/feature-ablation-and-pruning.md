@@ -173,20 +173,61 @@ after it refuted two sibling findings. **This page holds up better than any of t
 the reason it states itself: it scores across four walk-forward folds rather than one holdout,
 and pairs every comparison on the seed. That is most of the fix, arrived at independently.
 
-Two limits remain, neither of which is a reason to discard anything here:
+The four folds are nevertheless **fixed**. Averaging over them shrinks the noise floor but
+still describes one partition of one panel, which is not the same as rolling an origin across
+the period. `vol_63` was re-measured to find out how much that matters.
 
-- The four folds are **fixed**. Averaging over them shrinks the noise floor but still describes
-  one partition of one panel; it is not the same as rolling an origin across the period. The
-  errors quoted are across seeds of a fold-averaged quantity, so they inherit the same
-  weakness in weaker form.
-- `vol_63` now has **two measurements pointing opposite ways**. This page has it carrying
-  signal on the JSE (t −5.35) and costing it on the NYSE (t +9.14); scored as a univariate
-  forward signal across 46 rolling origins it is
-  [+0.0018 (t +0.0) on the JSE and +0.0878 (t +2.5) on the NYSE](model-staleness.md#what-the-jse-model-actually-learns).
-  These are different quantities — marginal contribution inside a fitted model versus
-  standalone forward IC — and they are not required to agree. But the same feature cannot be
-  the one the JSE model most needs *and* carry no forward signal there, so one of the two is
-  measuring something other than what it is being read as. Reconciling them is open work.
+### The vol_63 disagreement, resolved (2026-08-30)
+
+This page reported `vol_63` carrying signal on the JSE (t −5.35) and costing it on the NYSE
+(t +9.14), while its univariate forward IC across rolling origins was the reverse — nothing on
+the JSE, the strongest of any feature on the NYSE. Re-running **this page's own drop-one
+comparison** across 49 rolling origins, three seeds, paired the same way:
+
+| drop-one delta for `vol_63` | published, 4 fixed folds | 49 rolling origins |
+|---|---|---|
+| XNYS | +0.0153 (t **+9.14**) | +0.0100 ± 0.0137 (t **+0.7**), removal helps at 59% of origins |
+| XJSE | −0.0133 (t **−5.35**) | +0.0030 ± 0.0166 (t **+0.2**), removal helps at 45% of origins |
+
+**There was no disagreement to reconcile — neither delta survives.** The JSE result does not
+reproduce even in sign, so `vol_63` has no univariate signal there *and* no marginal signal:
+it does nothing on that market, consistently. The NYSE result keeps its sign and rough size but
+falls from t +9.14 to t +0.7, which is not a finding.
+
+That is the fixed folds, measured. The strongest number on this page lost an order of magnitude
+of significance when the window was allowed to move.
+
+### What is resolved instead: this model cannot use vol_63
+
+The same run scored four things on identical windows. On the NYSE they order:
+
+| | XNYS |
+|---|---|
+| `vol_63` raw ranking, no fit at all | **+0.0802** ± 0.0341 (t +2.4) |
+| a tree fitted on `vol_63` alone | +0.0452 ± 0.0285 |
+| the model without `vol_63` | +0.0381 ± 0.0199 |
+| the full 13-feature model | +0.0281 ± 0.0229 |
+
+**Fitting destroys the signal.** Fitted-alone minus raw ranking is **−0.0349 ± 0.0114
+(t −3.1)** — resolved, unlike either drop-one delta. Ranking NYSE names by 63-day volatility
+directly beats a tree fitted on that one column, which beats the full model.
+
+So "does `vol_63` cost signal?" has no resolved answer, and it was the wrong question. "Can
+this model use `vol_63`?" has one, and it is no. That belongs beside the pruning result above,
+which found a one-feature NYSE model beating all thirteen: both say the machinery is
+subtracting from its inputs rather than combining them.
+
+On the JSE nothing in that ladder resolves, which agrees with everything else measured on that
+market.
+
+### What this implies for the rest of the page
+
+Only `vol_63` was re-measured. It was the largest effect here (t +9.14) and it did not survive,
+so **the smaller rows should be read as unconfirmed** — `ma_ratio_63` (t +6.99), `mom_63`
+(t +3.99) and `ret_1` (t +2.48) were measured the same way on the same fixed folds, and there
+is no reason to expect them to hold up better. The verdicts column overstates its confidence
+throughout. Re-running the full drop-one sweep across rolling origins is the work that would
+settle it; the harness for it now exists.
 
 ## Related
 

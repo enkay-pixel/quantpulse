@@ -359,6 +359,15 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     origins, its ~0.025 "IC given up" is matched by picking a round at random, and neither
     early stopping nor CV stopping beats a random round on either market. Its conclusion — the
     round choice is arbitrary — survived; every mechanism it offered did not.
+    The ablation page held up best of the set — it scores across four walk-forward folds and
+    pairs on the seed — but those folds are **fixed**, and re-measuring its largest effect
+    showed what that costs: the drop-one delta for `vol_63`, published at t +9.14 (XNYS) and
+    t −5.35 (XJSE), is t +0.7 and t +0.2 across 49 rolling origins. The apparent contradiction
+    between that page and `vol_63`'s univariate forward IC dissolved with it — there was no
+    disagreement, only two fixed folds. What replaced it is resolved and more useful: on the
+    NYSE, ranking on raw `vol_63` scores +0.0802 against +0.0452 for a tree fitted on that one
+    column and +0.0281 for the full model, a fitting cost of −0.0349 (t −3.1). The signal is
+    there and every layer of the model subtracts from it.
     Lesson: **the unit of generalisation is the window, not the fit.** Average within an origin
     before taking the error, and when a claim is about the market, count origins. A finding
     that survives many seeds at few origins has been shown to be reproducible, not true.

@@ -91,12 +91,14 @@ from 29 tickers and 58k rows against 50 and 105k. A model with that much capacit
 fits the training panel tightly and arrives at zero out of sample, which is exactly what the
 46-origin curve shows.
 
-This is the same disagreement about `vol_63` that
-[the ablation](feature-ablation-and-pruning.md) found, measured a different way and pointing
-the opposite direction — the ablation has `vol_63` helping the JSE and hurting the NYSE. The
-two are different quantities (marginal contribution inside a model, versus univariate forward
-IC) and both are worth reconciling, but they cannot both be describing a feature that behaves
-the same way in both markets.
+This appeared to disagree with [the ablation](feature-ablation-and-pruning.md), which had
+`vol_63` helping the JSE and hurting the NYSE.
+[It does not](feature-ablation-and-pruning.md#the-vol_63-disagreement-resolved-2026-08-30):
+re-run across rolling origins, neither of the ablation's deltas survives (t +0.7 and +0.2,
+down from +9.14 and −5.35), so there is no conflict — `vol_63` simply does nothing on the JSE
+by either measure. What is resolved on the NYSE is stranger: ranking on `vol_63` raw beats a
+tree fitted on `vol_63` alone by −0.0349 (t −3.1), and that beats the full model. The signal
+is there and the model subtracts from it.
 
 ## What this changes
 
