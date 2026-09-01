@@ -1,6 +1,6 @@
 # Pinned to the version the Python client is locked to (pyproject/uv.lock) — `latest`
 # means unreproducible builds and whatever upstream pushed. Bump alongside the client.
-FROM ghcr.io/mlflow/mlflow:v3.14.0
+FROM ghcr.io/mlflow/mlflow:v3.15.2
 
 # timeout/retries: pip's 15s default drops on slow laptop Wi-Fi (same as UV_HTTP_TIMEOUT)
 RUN pip install --no-cache-dir --timeout 120 --retries 5 psycopg2-binary
