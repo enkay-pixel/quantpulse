@@ -16,6 +16,12 @@ from quantpulse.ml.metrics import information_coefficient
 
 logger = logging.getLogger(__name__)
 
+#: Fraction of dates held out for the promotion gate's exam, and reused for the inner
+#: early-stopping tail. Named once because two copies of it drifting apart is what let
+#: hyperparameter tuning see the gate's holdout: the tuner was handed the whole panel while
+#: `train_final_model` carved the exam off the end of that same panel.
+HOLDOUT_FRACTION = 0.15
+
 DEFAULT_PARAMS: dict[str, Any] = {
     "objective": "regression",
     "metric": "rmse",
@@ -185,7 +191,7 @@ def train_final_model(
     feature_cols: list[str],
     params: dict[str, Any],
     cfg: TrainConfig,
-    holdout_fraction: float = 0.15,
+    holdout_fraction: float = HOLDOUT_FRACTION,
 ) -> tuple[lgb.Booster, pd.DataFrame]:
     """Train on all but the last `holdout_fraction` of dates; return model + holdout preds.
 

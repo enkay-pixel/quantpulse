@@ -28,6 +28,7 @@ from quantpulse.ml.baselines import STANDING_COMPETITOR, standing_competitor_met
 from quantpulse.ml.metrics import information_coefficient
 from quantpulse.ml.promotion import PromotionPolicy, decide_promotion
 from quantpulse.ml.training import (
+    HOLDOUT_FRACTION,
     TrainConfig,
     split_by_date,
     train_final_model,
@@ -89,9 +90,20 @@ def train_evaluate_promote(
     # disagree about which features help (see Exchange.feature_columns).
     feature_cols = feature_columns_for(exchange)
 
-    params = tune_hyperparameters(frame, feature_cols, cfg)
+    # Tuning must not see the exam. `train_final_model` carves the gate's holdout off the end
+    # of `frame`, and `tune_hyperparameters` lays purged walk-forward folds over whatever it is
+    # given — so tuning on the full frame put the gate's holdout in the last fold's validation
+    # block *entire*: 313 of 313 dates on XJSE and 314 of 314 on XNYS, measured 2026-09-01.
+    # Optuna was choosing parameters partly to score on the very window that then served as the
+    # candidate's out-of-sample evidence.
+    #
+    # The asymmetry is what made it bite rather than merely look untidy. The incumbent is
+    # re-scored on this holdout but was tuned on an older panel, against a different last fold,
+    # so it gets no equivalent help — the gate was comparing a candidate fitted toward the exam
+    # against one that was not, and that bias runs toward promoting.
+    train_frame, _ = split_by_date(frame, HOLDOUT_FRACTION, cfg.embargo_days)
+    params = tune_hyperparameters(train_frame, feature_cols, cfg)
     booster, holdout = train_final_model(frame, feature_cols, params, cfg)
-    train_frame, _ = split_by_date(frame, 0.15, cfg.embargo_days)
     train_span = (str(train_frame["date"].min()), str(train_frame["date"].max()))
 
     # The gate must measure the construction the market actually runs: judging a 20%

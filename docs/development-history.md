@@ -372,6 +372,29 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     before taking the error, and when a claim is about the market, count origins. A finding
     that survives many seeds at few origins has been shown to be reproducible, not true.
 
+33. **Hyperparameter tuning was optimised against the promotion gate's own holdout
+    (2026-09-01)**: `train_evaluate_promote` called `tune_hyperparameters(frame, ...)` on the
+    whole panel and then `train_final_model(frame, ...)`, which carves the gate's holdout off
+    the end of that same panel. `tune_hyperparameters` lays purged walk-forward folds over
+    whatever frame it is handed, so the last fold's validation block *was* the gate's holdout,
+    entire: **313 of 313 dates on XJSE and 314 of 314 on XNYS**, with folds 0–2 overlapping on
+    zero. Optuna was therefore choosing parameters partly to score on the very window that then
+    served as the candidate's out-of-sample evidence for promotion.
+    What made it bite rather than merely look untidy is the **asymmetry**. The incumbent is
+    re-scored on the candidate's holdout, but it was tuned on an older panel against a
+    different last fold, so it gets no equivalent help. The gate was comparing a candidate
+    fitted toward the exam against one that was not, and the bias runs toward promoting.
+    Fix: tune on the pre-holdout portion only, and name the fraction once as
+    `training.HOLDOUT_FRACTION` so the tuner's split and the gate's split cannot drift apart —
+    two copies of `0.15` in different modules is what allowed the mismatch to be invisible.
+    Found while replaying the promotion policy with tuning in the loop for the cadence
+    measurement; it is not visible at `DEFAULT_PARAMS`, because nothing is being selected.
+    Lesson: **a leak needs no shared rows to do damage — a shared *objective* is enough.**
+    The two frames here were never concatenated and no training row crossed the boundary; the
+    holdout simply appeared in a score that something else was maximising. Test it at the call
+    site, too: the fractions were correct and the caller passed the wrong frame, so an
+    invariant checked on a locally-built split would have passed throughout.
+
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
 Prompted by "what else needs to fail hard before this is ready to present?". Counting the

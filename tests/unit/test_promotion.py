@@ -248,3 +248,48 @@ def test_the_gate_is_always_given_a_baseline(monkeypatch: pytest.MonkeyPatch) ->
 
     assert captured["baseline"] is not None, "the gate ran without a standing competitor"
     assert "holdout_ic" in captured["baseline"]  # type: ignore[operator]
+
+
+def test_tuning_never_sees_the_promotion_holdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hyperparameters must not be chosen on the window the gate then scores.
+
+    `train_final_model` carves the gate's holdout off the end of the panel, and
+    `tune_hyperparameters` lays purged walk-forward folds over whatever frame it is handed.
+    Handing it the *whole* panel put the holdout in the last fold's validation block entire —
+    313 of 313 dates on XJSE — so Optuna optimised against the candidate's own exam, while the
+    incumbent, tuned on an older panel, got no such help.
+
+    Asserted at the call site rather than on the split arithmetic: the bug was not that the
+    fractions were wrong but that the caller passed the wrong frame, and an invariant checked
+    on a locally-built split would have passed throughout.
+    """
+    import quantpulse.ml.pipeline as pipeline
+    from quantpulse.ml.training import HOLDOUT_FRACTION, TrainConfig, split_by_date
+
+    panel = _panel()
+    captured: dict[str, object] = {}
+
+    def fake_tune(frame, cols, cfg):  # type: ignore[no-untyped-def]
+        captured["tuned_on"] = set(frame["date"])
+        return {"objective": "regression"}
+
+    monkeypatch.setattr(pipeline, "build_dataset", lambda *a, **k: panel)
+    monkeypatch.setattr(pipeline, "tune_hyperparameters", fake_tune)
+    monkeypatch.setattr(
+        pipeline, "train_final_model", lambda frame, cols, params, cfg: (_Booster(), _panel())
+    )
+    monkeypatch.setattr(
+        pipeline, "decide_promotion", lambda *a, **k: PromotionDecision(False, "stubbed")
+    )
+    monkeypatch.setattr(pipeline.registry, "log_candidate", lambda *a, **k: _Version())
+    monkeypatch.setattr(pipeline.registry, "load_champion", lambda **k: None)
+
+    pipeline.train_evaluate_promote(object(), _Session(), exchange="XNYS")  # type: ignore[arg-type]
+
+    _, gate_holdout = split_by_date(panel, HOLDOUT_FRACTION, TrainConfig().embargo_days)
+    overlap = captured["tuned_on"] & set(gate_holdout["date"])  # type: ignore[operator]
+    assert not overlap, (
+        f"tuning was given {len(overlap)} of the {gate_holdout['date'].nunique()} dates the "
+        "promotion gate scores on — parameters would be selected against the candidate's "
+        "own exam"
+    )
