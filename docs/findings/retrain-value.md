@@ -150,21 +150,49 @@ so the budget bought all 49 origins.
 |---|---|---|---|---|
 | **XJSE** `DEFAULT_PARAMS`, 3 seeds | 9% | +0.0012 | +0.0050 | −0.0038 (t −0.3) |
 | **XJSE** tuned, leaky | 12% | −0.0058 | +0.0039 | −0.0097 (t −0.8) |
-| **XJSE** tuned, fixed | 10% | −0.0046 | +0.0001 | −0.0047 (t −0.2) |
+| **XJSE** tuned, fixed, 3 seeds | 9% | +0.0023 | −0.0027 | +0.0051 (t +0.3) |
 | **XNYS** `DEFAULT_PARAMS`, 3 seeds | 14% | +0.0387 | +0.0434 | −0.0047 (t −0.5) |
 | **XNYS** tuned, leaky | 22% | +0.0362 | +0.0435 | −0.0073 (t −0.6) |
-| **XNYS** tuned, fixed | 12% | +0.0410 | +0.0310 | **+0.0101 (t +1.1)** |
+| **XNYS** tuned, fixed, 3 seeds | 13% | +0.0390 | +0.0303 | **+0.0088 (t +0.9)** |
 
 **Nothing here resolves, and one thing changes sign.** On the best-specified run — tuned, no
-leak — the NYSE gate-conditional policy is nominally *better* than never retraining, +0.0101 at
-t +1.1, where both other specifications put it negative. The JSE stays negative throughout.
-That is not a result at one seed; it is a warning against quoting the `DEFAULT_PARAMS` row as
+leak, three seeds — the NYSE gate-conditional policy is nominally *better* than never
+retraining, +0.0088 at t +0.9, where both other specifications put it negative. The JSE does
+not. Whatever else this says, it is a warning against quoting the `DEFAULT_PARAMS` row as
 though tuning were a detail.
 
 Read the three rows within a market, not across the table: **`never` is not a fixed model.**
 It is "the first model this policy deployed", and a different tuning path deploys a different
 first model — the NYSE baseline moves from +0.0435 to +0.0310 between runs. Each row's paired
 difference is internally valid; the baselines are not common.
+
+### Seeds, and why they are not a nuisance parameter here
+
+Run at three seeds on the tuned leak-free path, the two markets behave differently:
+
+| seed | XJSE gated − never | XNYS gated − never |
+|---|---|---|
+| 7 | +0.0212 (t +1.4) | +0.0056 (t +0.4) |
+| 42 | −0.0047 (t −0.2) | +0.0101 (t +1.1) |
+| 123 | −0.0013 (t −0.0) | +0.0107 (t +0.7) |
+| **pooled** | **+0.0051 ± 0.0200 (t +0.3)** | **+0.0088 ± 0.0099 (t +0.9)** |
+
+**XNYS is a stable estimate short of resolution; XJSE is noise.** All three NYSE seeds are
+positive within a band of 0.005, which is the pattern
+[measurement.md](../measurement.md#an-unresolved-result-is-not-a-null-result) describes — a
+mean that barely moves while the error falls. The JSE changes sign between seeds and pools to
+nothing.
+
+**The seed is not a nuisance parameter once tuning is in the loop.** With fixed parameters it
+only re-draws the fit, which is why this project's earlier finding was that seeds add almost no
+sample size. With Optuna it also seeds `TPESampler`, so it selects different hyperparameters
+and therefore a different *policy* — a second source of real variation, and the reason the JSE
+swings from −0.005 to +0.021 across three of them.
+
+What would settle the NYSE figure is **about 205 windows against the 40 usable here**, and this
+panel cannot supply them: the back half is already tiled end to end at a 21-day stride, and
+shortening the stride would overlap the forward windows rather than add independent ones. More
+compute will not close this. A longer panel, or live evidence, is what would.
 
 ### What the leak was worth
 
@@ -204,12 +232,15 @@ gate-conditional policy is nominally ahead of never retraining (+0.0101, t +1.1)
 unresolved, and the opposite sign to its own `DEFAULT_PARAMS` row.
 
 So the honest position is narrower than "retraining does not pay". It is that **no
-specification yet resolves either way**, that the specification closest to production is the
-one that has been measured least, and that the cadence's main effect is to create promotion
-opportunities — twelve a quarter — against a gate that says yes to roughly one in eight of
-them, and whose own noise floor this project has had to measure and correct more than once.
-Fewer retrains may still be safer rather than merely cheaper. What would settle it is seeds on
-the tuned, leak-free path, which is now the cheapest useful experiment left here.
+specification resolves either way, and this panel cannot make one resolve** — the NYSE figure
+would need roughly five times the windows that exist. What can be said is that the estimate
+closest to production is stable and positive on the NYSE and absent on the JSE, and that the
+cadence's main effect is to create promotion opportunities — twelve a quarter — against a gate
+that says yes to roughly one in eight of them, and whose own noise floor this project has had
+to measure and correct more than once.
+Fewer retrains may still be safer rather than merely cheaper on the JSE; on the NYSE the
+measurement now leans the other way without reaching resolution. The cheap experiments are
+spent — what is left is time.
 
 ## Related
 
