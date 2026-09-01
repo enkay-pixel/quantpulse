@@ -400,7 +400,18 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
    signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
    toward the latter — and only accumulated live days distinguish them.
-3. **Screenshots** carry data through 21 Aug 2026 and show the live decomposition on both
+3. **Does the gate rescue the cadence?** `quantpulse retrain-value` shows a freshly fitted
+   model is not better than an older one and on the NYSE at 21 days is measurably worse
+   (−0.0173, t −2.86), so the weekly cadence buys nothing through freshness. It measures
+   retraining *unconditionally*, though: production promotes only through the gate, which
+   scores candidates on a holdout carved from the end of the training panel — the recent
+   past, not the forward window. If fresh models underperform *because* they are tuned to
+   the recent past, the gate is selecting on the misleading signal. The measurement that
+   settles it promotes only where the gate would have, then scores what was actually
+   deployed against never retraining. **Reopen when the cadence is next questioned, or
+   before any change to the weekly schedule** — the schedule stays as it is until then,
+   because nothing here shows weekly is harmful once the gate is credited.
+4. **Screenshots** carry data through 21 Aug 2026 and show the live decomposition on both
    markets, including alpha with its standard error. Regenerate when the dashboard changes
    shape or the live record reaches a milestone worth showing. Recipe, per market and tab:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
@@ -413,15 +424,15 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    reflows and a height taken at a narrower width leaves a page of empty black below the
    content. Current values — overview 1257, evidence 1277, options 1149, model-book 686.
 
-4. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
+5. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
    realized-vs-implied volatility, IV-change signals. This is the payoff for the
    snapshot-forward design, and it needs no new data source.
-5. **Model improvements** — only once live evidence justifies them: richer features
+6. **Model improvements** — only once live evidence justifies them: richer features
    (fundamentals, cross-asset), alternative targets, or an ensemble. Measure first.
-6. **Deferred dependency majors** — typescript / eslint / recharts carry documented
+7. **Deferred dependency majors** — typescript / eslint / recharts carry documented
    Dependabot ignore rules; python-3.14 base image declined (dbt-common/PEP 649); dbt
    `tests:` → `data_tests:` rename when the tooling requires it.
-7. **Databricks Free Edition companion repo** — the same pipeline expressed in
+8. **Databricks Free Edition companion repo** — the same pipeline expressed in
    PySpark/Delta as a separate portfolio piece. Spark was deliberately *not* used here:
    the data is far too small to justify it, and being able to say so is the stronger
    engineering signal.
