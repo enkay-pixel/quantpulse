@@ -387,6 +387,18 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     Fix: tune on the pre-holdout portion only, and name the fraction once as
     `training.HOLDOUT_FRACTION` so the tuner's split and the gate's split cannot drift apart —
     two copies of `0.15` in different modules is what allowed the mismatch to be invisible.
+    **What it was worth, measured by replaying the policy both ways** (same origins, same seed,
+    only the frame handed to the tuner differing): the harm is **market-dependent**. On XNYS the
+    leak inflated the candidate's holdout IC by **+0.0165 ± 0.0040 (t +4.2)** and nearly doubled
+    the promotion rate, 22% against 12% — the bias this was fixed for. On XJSE it did neither
+    (−0.0013, t −0.2; 12% against 10%). What it did on *both* markets was churn the decisions:
+    only 1 of ~6 JSE promotions and 3 of 11 NYSE promotions survive the change, with five JSE
+    promotions happening only with the leak and four only without it. With tuned learning rates
+    ranging over two orders of magnitude between neighbouring origins, moving the tuning frame
+    yields a *different* model rather than a better-scoring one; where the leak also inflates,
+    that different model is one the gate is likelier to accept. The first read of this was taken
+    from XJSE alone, before XNYS finished, and wrongly concluded there was no inflation anywhere
+    — a second market was what separated churn from bias.
     Found while replaying the promotion policy with tuning in the loop for the cadence
     measurement; it is not visible at `DEFAULT_PARAMS`, because nothing is being selected.
     Lesson: **a leak needs no shared rows to do damage — a shared *objective* is enough.**

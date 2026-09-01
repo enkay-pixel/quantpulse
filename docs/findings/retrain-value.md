@@ -126,11 +126,68 @@ a model against one fitted 21 trading days earlier; this compares a fresh model 
 2022-vintage one whose lag grows to years. Same direction, different contrast — it is not a
 replication of the −0.0173 and should not be read as one.
 
-Two caveats carry: hyperparameters are held at `DEFAULT_PARAMS` where production tunes per
+Two caveats carried: hyperparameters were held at `DEFAULT_PARAMS` where production tunes per
 retrain, and the cadence simulated is 21 trading days rather than weekly, chosen so forward
 windows tile without overlapping labels. A weekly cadence offers roughly four times as many
 promotion opportunities against the same gate, which raises the number of chances rather than
-the quality of any one of them.
+the quality of any one of them. **The first caveat has since been closed** — see below. The
+weekly stride has not been.
+
+### With tuning in the loop, and the leak removed
+
+Running the same replay with Optuna at every retrain point, as production does, turned up a
+defect first: production tuned on the **whole** panel while `train_final_model` carved the
+gate's holdout off the end of that same panel, so the tuning CV's last fold *was* the gate's
+exam — 313 of 313 dates on XJSE, 314 of 314 on XNYS. Fixed in the promotion path
+(development-history incident 33); the replay was then run both ways, deliberately, because
+the difference is itself the measurement of what the leak was worth.
+
+One seed rather than three: tuning costs 20–75s per retrain point, and this project's own
+finding is that origins are the unit of generalisation while seeds add almost no sample size,
+so the budget bought all 49 origins.
+
+| | promoted | gated | never | gated − never |
+|---|---|---|---|---|
+| **XJSE** `DEFAULT_PARAMS`, 3 seeds | 9% | +0.0012 | +0.0050 | −0.0038 (t −0.3) |
+| **XJSE** tuned, leaky | 12% | −0.0058 | +0.0039 | −0.0097 (t −0.8) |
+| **XJSE** tuned, fixed | 10% | −0.0046 | +0.0001 | −0.0047 (t −0.2) |
+| **XNYS** `DEFAULT_PARAMS`, 3 seeds | 14% | +0.0387 | +0.0434 | −0.0047 (t −0.5) |
+| **XNYS** tuned, leaky | 22% | +0.0362 | +0.0435 | −0.0073 (t −0.6) |
+| **XNYS** tuned, fixed | 12% | +0.0410 | +0.0310 | **+0.0101 (t +1.1)** |
+
+**Nothing here resolves, and one thing changes sign.** On the best-specified run — tuned, no
+leak — the NYSE gate-conditional policy is nominally *better* than never retraining, +0.0101 at
+t +1.1, where both other specifications put it negative. The JSE stays negative throughout.
+That is not a result at one seed; it is a warning against quoting the `DEFAULT_PARAMS` row as
+though tuning were a detail.
+
+Read the three rows within a market, not across the table: **`never` is not a fixed model.**
+It is "the first model this policy deployed", and a different tuning path deploys a different
+first model — the NYSE baseline moves from +0.0435 to +0.0310 between runs. Each row's paired
+difference is internally valid; the baselines are not common.
+
+### What the leak was worth
+
+The leaky and fixed runs differ only in the frame handed to the tuner, so the comparison is
+clean, and it is **market-dependent**:
+
+| | candidate's holdout IC, leaky − fixed | promotion rate |
+|---|---|---|
+| XNYS | **+0.0165 ± 0.0040 (t +4.2)** | 22% → 12% |
+| XJSE | −0.0013 ± 0.0054 (t −0.2) | 12% → 10% |
+
+On the NYSE the leak inflated the candidate's exam score by a resolved margin and nearly
+doubled the promotion rate — the bias the fix was made for. On the JSE it did neither.
+
+What it did on **both** markets is churn the decisions. Of the promotions made under each path,
+only 1 of ~6 on the JSE and 3 of 11 on the NYSE survive the change: five JSE promotions
+happened only with the leak and four only without it. With tuned learning rates spanning two
+orders of magnitude between neighbouring origins (XJSE median 0.1697, XNYS median 0.0077,
+range 0.0011–0.1954), moving the tuning frame produces a *different* model rather than a
+better-scoring one. Where the leak also inflates, as on the NYSE, that different model is one
+the gate is more likely to accept.
+
+Every champion promoted before the fix was selected under the leaky path, on both markets.
 
 ## What this changes
 
@@ -138,13 +195,21 @@ Nothing automatically. The cadence stays where it is until someone decides other
 point of this note is that the decision now has a measurement under it in the direction
 opposite to the one usually assumed.
 
-What can be said: **the cadence's value rested entirely on the promotion gate, and the gate
-has now been credited without changing the answer.** Weekly retraining does not buy a better
-model on average; deploying only what the gate approves does not buy one either. Its main
-effect is to create promotion opportunities — twelve a quarter — against a gate that says yes
-to roughly one in eight of them, and whose own noise floor this project has had to measure and
-correct more than once. Fewer retrains may be safer rather than merely cheaper, and nothing
-measured so far argues against that.
+What can be said: **the cadence's value rests entirely on the promotion gate, and crediting
+the gate does not produce a resolved case for retraining on either market.** Weekly retraining
+does not buy a better model on average, and deploying only what the gate approves does not
+buy one either — on five of the six specifications measured. The exception matters and is
+stated rather than buried: on the NYSE, with tuning real and the holdout leak gone, the
+gate-conditional policy is nominally ahead of never retraining (+0.0101, t +1.1). One seed,
+unresolved, and the opposite sign to its own `DEFAULT_PARAMS` row.
+
+So the honest position is narrower than "retraining does not pay". It is that **no
+specification yet resolves either way**, that the specification closest to production is the
+one that has been measured least, and that the cadence's main effect is to create promotion
+opportunities — twelve a quarter — against a gate that says yes to roughly one in eight of
+them, and whose own noise floor this project has had to measure and correct more than once.
+Fewer retrains may still be safer rather than merely cheaper. What would settle it is seeds on
+the tuned, leak-free path, which is now the cheapest useful experiment left here.
 
 ## Related
 
