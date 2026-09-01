@@ -231,8 +231,14 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   retracted.** `quantpulse staleness` freezes a model and scores it forward across rolling
   origins. Measured at five origins it showed NYSE skill dying at six weeks and the JSE curve
   *rising* with age; at 46 origins **both effects vanish** — NYSE holds ~+0.04 out to 83 days,
-  JSE sits at zero throughout. The weekly cadence is therefore not justified by measurement,
-  and not shown to be wrong either. Roll the origin *far enough*: the failure was five origins
+  JSE sits at zero throughout. `quantpulse retrain-value` then asked the comparative question
+  the curve cannot — is a freshly fitted model better than an older one on the *same* forward
+  window — and found every resolvable lag has the wrong sign (XNYS at 21 days −0.0173, t −2.86,
+  and both time-halves negative on both markets). Retraining does not buy a better model on
+  average, and its losses are asymmetric: the worst windows are three times the best. The
+  weekly cadence is therefore not justified by freshness; whatever value it has rests on the
+  promotion gate, which scores candidates on the recent past rather than the forward
+  window. Roll the origin *far enough*: the failure was five origins
   plus an error bar pooling 25 (origin, seed) fits, which counts each origin five times because
   the seed re-draws the fit and not the market. Averaging within an origin before taking the
   error is the rule — see
