@@ -362,7 +362,7 @@ helps here" rather than "`vol_21` is the column", and +0.0133 is smaller than th
 round-to-round spread early stopping already contributes. *Reopen on confirmation from a
 fresh panel period.*
 
-**Do not set a per-market round count.** The reason changed on 2026-08-30: the JSE result that
+**Do not set a per-market round count.** The reason changed on 2026-09-01: the JSE result that
 motivated one — a fixed 25 rounds beating early stopping at t +3.43 — was a single holdout's
 draw, and is **−0.0004 (t −0.10)** across 49 rolling origins, winning at 12 of them. Neither
 market has a demonstrated preference, and no round-picking rule yet tested beats choosing a
@@ -400,17 +400,20 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
    signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
    toward the latter — and only accumulated live days distinguish them.
-3. **Does the gate rescue the cadence?** `quantpulse retrain-value` shows a freshly fitted
-   model is not better than an older one and on the NYSE at 21 days is measurably worse
-   (−0.0173, t −2.86), so the weekly cadence buys nothing through freshness. It measures
-   retraining *unconditionally*, though: production promotes only through the gate, which
-   scores candidates on a holdout carved from the end of the training panel — the recent
-   past, not the forward window. If fresh models underperform *because* they are tuned to
-   the recent past, the gate is selecting on the misleading signal. The measurement that
-   settles it promotes only where the gate would have, then scores what was actually
-   deployed against never retraining. **Reopen when the cadence is next questioned, or
-   before any change to the weekly schedule** — the schedule stays as it is until then,
-   because nothing here shows weekly is harmful once the gate is credited.
+3. **The gate does not rescue the cadence — measured 2026-09-01.** `quantpulse retrain-value`
+   showed a freshly fitted model is not better than an older one, but measured retraining
+   *unconditionally*; production promotes only through the gate. Replaying the policy — promote
+   only where `decide_promotion` would have, then score what was actually deployed — leaves the
+   answer where it was: what the gate deploys minus never retraining is **−0.0038 (t −0.3)** on
+   the JSE and **−0.0047 (t −0.5)** on the NYSE, negative on both and favouring never retraining
+   in a majority of windows. Neither resolves, so this is *not shown to help* rather than shown
+   to harm. The mechanism is the useful part: **the gate promotes at only 9% and 14% of retrain
+   points** — once in four years at one JSE seed, and nothing at all on the NYSE until early
+   2023 — so the schedule changes what is deployed a handful of times per market per four years.
+   The cadence's room to matter is bounded by how rarely the gate says yes.
+   *The schedule stays as it is: nothing shows weekly is harmful, and nothing now shows it
+   helps. Reopen with tuning in the loop and a true weekly stride, the two things this
+   simplified.* See [Does retraining buy anything?](findings/retrain-value.md#crediting-the-gate-2026-09-01).
 4. **Screenshots** carry data through 21 Aug 2026 and show the live decomposition on both
    markets, including alpha with its standard error. Regenerate when the dashboard changes
    shape or the live record reaches a milestone worth showing. Recipe, per market and tab:

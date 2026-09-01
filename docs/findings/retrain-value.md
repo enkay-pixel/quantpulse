@@ -70,8 +70,67 @@ It does bound the argument, though. The gate scores both models on a **holdout c
 the end of the training panel** — the recent past, not the forward window. If freshly fitted
 models underperform going forward precisely because they are tuned to the recent past, then
 the gate is selecting on the signal that misleads, and cannot be assumed to filter the bad
-draws out. Whether it does is a separate measurement: a policy comparison that promotes only
-when the gate would have, then scores what was actually deployed.
+draws out. Whether it does was a separate measurement, and it has since been run:
+[crediting the gate](#crediting-the-gate-2026-09-01) below.
+
+## Crediting the gate (2026-09-01)
+
+The measurement the section above asks for, run. Rather than comparing fits, this replays the
+**policy**. At each retrain point, in order: build the panel available at that moment,
+embargoed so no forward label leaks; carve the gate's holdout off the end of it exactly as
+`train_final_model` does; fit a candidate, re-score the incumbent **on that same holdout**, and
+score the fit-free standing competitor on it too; ask the real `decide_promotion` at the
+market's own IC margin; then score whatever is now deployed on the forward window. The champion
+carries across origins, so the origins run in order and the seed is what varies.
+
+Three policies on identical forward windows, 49 retrain points 21 trading days apart, three
+seeds, errors Newey-West as above:
+
+| | XJSE | XNYS |
+|---|---|---|
+| the gate promoted at | **9%** of retrain points | **14%** |
+| gated — what the gate deploys | +0.0012 | +0.0387 |
+| always — deploy every candidate | +0.0053 | +0.0331 |
+| never — keep the first promoted model | +0.0050 | +0.0434 |
+| **gated − never** | **−0.0038 ± 0.0143 (t −0.3)** | **−0.0047 ± 0.0095 (t −0.5)** |
+| gated − always | −0.0041 (t −0.5) | +0.0085 (t +0.9) |
+
+**Crediting the gate does not reverse the answer.** Gated minus never is negative on both
+markets and favours never retraining in a majority of windows (29/49 and 26/41). Nothing here
+resolves — closing the gated-minus-never gap would need roughly 2,700 windows on the JSE and
+670 on the NYSE against the 41–49 available — so this is *not shown to help*, not *shown to
+harm*. The gate is not selecting badly either: against blind retraining it is +0.0085 on the
+NYSE and −0.0041 on the JSE, both inside their noise.
+
+### The gate promotes too rarely for the cadence to matter
+
+The averages hide the mechanism. Across 49 opportunities the gate promoted between **one and
+nine** times depending on market and seed:
+
+- On **XNYS nothing was deployed at all until 2023-01/03** — eight months of refusing every
+  candidate, because none beat the momentum competitor on its own holdout.
+- On **XJSE at seed 42 the gate promoted once in four years**, at the first retrain point.
+  For that seed the deployed model and the never-retrained one are identical in all 49 windows.
+- Overall the deployed model *is* the never-retrained one in 44% of JSE windows and 13% of
+  NYSE windows.
+
+So the schedule changes what is deployed a handful of times per market per four years, and
+those changes are not measurably better than not making them. That is a sharper statement than
+the mean difference, and it is the reason the mean difference is small: **the cadence's room to
+matter is bounded by how rarely the gate says yes.**
+
+### What this run is not
+
+`always − never` here is **not** the fresh-minus-stale figure in the table above. That compares
+a model against one fitted 21 trading days earlier; this compares a fresh model against a
+2022-vintage one whose lag grows to years. Same direction, different contrast — it is not a
+replication of the −0.0173 and should not be read as one.
+
+Two caveats carry: hyperparameters are held at `DEFAULT_PARAMS` where production tunes per
+retrain, and the cadence simulated is 21 trading days rather than weekly, chosen so forward
+windows tile without overlapping labels. A weekly cadence offers roughly four times as many
+promotion opportunities against the same gate, which raises the number of chances rather than
+the quality of any one of them.
 
 ## What this changes
 
@@ -79,11 +138,13 @@ Nothing automatically. The cadence stays where it is until someone decides other
 point of this note is that the decision now has a measurement under it in the direction
 opposite to the one usually assumed.
 
-What can be said: **the cadence's value rests entirely on the promotion gate, not on
-freshness.** Weekly retraining does not buy a better model on average, and its main effect is
-to create promotion opportunities — twelve a quarter — against a gate whose own noise floor
-this project has had to measure and correct more than once. Fewer retrains may be safer
-rather than merely cheaper.
+What can be said: **the cadence's value rested entirely on the promotion gate, and the gate
+has now been credited without changing the answer.** Weekly retraining does not buy a better
+model on average; deploying only what the gate approves does not buy one either. Its main
+effect is to create promotion opportunities — twelve a quarter — against a gate that says yes
+to roughly one in eight of them, and whose own noise floor this project has had to measure and
+correct more than once. Fewer retrains may be safer rather than merely cheaper, and nothing
+measured so far argues against that.
 
 ## Related
 
