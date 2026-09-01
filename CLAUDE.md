@@ -213,7 +213,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - **The early-stopping split carries no information about holdout performance.** Fixed
   2026-08-23 to stop on IC rather than RMSE, which was right — RMSE stopped after one round —
   but it did not fix the underlying problem. Re-measured across 49 rolling origins
-  (2026-08-30), the inner-val and holdout curves correlate **−0.008** on XNYS and **+0.080** on
+  (2026-09-01), the inner-val and holdout curves correlate **−0.008** on XNYS and **+0.080** on
   XJSE: the split neither predicts the holdout nor anti-predicts it. **Neither it nor CV
   stopping beats picking a round at random** — the ~0.025 once reported as the cost of
   following it is given up by a random round too, because the oracle it is measured against is

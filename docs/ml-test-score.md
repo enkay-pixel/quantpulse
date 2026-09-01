@@ -100,11 +100,11 @@ notebook. The method they share is stated once in
 | Finding | What it settled |
 |---|---|
 | [Baseline comparison](findings/baseline-comparison.md) | The JSE model loses to a one-line momentum rule; momentum is now a standing competitor in the gate |
-| [Feature ablation and pruning](findings/feature-ablation-and-pruning.md) | Pruning helps the NYSE under tuning. The "markets disagree about vol_63" half was **withdrawn 2026-08-30** — neither drop-one delta survives rolling origins |
+| [Feature ablation and pruning](findings/feature-ablation-and-pruning.md) | Pruning helps the NYSE under tuning. The "markets disagree about vol_63" half was **withdrawn 2026-09-01** — neither drop-one delta survives rolling origins |
 | [Why nothing could beat the NYSE incumbent](findings/unbeatable-incumbent.md) | The promotion stall was a training-panel artifact, not skill |
-| [Model staleness](findings/model-staleness.md) | **Corrected 2026-08-30** — no decay on either market at 46 origins; the original six-week result was a five-origin artifact |
-| [Why the champion has three trees](findings/three-tree-champion.md) | **Re-measured 2026-08-30** — the inner split neither predicts nor anti-predicts the holdout; neither it nor CV stopping beats picking a round at random |
-| [Can the round count be chosen well?](findings/round-count.md) | **Corrected 2026-08-30** — the per-market result was one holdout's draw; no round count is shown to suit either market |
+| [Model staleness](findings/model-staleness.md) | **Corrected 2026-09-01** — no decay on either market at 46 origins; the original six-week result was a five-origin artifact |
+| [Why the champion has three trees](findings/three-tree-champion.md) | **Re-measured 2026-09-01** — the inner split neither predicts nor anti-predicts the holdout; neither it nor CV stopping beats picking a round at random |
+| [Can the round count be chosen well?](findings/round-count.md) | **Corrected 2026-09-01** — the per-market result was one holdout's draw; no round count is shown to suit either market |
 
 ## Gaps, ranked by value per unit of effort
 
@@ -115,7 +115,7 @@ notebook. The method they share is stated once in
    cannot touch: it governs promotion, not incumbency. Withdrawing it is now a single
    command (`quantpulse demote`, built the same day) — but whether to pull it is a judgement
    call, not something the pipeline should make.
-2. **Model staleness still unmeasured** — measured 2026-08-23, **retracted 2026-08-30**. The
+2. **Model staleness still unmeasured** — measured 2026-08-23, **retracted 2026-09-01**. The
    six-week NYSE bound and the rising JSE curve were both artifacts of a five-origin sample;
    at 46 origins neither market decays. The weekly cadence has no measured support and no
    measured objection. Re-opening this is cheap — the harness is right, it simply needs the

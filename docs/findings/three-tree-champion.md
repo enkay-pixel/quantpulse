@@ -1,10 +1,10 @@
 # Why the champion has three trees (2026-08-23)
 
-> **Re-measured 2026-08-30 across 49 rolling origins.** Every figure below was taken across
+> **Re-measured 2026-09-01 across 49 rolling origins.** Every figure below was taken across
 > three or five *seeds* on **one holdout**, which says how much refitting moves that window's
 > number and not whether the effect holds. Rolling the origin, **the two curves do not
 > disagree, the NYSE inner-validation IC is not negative, and the cost is not a cost** — see
-> [what the rolling measurement found](#what-the-rolling-measurement-found-2026-08-30). The
+> [what the rolling measurement found](#what-the-rolling-measurement-found-2026-09-01). The
 > page's conclusion that the tree count is close to arbitrary survives; its stated mechanism
 > and its cost figure do not. The CV-stopping table was re-measured too: neither rule beats a
 > random round, so CV stopping does not "help one market and hurt the other" either. Every
@@ -35,7 +35,7 @@ That cost is measured against an **oracle** — the best round found by looking 
 which no honest rule may use. Peeking at the holdout to choose the round is exactly the
 leakage the inner split was introduced to stop.
 
-## What the rolling measurement found (2026-08-30)
+## What the rolling measurement found (2026-09-01)
 
 49 origins every 21 trading days, three seeds each, 200 rounds with early stopping switched
 off so the whole curve is visible. The inner-validation curve comes from the training callback;

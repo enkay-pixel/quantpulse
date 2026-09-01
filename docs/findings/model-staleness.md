@@ -1,4 +1,4 @@
-# Model staleness result (2026-08-23, **corrected 2026-08-30**)
+# Model staleness result (2026-08-23, **corrected 2026-09-01**)
 
 > **The original result was wrong.** Both curves below were measured at five origins, with an
 > error bar that pooled 25 (origin, seed) fits — counting each origin five times, because the
@@ -93,7 +93,7 @@ fits the training panel tightly and arrives at zero out of sample, which is exac
 
 This appeared to disagree with [the ablation](feature-ablation-and-pruning.md), which had
 `vol_63` helping the JSE and hurting the NYSE.
-[It does not](feature-ablation-and-pruning.md#the-vol_63-disagreement-resolved-2026-08-30):
+[It does not](feature-ablation-and-pruning.md#the-vol_63-disagreement-resolved-2026-09-01):
 re-run across rolling origins, neither of the ablation's deltas survives (t +0.7 and +0.2,
 down from +9.14 and −5.35), so there is no conflict — `vol_63` simply does nothing on the JSE
 by either measure. What is resolved on the NYSE is stranger: ranking on `vol_63` raw beats a

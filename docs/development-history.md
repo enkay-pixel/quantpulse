@@ -334,7 +334,7 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     Lesson: a dependency file that has only ever been appended to is not a manifest until a
     clean resolve has been run against it. Nothing here would have surfaced short of trying.
 
-32. **Two published findings were sampling artifacts, and the error bar hid it (2026-08-30)**:
+32. **Two published findings were sampling artifacts, and the error bar hid it (2026-09-01)**:
     the staleness curves were measured at **five origins**, with the error taken across 25
     (origin, seed) fits. That counts each origin five times, because re-drawing the seed
     re-draws the fit and not the market. Rolled across 46 origins tiling 2022–2026, the JSE

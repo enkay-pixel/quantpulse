@@ -165,7 +165,7 @@ repeated splits or several walk-forward windows, averaging IC across them so the
 below the effects being tested. That is the prerequisite for any feature decision, and it is
 worth more than any change to the current feature list.
 
-## Audit note (2026-08-30)
+## Audit note (2026-09-01)
 
 Checked against
 [the seed-is-not-a-sample rule](../measurement.md#the-seed-is-not-a-sample-of-the-market)
@@ -177,7 +177,7 @@ The four folds are nevertheless **fixed**. Averaging over them shrinks the noise
 still describes one partition of one panel, which is not the same as rolling an origin across
 the period. `vol_63` was re-measured to find out how much that matters.
 
-### The vol_63 disagreement, resolved (2026-08-30)
+### The vol_63 disagreement, resolved (2026-09-01)
 
 This page reported `vol_63` carrying signal on the JSE (t −5.35) and costing it on the NYSE
 (t +9.14), while its univariate forward IC across rolling origins was the reverse — nothing on

@@ -44,7 +44,7 @@ class Exchange:
     #
     # The field was added because a drop-one sweep and a forward selection both found
     # `vol_63` helping one market and hurting the other at fixed hyperparameters. That
-    # premise did not survive re-measurement (2026-08-30): re-run across 49 rolling
+    # premise did not survive re-measurement (2026-09-01): re-run across 49 rolling
     # origins rather than four fixed folds, the drop-one delta for `vol_63` is +0.0100
     # (t +0.7) on XNYS and +0.0030 (t +0.2) on XJSE, down from t +9.14 and t -5.35. The
     # markets are not shown to disagree about it, or about any feature. The field still

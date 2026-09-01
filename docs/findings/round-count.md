@@ -1,6 +1,6 @@
 # Can the boosting round count be chosen well? (2026-08-24)
 
-> **The headline result was wrong, corrected 2026-08-30.** "25 rounds beats early stopping on
+> **The headline result was wrong, corrected 2026-09-01.** "25 rounds beats early stopping on
 > the JSE" was measured on **one holdout** across eight seeds. That error describes how much
 > refitting moves the number on that window, not whether the effect holds; rolled across 46
 > origins tiling 2022–2026 the advantage is **−0.0004 ± 0.0045 (t −0.10)** and fixed-25 wins in

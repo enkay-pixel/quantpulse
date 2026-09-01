@@ -44,7 +44,7 @@ Two things this also settles:
   would flatter anything ranked.
 
 Caveats that belong with the numbers, and the first of them was
-[vindicated on 2026-08-30](../measurement.md#the-seed-is-not-a-sample-of-the-market): two
+[vindicated on 2026-09-01](../measurement.md#the-seed-is-not-a-sample-of-the-market): two
 findings measured on one window were later refuted by rolling the origin, and repeating this
 comparison across windows is still the outstanding work. This is **one holdout window**, and
 it overlaps the

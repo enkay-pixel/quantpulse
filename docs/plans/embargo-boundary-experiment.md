@@ -1,6 +1,6 @@
 # Does the embargo boundary cause the JSE inversion?
 
-**Status: RUN 2026-08-30. H rejected — and the premise withdrawn.** The experiment did what it
+**Status: RUN 2026-09-01. H rejected — and the premise withdrawn.** The experiment did what it
 was designed to do: D ≈ E on both markets, which is the decision rule below for concluding the
 effect is not the gap. It was then overtaken. **The inversion this set out to explain does not
 exist** — it was a five-origin sampling artifact, corrected in
