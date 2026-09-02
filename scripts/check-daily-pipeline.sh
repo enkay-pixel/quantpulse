@@ -65,6 +65,7 @@ psql_q() { docker compose exec -T postgres psql -U quantpulse -d market -tAc "$1
 # until 01:00 SAST the next morning — a real, nightly, seven-hour window in which a single
 # expected date reports a stall that is not one. It did exactly that on 2026-09-01, for a run
 # that then succeeded on time.
+CAL_ERR=$(mktemp)
 EXPECTED=$(docker compose exec -T dagster-daemon python -c '
 import datetime as dt
 from quantpulse.data.calendar import EXCHANGES, is_post_close, is_trading_day, last_trading_day, market_today
@@ -77,12 +78,30 @@ for code in sorted(EXCHANGES):
     # Features are owed only once the cross-market schedule has had its turn for that day.
     proc = day if process_overdue(day) else last_trading_day(day - dt.timedelta(days=1), code)
     print(f"{code} {day} {proc}")
-' 2>/dev/null | tr -d '\r')
+' 2>"$CAL_ERR" | tr -d '\r')
 
 if [ -z "$EXPECTED" ]; then
-    printf '%s could not resolve the trading calendar — skipping\n' "$(stamp)"
-    exit 0
+    # The stack is up — that was checked above — so the calendar failing HERE is this check
+    # being broken, not the environment being absent. Reported as a failure rather than
+    # skipped, and loudly: this branch swallowed an ImportError on 2026-09-02 while a change
+    # to catchup.py was live in the working tree but not yet in the daemon's image, and the
+    # check went quiet for a day instead of red. A check that cannot see is worth nothing,
+    # and must never be mistaken for one that looked and found nothing wrong.
+    #
+    # The reason is carried out of the container too. Discarding stderr left "could not
+    # resolve the trading calendar" as the entire diagnosis, which says what failed and
+    # nothing about why.
+    reason=$(tail -1 "$CAL_ERR" 2>/dev/null | cut -c1-160)
+    rm -f "$CAL_ERR"
+    printf '%s could not resolve the trading calendar — the check cannot run\n' "$(stamp)"
+    [ -n "$reason" ] && printf '  %s\n' "$reason"
+    if qp_alert_due daily-pipeline "calendar unresolvable: ${reason:-no error captured}"; then
+        osascript -e "display notification \"daily-pipeline cannot resolve the trading calendar\" \
+            with title \"QuantPulse: daily pipeline\"" 2>/dev/null || true
+    fi
+    exit 1
 fi
+rm -f "$CAL_ERR"
 
 printf '%s daily pipeline:\n' "$(stamp)"
 while read -r code expected proc_expected; do
