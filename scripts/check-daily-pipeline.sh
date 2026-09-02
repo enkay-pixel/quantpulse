@@ -59,16 +59,24 @@ psql_q() { docker compose exec -T postgres psql -U quantpulse -d market -tAc "$1
 # distinction check-jse-close.sh draws, and ingest_overdue is the same clock predicate it
 # uses. It can only be true where is_post_close already is, so this narrows that window and
 # leaves the 08:00 run, where both are false and the previous session is named, untouched.
+# Two dates, because prices and features are owed by different clocks. Ingest fires per
+# market on that market's own close; the features/predictions job runs ONCE for both markets
+# at 19:00 New York. The JSE therefore holds prices from 17:30 SAST and cannot hold features
+# until 01:00 SAST the next morning — a real, nightly, seven-hour window in which a single
+# expected date reports a stall that is not one. It did exactly that on 2026-09-01, for a run
+# that then succeeded on time.
 EXPECTED=$(docker compose exec -T dagster-daemon python -c '
 import datetime as dt
 from quantpulse.data.calendar import EXCHANGES, is_post_close, is_trading_day, last_trading_day, market_today
-from quantpulse.orchestration.catchup import ingest_overdue
+from quantpulse.orchestration.catchup import ingest_overdue, process_overdue
 for code in sorted(EXCHANGES):
     day = market_today(code)
     ready = is_trading_day(day, code) and is_post_close(exchange=code) and ingest_overdue(exchange=code)
     if not ready:
         day = last_trading_day(day - dt.timedelta(days=1), code)
-    print(f"{code} {day}")
+    # Features are owed only once the cross-market schedule has had its turn for that day.
+    proc = day if process_overdue(day) else last_trading_day(day - dt.timedelta(days=1), code)
+    print(f"{code} {day} {proc}")
 ' 2>/dev/null | tr -d '\r')
 
 if [ -z "$EXPECTED" ]; then
@@ -77,7 +85,7 @@ if [ -z "$EXPECTED" ]; then
 fi
 
 printf '%s daily pipeline:\n' "$(stamp)"
-while read -r code expected; do
+while read -r code expected proc_expected; do
     [ -n "${code:-}" ] || continue
     # predictions carries no exchange column, so every stage scopes through universe. An
     # unscoped max() here would report whichever market ingested last for both of them.
@@ -93,14 +101,21 @@ while read -r code expected; do
                          WHERE pr.date=(SELECT max(pr2.date) FROM predictions pr2 JOIN universe u2
                                         ON u2.ticker=pr2.ticker AND u2.exchange='$code')),'?');")
     IFS='|' read -r prices feats preds ver <<<"$row"
-    printf '  %-5s expected %s | prices %s | features %s | predictions %s (v%s)\n' \
-        "$code" "$expected" "$prices" "$feats" "$preds" "$ver"
+    if [ "$proc_expected" = "$expected" ]; then
+        printf '  %-5s expected %s | prices %s | features %s | predictions %s (v%s)\n' \
+            "$code" "$expected" "$prices" "$feats" "$preds" "$ver"
+    else
+        # Say which date each stage is being held to, so a reader is not left computing the
+        # schedule offset themselves to work out why a lagging feature date is fine.
+        printf '  %-5s expected prices %s, features %s (process runs 19:00 NY) | prices %s | features %s | predictions %s (v%s)\n' \
+            "$code" "$expected" "$proc_expected" "$prices" "$feats" "$preds" "$ver"
+    fi
     # Prices are what everything downstream depends on, so a stale price date explains the
     # rest and is reported once rather than as three separate findings.
     if [ "$prices" != "$expected" ]; then
         problems+=("$code has no prices for $expected (latest $prices)")
-    elif [ "$preds" != "$expected" ]; then
-        problems+=("$code ingested $expected but wrote no predictions for it")
+    elif [ "$preds" != "$proc_expected" ]; then
+        problems+=("$code ingested $expected but wrote no predictions for $proc_expected")
     fi
 done <<EOF
 $EXPECTED

@@ -35,6 +35,14 @@ MIN_COVERAGE = 0.8
 INGEST_HOUR_AFTER_CLOSE = 2
 INGEST_MINUTE = 30
 
+# When the cross-market process schedule fires. Features rank within each exchange and books
+# build per market, so processing runs ONCE for both markets after the latest close of the
+# day — the NYSE's. Here for the same reason the ingest constants are: whether features are
+# owed yet is a question about this schedule, and definitions.py imports these for its cron.
+PROCESS_HOUR = 19
+PROCESS_MINUTE = 0
+PROCESS_TIMEZONE = "America/New_York"
+
 # A broken feed must not be retried every sensor tick all day; failures are already
 # reported by the run-failure sensor.
 MAX_INGEST_ATTEMPTS_PER_SESSION = 3
@@ -63,6 +71,32 @@ def ingest_overdue(now: dt.datetime | None = None, exchange: str = DEFAULT_EXCHA
     # local day; a market whose ingest crossed midnight would need date math here.
     due = dt.time(ex.close_hour + INGEST_HOUR_AFTER_CLOSE, INGEST_MINUTE)
     return local.time() >= due
+
+
+def process_overdue(day: dt.date, now: dt.datetime | None = None) -> bool:
+    """Has the cross-market process schedule's slot for `day` already passed?
+
+    Prices and features are owed at different times, and by different clocks. Ingest fires
+    per market on that market's own close; processing fires once for both markets at
+    `PROCESS_HOUR` New York. An earlier-closing market therefore holds prices for hours
+    before it can hold features, entirely correctly — on the JSE, ingest lands at 17:30 SAST
+    and processing does not run until 01:00 SAST the next morning.
+
+    A checker that expects both the moment ingest lands reports a stall for those hours every
+    weekday. That is what happened on 2026-09-01: features sat a day behind prices, both
+    `check-daily-pipeline` and `stack-check` called it stalled, and the run they were waiting
+    for succeeded on time at 23:00 UTC that night.
+
+    Judged in exchange-independent New York time, because the schedule is: `day` is the
+    trading date being asked about, and the JSE session on `day` closes the same New York
+    calendar day it opened.
+    """
+    from zoneinfo import ZoneInfo
+
+    tz = ZoneInfo(PROCESS_TIMEZONE)
+    now = now.astimezone(tz) if now else dt.datetime.now(tz)
+    due = dt.datetime.combine(day, dt.time(PROCESS_HOUR, PROCESS_MINUTE), tzinfo=tz)
+    return now >= due
 
 
 def missing_trading_days(

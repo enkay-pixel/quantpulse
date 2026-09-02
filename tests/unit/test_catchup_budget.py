@@ -16,6 +16,7 @@ from quantpulse.orchestration.catchup import (
     exchange_day_start_utc,
     ingest_overdue,
     next_ingest_attempt,
+    process_overdue,
 )
 
 ET = ZoneInfo("America/New_York")
@@ -196,3 +197,43 @@ def test_the_gap_between_the_two_markets_changes_with_us_dst() -> None:
     winter_gap = exchange_day_start_utc(WINTER, "XNYS") - exchange_day_start_utc(WINTER, "XJSE")
     assert summer_gap == dt.timedelta(hours=6)
     assert winter_gap == dt.timedelta(hours=7)
+
+
+# --- process_overdue: features are owed by a different clock than prices ---
+#
+# Ingest fires per market on that market's own close; the features/predictions job runs once
+# for both markets at 19:00 New York. On the JSE that leaves a nightly seven-hour window where
+# prices exist and features cannot. Both daily checkers read it as a stall on 2026-09-01, for
+# a run that then succeeded on time at 23:00 UTC.
+
+
+def test_features_are_not_owed_before_the_process_schedule_runs() -> None:
+    day = dt.date(2026, 9, 1)
+    # 20:24 SAST — JSE ingest landed hours ago, and this is the exact moment the checkers
+    # cried stall. New York is still on 14:24 of the same day.
+    assert not process_overdue(day, dt.datetime(2026, 9, 1, 20, 24, tzinfo=SAST))
+    # One minute before its own slot, in its own timezone.
+    assert not process_overdue(day, dt.datetime(2026, 9, 1, 18, 59, tzinfo=ET))
+
+
+def test_features_are_owed_once_the_slot_has_passed() -> None:
+    day = dt.date(2026, 9, 1)
+    assert process_overdue(day, dt.datetime(2026, 9, 1, 19, 0, tzinfo=ET))
+    # 08:00 SAST the next morning is when the daily checks actually run: 02:00 ET on the
+    # following day, so the previous session's slot is long past.
+    assert process_overdue(day, dt.datetime(2026, 9, 2, 8, 0, tzinfo=SAST))
+
+
+def test_the_cron_and_the_predicate_cannot_disagree() -> None:
+    """The schedule and the "are features owed" question must read one set of constants.
+
+    They were separate before: the hour lived as a literal in the Dagster cron while the
+    checker inferred its own. Pinned here because the two drifting apart is precisely what
+    produced a nightly false stall, and nothing else would fail if it happened again.
+    """
+    from quantpulse.orchestration import definitions
+    from quantpulse.orchestration.catchup import PROCESS_HOUR, PROCESS_MINUTE, PROCESS_TIMEZONE
+
+    schedule = definitions.process_schedule
+    assert schedule.cron_schedule == f"{PROCESS_MINUTE} {PROCESS_HOUR} * * 1-5"
+    assert schedule.execution_timezone == PROCESS_TIMEZONE

@@ -77,12 +77,22 @@ def _ingest_schedule(exchange: str) -> dg.ScheduleDefinition:
 
 ingest_schedules = [_ingest_schedule(code) for code in sorted(EXCHANGES)]
 
+
 # Processing is cross-market (features rank within each exchange, books build per market),
-# so it runs once, after the latest close of the day — NYSE.
+# so it runs once, after the latest close of the day — NYSE. The hour comes from catchup
+# alongside the ingest constants, so that "when does processing run" and "are features owed
+# yet" cannot drift apart; a checker that disagreed with the cron reported a daily stall.
+def _process_constants() -> tuple[int, int, str]:
+    from quantpulse.orchestration.catchup import PROCESS_HOUR, PROCESS_MINUTE, PROCESS_TIMEZONE
+
+    return PROCESS_HOUR, PROCESS_MINUTE, PROCESS_TIMEZONE
+
+
+_process = _process_constants()
 process_schedule = dg.ScheduleDefinition(
     job=process_job,
-    cron_schedule="0 19 * * 1-5",
-    execution_timezone="America/New_York",
+    cron_schedule=f"{_process[1]} {_process[0]} * * 1-5",
+    execution_timezone=_process[2],
     name="daily_process_schedule",
     default_status=dg.DefaultScheduleStatus.RUNNING,
 )
