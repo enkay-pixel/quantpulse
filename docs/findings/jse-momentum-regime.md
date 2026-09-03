@@ -77,6 +77,39 @@ gate would promote it for exactly the reason it promoted it in 2022. Nothing in 
 path can distinguish "the model earned it" from "the competitor stopped earning it", because
 the gate only ever sees a difference.
 
+## The incumbent never faced this test
+
+The rejection streak is not six weeks of a working gate turning away a degrading model. It is
+the gate's **first six weeks of applying a criterion no JSE champion was ever held to.**
+
+`baseline_momentum_ic` first appears on training runs dated **2026-08-15**; the last run without
+it is 2026-08-08. Every JSE promotion predates that:
+
+| version | promoted | candidate IC | momentum at the time |
+|---|---|---|---|
+| v3 (live) | 2026-07-25 | 0.0625 | **not checked** |
+| v2 | 2026-07-23 | 0.0546 | **not checked** |
+| v1 | 2026-07-23 | 0.0243 | **not checked** |
+
+Momentum's holdout IC in that window was around 0.11 against v3's 0.0625, so **the live JSE
+champion could not be promoted under today's gate.** That the gate governs promotion and not
+incumbency is already recorded in [baseline comparison](baseline-comparison.md); what the dates
+add is that v3 is not merely a model that would now fail, it is the last one promoted *before
+the check existed*.
+
+The rejections since are also the first evidence of the streak closing. The margin has more
+than halved, from both directions at once:
+
+| run | candidate | momentum | margin |
+|---|---|---|---|
+| 2026-08-15 | 0.0679 | 0.1159 | −0.0479 |
+| 2026-08-22 | 0.0589 | 0.1094 | −0.0505 |
+| 2026-08-29 | 0.0757 | 0.1010 | **−0.0254** |
+
+Which is the prediction above arriving on schedule. If it closes the rest of the way the model
+will promote, and by everything measured here that promotion will mean momentum came off its
+peak — not that the model learned anything.
+
 ## What this does and does not say
 
 It does **not** say the gate is broken. Refusing to deploy a no-skill model against a rule that
