@@ -246,7 +246,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - **A green test run is not evidence.** Every serious bug in the incident log shipped with
   CI green and was found by reading data. Verify a new test by breaking the code it guards
   and watching it fail — and assert your sabotage actually applied, because a
-  non-matching string looks exactly like a test that cannot see the bug. Coverage tracks
+  non-matching string looks exactly like a test that cannot see the bug. This extends to
+  checks you did not write: the documentation link checker reported success on anchors it
+  never examined, so a heading rewording was certified by a check that could not fail
+  ([incident 34](docs/development-history.md#incident-log-root-causes-worth-remembering)).
+  Make a check go red on purpose before letting it license a risky edit. Coverage tracks
   where debugging has happened, not where risk is: six guards sat at 0% until 2026-08-11.
 - Cross-container state goes in **Postgres**, never a file under `DAGSTER_HOME`: that path
   is per-container and not a volume, so the API cannot read what the daemon writes and
