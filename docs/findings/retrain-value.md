@@ -22,6 +22,16 @@ Fresh and stale are compared **at the same seed**, so seed-to-seed spread — la
 panel than the effect being looked for — differences out. Seeds are averaged **within** a
 window before anything is pooled, so the sample counts windows, not fits.
 
+Hyperparameters are held at `DEFAULT_PARAMS` throughout, so the two fits being compared differ
+only in their training cut-off and the question stays about freshness rather than about the
+tuner. Production tunes at every retrain, and that is not a detail: on the NYSE the
+gate-conditional comparison [changes sign](#with-tuning-in-the-loop-and-the-leak-removed)
+between the untuned and tuned paths. Read the figures below as a statement about freshness on
+a fixed-parameter fit, not about what production deploys.
+
+Because nothing here tunes, and because these fits are scored on forward windows rather than on
+the gate's holdout, the tuning-frame leak found later in this note cannot reach these numbers.
+
 ## The result
 
 Fresh minus stale IC, positive meaning retraining helped. The standard error allows for
@@ -232,8 +242,11 @@ gate-conditional policy is nominally ahead of never retraining (+0.0101, t +1.1)
 unresolved, and the opposite sign to its own `DEFAULT_PARAMS` row.
 
 So the honest position is narrower than "retraining does not pay". It is that **no
-specification resolves either way, and this panel cannot make one resolve** — the NYSE figure
-would need roughly five times the windows that exist. What can be said is that the estimate
+gate-conditional specification resolves either way, and this panel cannot make one resolve** —
+the NYSE figure would need roughly five times the windows that exist. The one resolved number
+in this note is the narrower fresh-minus-stale comparison above, and it answers a different
+question: whether a fresher fit ranks better at fixed parameters, not whether the deployed
+policy does. What can be said is that the estimate
 closest to production is stable and positive on the NYSE and absent on the JSE, and that the
 cadence's main effect is to create promotion opportunities — twelve a quarter — against a gate
 that says yes to roughly one in eight of them, and whose own noise floor this project has had
