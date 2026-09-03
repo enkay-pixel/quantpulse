@@ -61,4 +61,7 @@ repos:
         entry: python3 scripts/check_doc_links.py
         language: system
         pass_filenames: false
-        files: \.md$
+        # The checker itself is in scope: it runs over every tracked file regardless of what
+        # changed, so a commit that only edits the checker would otherwise skip the hook that
+        # exercises it and leave CI as the first place a mistake shows up.
+        files: (\.md$|^scripts/check_doc_links\.py$)
