@@ -46,8 +46,10 @@ Two things this also settles:
 Caveats that belong with the numbers, and the first of them was
 [vindicated on 2026-09-01](../measurement.md#the-seed-is-not-a-sample-of-the-market): two
 findings measured on one window were later refuted by rolling the origin, and repeating this
-comparison across windows is still the outstanding work. This is **one holdout window**, and
-it overlaps the
+comparison across windows is still the outstanding work — and the momentum caveat below has
+since [come true](jse-momentum-regime.md): scored across 49 rolling windows, JSE momentum runs
+−0.031 in the first half and +0.086 in the second, so the rule this page crowns was measured
+mid-regime. This is **one holdout window**, and it overlaps the
 momentum-rich stretch incident 24 identified (raw 63-day momentum IC +0.039 Mar–Dec 2025,
 −0.004 after). One noise draw is not a distribution. Neither observation rescues the JSE
 champion — momentum beat it *on the window the gate itself would have used* — but both mean

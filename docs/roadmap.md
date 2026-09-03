@@ -343,7 +343,14 @@ measuring momentum rather than the model. Detail in [ml-test-score.md](ml-test-s
 Each of these is measured and settled as far as measurement can settle it. None is acted on,
 and each names the evidence that would reopen it. Write-ups in [findings/](findings/README.md).
 
-**Keep running the JSE model, despite it losing to momentum.** The case against it is
+**Keep running the JSE model, despite it losing to momentum.** Read the case against it
+alongside [why it keeps losing](findings/jse-momentum-regime.md), measured 2026-09-03: the
+candidate is at a four-year high on the gate's own metric and its forward IC is flat at zero,
+while momentum swung 0.17 and overtook it. On this market the promotion verdict correlates
+−0.77 with *momentum's* IC and only +0.49 with the candidate's — the model was promoted in 2022
+when momentum was bad and is rejected now that momentum is good, on the same about-zero skill
+both times. **If momentum reverts it will start passing the gate again, having earned
+nothing**, so a promotion here should not be read as the model improving. The case against it is
 holdout IC — momentum 0.1094 against champion v3's 0.0569. The staleness curve that once
 also formed part of this case has been **withdrawn** (incident 32): measured across 46 origins
 the JSE model sits at zero at every age rather than negative, so it has no skill rather than
