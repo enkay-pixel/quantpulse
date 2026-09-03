@@ -407,6 +407,27 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     site, too: the fractions were correct and the caller passed the wrong frame, so an
     invariant checked on a locally-built split would have passed throughout.
 
+34. **The documentation link checker validated files but never headings (2026-09-01)**:
+    `check_doc_links.py` skipped any target beginning with `#` and, for `file.md#anchor`, split
+    the fragment off before testing existence. It proved the page was there and never that the
+    heading was. The gap surfaced when a set of dated headings was reworded and the checker was
+    run to confirm the anchors pointing at them still resolved: it reported "links OK", which it
+    would have reported whether or not a single anchor resolved. The anchors did hold, so
+    nothing broke — the defect was in the evidence, not in the docs.
+
+    Anchors are now matched against slugs built from each file's headings. Two details in
+    reproducing GitHub's slugs decide whether the check reports real breakage or noise, and both
+    were wrong at first and caught only by running against headings already in the repo:
+    underscores must survive, or `vol_63` is mangled and a working link is called broken; and
+    each space must become its own hyphen, because dropping the punctuation from "changes — and"
+    leaves two spaces that GitHub renders as a double hyphen, which every em-dashed heading here
+    relies on. The hook was also scoped to markdown, so a commit touching only the checker
+    skipped the one hook that exercises it; its own file is now in scope.
+
+    Lesson: **a check that cannot fail is indistinguishable from one that passes.** Before a
+    green check is allowed to license a risky edit, make it red on purpose — the reworded
+    headings were the exact case it was being asked to certify, and it could not see them.
+
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
 Prompted by "what else needs to fail hard before this is ready to present?". Counting the
