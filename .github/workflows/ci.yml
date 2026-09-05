@@ -31,41 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check the hook and CI agree on a uv version
-        run: |
-          hook_rev="$(grep -A1 'repo: https://github.com/astral-sh/uv-pre-commit$' \
-            .pre-commit-config.yaml | sed -n 's/.*rev: *//p')"
-          # Read the version out of the setup-uv block itself, not the first `version:` in
-          # the file — pinning any other action would otherwise silently become the thing
-          # this compares against.
-          ci_ver="$(awk '/astral-sh\/setup-uv/{f=1} f && /version: "/{
-            gsub(/.*version: "|".*/, ""); print; exit}' .github/workflows/ci.yml)"
-          if [ -z "$hook_rev" ] || [ -z "$ci_ver" ]; then
-            echo "could not read a uv version: hook='$hook_rev' ci='$ci_ver'" >&2
-            exit 1
-          fi
-          if [ "$hook_rev" != "$ci_ver" ]; then
-            echo "uv drift: .pre-commit-config.yaml=$hook_rev ci.yml=$ci_ver" >&2
-            exit 1
-          fi
-
-      - name: Check the hook and pyproject agree on a ruff version
-        # CI lints with the pinned ruff from uv.lock while commits are formatted by the
-        # pre-commit hook's own copy. Nothing updates the hook rev when the pin moves, so
-        # the two drift apart silently and the result is a commit the hook reformats and
-        # CI then rejects. pyproject is the single source of truth; the hook must match it.
-        run: |
-          pin="$(sed -n 's/.*"ruff==\([0-9][^"]*\)".*/\1/p' pyproject.toml | head -1)"
-          hook_rev="$(grep -A1 'repo: https://github.com/astral-sh/ruff-pre-commit$' \
-            .pre-commit-config.yaml | sed -n 's/.*rev: *v*//p')"
-          if [ -z "$pin" ] || [ -z "$hook_rev" ]; then
-            echo "could not read a ruff version: pyproject='$pin' hook='$hook_rev'" >&2
-            exit 1
-          fi
-          if [ "$pin" != "$hook_rev" ]; then
-            echo "ruff drift: pyproject=$pin .pre-commit-config.yaml=v$hook_rev" >&2
-            exit 1
-          fi
+      - name: Check the pinned tool versions agree
+        # ruff, uv, markdownlint and gitleaks are each pinned twice — a pre-commit rev and a
+        # second declaration CI installs from. A disagreement is not a missing tool but a
+        # disagreeing one: the hook formats a commit one way and CI checks it another.
+        run: python3 scripts/check_tool_pins.py
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -152,15 +122,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check the hook and CI agree on a markdownlint version
-        run: |
-          hook_rev="$(grep -A1 'repo: https://github.com/DavidAnson/markdownlint-cli2$' \
-            .pre-commit-config.yaml | sed -n 's/.*rev: *//p')"
-          if [ "$hook_rev" != "$MARKDOWNLINT_VERSION" ]; then
-            echo "markdownlint drift: .pre-commit-config.yaml=$hook_rev ci.yml=$MARKDOWNLINT_VERSION" >&2
-            exit 1
-          fi
-
       - name: Check documentation links
         # Wikilinks render as literal brackets on GitHub, and relative links rot when docs
         # move. Both are invisible until a reader hits one.
@@ -192,15 +153,6 @@ jobs:
           # gitleaks walks history, so the default shallow clone would leave older commits
           # unscanned — exactly the ones a bypassed hook lands in.
           fetch-depth: 0
-
-      - name: Check the hook and CI agree on a gitleaks version
-        run: |
-          hook_rev="$(grep -A1 'repo: https://github.com/gitleaks/gitleaks$' \
-            .pre-commit-config.yaml | sed -n 's/.*rev: *//p')"
-          if [ "$hook_rev" != "$GITLEAKS_VERSION" ]; then
-            echo "gitleaks drift: .pre-commit-config.yaml=$hook_rev ci.yml=$GITLEAKS_VERSION" >&2
-            exit 1
-          fi
 
       - name: Install gitleaks
         run: |
