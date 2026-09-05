@@ -56,6 +56,15 @@ repos:
   # nothing. `files:` still limits it to running when markdown is touched.
   - repo: local
     hooks:
+      - id: tool-pins
+        name: pinned tool versions agree
+        # Rewrites the rev rather than only complaining about it: the pair drifts whenever a
+        # dependency bot moves one side, and the repair is mechanical.
+        entry: python3 scripts/check_tool_pins.py --fix
+        language: system
+        pass_filenames: false
+        files: (^\.pre-commit-config\.yaml$|^pyproject\.toml$|^\.github/workflows/ci\.yml$|^scripts/check_tool_pins\.py$)
+
       - id: doc-links
         name: documentation links resolve, and no wikilinks
         entry: python3 scripts/check_doc_links.py
