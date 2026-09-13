@@ -123,12 +123,12 @@ and avoids denormalisation drift.
   ```python
   @dataclass(frozen=True)
   class Exchange:
-      code: str          # 'XNYS'
-      calendar: str      # 'XNYS'
-      tz: ZoneInfo       # America/New_York
-      close_hour: int    # 16
-      currency: str      # 'USD'
-      benchmark: str     # 'SPY'
+      code: str  # 'XNYS'
+      calendar: str  # 'XNYS'
+      tz: ZoneInfo  # America/New_York
+      close_hour: int  # 16
+      currency: str  # 'USD'
+      benchmark: str  # 'SPY'
       has_options: bool  # True
   ```
 
