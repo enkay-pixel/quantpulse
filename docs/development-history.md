@@ -428,6 +428,29 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     green check is allowed to license a risky edit, make it red on purpose — the reworded
     headings were the exact case it was being asked to certify, and it could not see them.
 
+35. **The MLflow server stopped self-migrating, and the stack went down mid-upgrade
+    (2026-09-13)**: moving the image from 3.15.2 to 3.16.0 left the server in a restart loop.
+    It refuses to start against an older backend store — *"Detected out-of-date database
+    schema (found 6f8d9c3b2a1e, but expected b7e2c1a4d9f3)"* — and requires an explicit
+    `mlflow db upgrade <backend-uri>`. The previous bump, 3.14.0 to 3.15.2, had migrated the
+    store on its own and come up healthy, which is exactly what made this a surprise: one
+    upgrade's behaviour was read as the tool's behaviour.
+
+    Nothing was lost. The server never touched the database when it refused, so the registry
+    sat intact at 23 versions and 2 aliases throughout, and a verified dump had been taken
+    first. The migration then ran cleanly and the registry came through unchanged.
+
+    Two things follow for any future MLflow bump. **Take the backup before the rebuild, not
+    after the failure** — the backup is what makes the migration a decision rather than a
+    gamble, and the error message itself asks for one. And **expect the server to be down
+    between the rebuild and the migration**: they are two steps, not one, so do this when a
+    scheduled run is not imminent.
+
+    The pin itself is now guarded. The image and the client in the lock are a pair the image
+    comment always asked to match, but nothing enforced it, so a dependency bot moved the
+    client alone and the drift surfaced only from reading a freeze diff. `check_tool_pins.py`
+    covers it alongside the pre-commit revs.
+
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
 Prompted by "what else needs to fail hard before this is ready to present?". Counting the
