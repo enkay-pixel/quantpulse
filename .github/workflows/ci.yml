@@ -50,9 +50,13 @@ jobs:
         run: uv sync --frozen --extra dev
 
       - name: Lint
+        # Whole repo, not src and tests: the pre-commit hooks run ruff over everything they
+        # are handed, including scripts and the python inside fenced markdown blocks. Checking
+        # a narrower set here means the hook can reformat a file CI has never looked at, and
+        # the difference only surfaces when someone runs the hooks across all files by hand.
         run: |
-          uv run ruff format --check src tests
-          uv run ruff check src tests
+          uv run ruff format --check .
+          uv run ruff check .
 
       - name: Type check
         run: uv run mypy
