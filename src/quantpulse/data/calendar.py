@@ -42,23 +42,12 @@ class Exchange:
     # Features this market trains on. Empty means every engineered column, which is what
     # both markets currently use.
     #
-    # The field was added because a drop-one sweep and a forward selection both found
-    # `vol_63` helping one market and hurting the other at fixed hyperparameters. That
-    # premise did not survive re-measurement (2026-09-01): re-run across 49 rolling
-    # origins rather than four fixed folds, the drop-one delta for `vol_63` is +0.0100
-    # (t +0.7) on XNYS and +0.0030 (t +0.2) on XJSE, down from t +9.14 and t -5.35. The
-    # markets are not shown to disagree about it, or about any feature. The field still
-    # earns its place for the pruning result below, which was measured with tuning in the
-    # loop, but not for the disagreement it was named after.
-    #
-    # Re-checked at sixteen seeds, pruning XNYS to vol_21 does hold up: paired
-    # +0.0133 +/- 0.0044 (t +3.00), eleven of sixteen seeds positive. XJSE is unresolved at
-    # t +1.16 and would need about twenty-four.
-    #
-    # Still empty on both, because a resolved effect is not the same as a decision: vol_21
-    # was selected on this panel, and +0.0133 is smaller than the round-to-round spread that
-    # early stopping already contributes. Set this on evidence from a fresh panel period,
-    # gathered with tuning in the loop the way the promotion gate trains.
+    # A market carries its own list only when the evidence shows a subset serves it better,
+    # and that evidence has to come from a panel period other than the one the subset was
+    # chosen on, measured with tuning in the loop the way the promotion gate trains. An effect
+    # found and selected on the same panel is not yet a decision, and it can be smaller than
+    # the variation early stopping already introduces between fits. The measurements behind
+    # leaving both markets empty are in docs/findings/feature-ablation-and-pruning.md.
     #
     # Names are validated against the engineered columns at resolution time, so a typo
     # fails loudly instead of quietly training on a shorter list.
