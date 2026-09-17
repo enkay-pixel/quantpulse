@@ -269,7 +269,7 @@ def test_tuning_never_sees_the_promotion_holdout(monkeypatch: pytest.MonkeyPatch
     panel = _panel()
     captured: dict[str, object] = {}
 
-    def fake_tune(frame, cols, cfg):  # type: ignore[no-untyped-def]
+    def fake_tune(frame, cols, cfg, **kwargs):  # type: ignore[no-untyped-def]
         captured["tuned_on"] = set(frame["date"])
         return {"objective": "regression"}
 
@@ -293,3 +293,38 @@ def test_tuning_never_sees_the_promotion_holdout(monkeypatch: pytest.MonkeyPatch
         "promotion gate scores on — parameters would be selected against the candidate's "
         "own exam"
     )
+
+
+@pytest.mark.parametrize("code", ["XNYS", "XJSE"])
+def test_tuning_searches_each_markets_own_learning_rate_ceiling(
+    monkeypatch: pytest.MonkeyPatch, code: str
+) -> None:
+    """The retrain must hand the tuner its own market's ceiling, not one shared value.
+
+    Asserted per market at the call site. A pipeline that passed a single constant would still
+    tune, still train and still promote, and nothing downstream would show that one market had
+    been searched over a range measured to hurt it.
+    """
+    import quantpulse.ml.pipeline as pipeline
+    from quantpulse.data.calendar import get_exchange
+
+    captured: dict[str, object] = {}
+
+    def fake_tune(frame, cols, cfg, **kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return {"objective": "regression"}
+
+    monkeypatch.setattr(pipeline, "build_dataset", lambda *a, **k: _panel())
+    monkeypatch.setattr(pipeline, "tune_hyperparameters", fake_tune)
+    monkeypatch.setattr(
+        pipeline, "train_final_model", lambda frame, cols, params, cfg: (_Booster(), _panel())
+    )
+    monkeypatch.setattr(
+        pipeline, "decide_promotion", lambda *a, **k: PromotionDecision(False, "stubbed")
+    )
+    monkeypatch.setattr(pipeline.registry, "log_candidate", lambda *a, **k: _Version())
+    monkeypatch.setattr(pipeline.registry, "load_champion", lambda **k: None)
+
+    pipeline.train_evaluate_promote(object(), _Session(), exchange=code)  # type: ignore[arg-type]
+
+    assert captured.get("learning_rate_ceiling") == get_exchange(code).learning_rate_ceiling

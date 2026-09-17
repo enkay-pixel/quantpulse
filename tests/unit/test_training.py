@@ -1,11 +1,15 @@
 """Training tests on a small synthetic panel with a real (learnable) signal."""
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
 
+from quantpulse.ml import training
 from quantpulse.ml.training import (
     DEFAULT_PARAMS,
+    LEARNING_RATE_FLOOR,
     TrainConfig,
     cross_validated_ic,
     train_final_model,
@@ -54,9 +58,40 @@ def test_cross_validated_ic_pure_noise_is_weak(frame: pd.DataFrame) -> None:
 
 
 def test_tune_hyperparameters_respects_budget_and_improves(frame: pd.DataFrame) -> None:
-    params = tune_hyperparameters(frame, FEATURES, CFG)
+    params = tune_hyperparameters(frame, FEATURES, CFG, learning_rate_ceiling=0.2)
     assert set(DEFAULT_PARAMS) <= set(params)
-    assert 1e-3 <= params["learning_rate"] <= 0.2
+    assert LEARNING_RATE_FLOOR <= params["learning_rate"] <= 0.2
+
+
+def test_the_tuner_never_searches_above_its_ceiling(
+    frame: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ceiling must bound the search itself, not merely happen to hold on one draw.
+
+    The objective is replaced with one that rewards the learning rate alone, so the tuner
+    presses against whatever upper bound it was really given. A ceiling that never reached the
+    search would let it climb straight past. Trials are raised because a handful of random
+    draws could land below the bound by chance and hide exactly that.
+    """
+    monkeypatch.setattr(
+        training,
+        "cross_validated_ic",
+        lambda frame, cols, params, cfg, splits: params["learning_rate"],
+    )
+    ceiling = 0.01
+    params = tune_hyperparameters(
+        frame, FEATURES, replace(CFG, optuna_trials=20), learning_rate_ceiling=ceiling
+    )
+    assert params["learning_rate"] <= ceiling
+
+
+@pytest.mark.parametrize("ceiling", [LEARNING_RATE_FLOOR, LEARNING_RATE_FLOOR / 2, 0.0])
+def test_a_ceiling_that_leaves_nothing_to_search_is_rejected(
+    frame: pd.DataFrame, ceiling: float
+) -> None:
+    """A ceiling at or under the floor is a misconfiguration, and should say so before tuning."""
+    with pytest.raises(ValueError, match="must exceed the search floor"):
+        tune_hyperparameters(frame, FEATURES, CFG, learning_rate_ceiling=ceiling)
 
 
 def test_train_final_model_holdout_is_out_of_sample(frame: pd.DataFrame) -> None:

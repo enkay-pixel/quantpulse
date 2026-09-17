@@ -406,7 +406,10 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
 2. **Let the JSE live phase judge the champion (now v3).** Its live record accrues since
    the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
    signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
-   toward the latter — and only accumulated live days distinguish them.
+   toward the latter — and only accumulated live days distinguish them. Candidates now tune
+   under a 0.02 [learning-rate ceiling](findings/learning-rate-ceiling.md), which stopped the
+   tuner overshooting on this market but averages 0.052 holdout IC against a momentum bar of
+   0.084–0.101 — better candidates, not yet ones that clear the gate.
 3. **The gate does not rescue the cadence — measured 2026-09-01.** `quantpulse retrain-value`
    showed a freshly fitted model is not better than an older one, but measured retraining
    *unconditionally*; production promotes only through the gate. Replaying the policy — promote

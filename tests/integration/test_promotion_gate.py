@@ -62,7 +62,9 @@ def test_incumbent_sits_the_same_exam_and_the_window_is_recorded(
     )
 
     monkeypatch.setattr(pipeline, "build_dataset", lambda engine, cfg, exchange: frame)
-    monkeypatch.setattr(pipeline, "tune_hyperparameters", lambda f, cols, cfg: dict(DEFAULT_PARAMS))
+    monkeypatch.setattr(
+        pipeline, "tune_hyperparameters", lambda f, cols, cfg, **kwargs: dict(DEFAULT_PARAMS)
+    )
     monkeypatch.setattr(
         registry,
         "load_champion",

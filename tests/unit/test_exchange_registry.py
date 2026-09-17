@@ -119,3 +119,16 @@ def test_a_market_can_carry_its_own_list(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     assert feature_columns_for("XNYS") == ["vol_21"]
     assert feature_columns_for("XJSE") == list(FEATURE_COLUMNS)
+
+
+def test_every_market_ceiling_is_a_usable_search_bound() -> None:
+    """Each market's learning-rate ceiling must leave the tuner something to search.
+
+    Caught here rather than at the weekly retrain: a ceiling mistyped under the search floor
+    would otherwise pass every check and fail only when the scheduled run tries to tune.
+    """
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.ml.training import LEARNING_RATE_FLOOR
+
+    for code, exchange in EXCHANGES.items():
+        assert LEARNING_RATE_FLOOR < exchange.learning_rate_ceiling <= 1.0, code

@@ -102,7 +102,12 @@ def train_evaluate_promote(
     # so it gets no equivalent help — the gate was comparing a candidate fitted toward the exam
     # against one that was not, and that bias runs toward promoting.
     train_frame, _ = split_by_date(frame, HOLDOUT_FRACTION, cfg.embargo_days)
-    params = tune_hyperparameters(train_frame, feature_cols, cfg)
+    params = tune_hyperparameters(
+        train_frame,
+        feature_cols,
+        cfg,
+        learning_rate_ceiling=get_exchange(exchange).learning_rate_ceiling,
+    )
     booster, holdout = train_final_model(frame, feature_cols, params, cfg)
     train_span = (str(train_frame["date"].min()), str(train_frame["date"].max()))
 
