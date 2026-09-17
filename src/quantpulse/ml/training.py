@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 #: hyperparameter tuning see the gate's holdout: the tuner was handed the whole panel while
 #: `train_final_model` carved the exam off the end of that same panel.
 HOLDOUT_FRACTION = 0.15
+#: Lowest learning rate the tuner searches. The ceiling is set per market, on Exchange.
+LEARNING_RATE_FLOOR = 1e-3
 
 DEFAULT_PARAMS: dict[str, Any] = {
     "objective": "regression",
@@ -149,9 +151,22 @@ def cross_validated_ic(
 
 
 def tune_hyperparameters(
-    frame: pd.DataFrame, feature_cols: list[str], cfg: TrainConfig
+    frame: pd.DataFrame,
+    feature_cols: list[str],
+    cfg: TrainConfig,
+    *,
+    learning_rate_ceiling: float,
 ) -> dict[str, Any]:
-    """Optuna search (budgeted) maximizing CV information coefficient."""
+    """Optuna search (budgeted) maximizing CV information coefficient.
+
+    The learning-rate ceiling has no default. It is a per-market setting, and a caller able to
+    leave it out would silently search the widest range rather than its market's own.
+    """
+    if learning_rate_ceiling <= LEARNING_RATE_FLOOR:
+        raise ValueError(
+            f"learning_rate_ceiling {learning_rate_ceiling} must exceed the search floor "
+            f"{LEARNING_RATE_FLOOR}"
+        )
     splits = purged_walk_forward_splits(
         frame["date"].unique().tolist(), cfg.n_splits, cfg.embargo_days, cfg.min_train_dates
     )
@@ -159,7 +174,9 @@ def tune_hyperparameters(
     def objective(trial: optuna.Trial) -> float:
         params = {
             **DEFAULT_PARAMS,
-            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.2, log=True),
+            "learning_rate": trial.suggest_float(
+                "learning_rate", LEARNING_RATE_FLOOR, learning_rate_ceiling, log=True
+            ),
             "num_leaves": trial.suggest_int("num_leaves", 8, 96),
             "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 20, 200),
             "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),

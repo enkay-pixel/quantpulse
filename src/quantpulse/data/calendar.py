@@ -63,6 +63,16 @@ class Exchange:
     # Names are validated against the engineered columns at resolution time, so a typo
     # fails loudly instead of quietly training on a shorter list.
     feature_columns: tuple[str, ...] = ()
+    # Highest learning rate the tuner may search. The tuner scores candidates on walk-forward
+    # folds that exclude the promotion holdout, and where the fastest learning rates win those
+    # folds without generalising, a small trial budget finds them reliably and the candidate
+    # then scores well below a slower one on the holdout. A lower ceiling removes that region
+    # from the search instead of relying on the budget to avoid it.
+    #
+    # Per market because the markets differ: a ceiling helps where the tuner tends to
+    # overshoot and costs a little where it rarely does. The evidence behind each value is in
+    # docs/findings/learning-rate-ceiling.md; re-measure there before changing one.
+    learning_rate_ceiling: float = 0.2
 
     @property
     def tz(self) -> ZoneInfo:
@@ -89,6 +99,7 @@ XJSE = Exchange(
     display_symbol="R",
     quantile_width=0.35,  # 29 names -> ~10 per side, matching XNYS
     ic_promotion_margin=0.008,  # 2 sd; a thinner cross-section re-rolls wider than XNYS
+    learning_rate_ceiling=0.02,  # the tuner overshoots on this market; see the finding
 )
 
 EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE)}
