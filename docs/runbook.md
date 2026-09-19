@@ -12,6 +12,85 @@ make down    # stop everything; data survives in Docker volumes
 The stack is designed to be **spun up when you want it working in the background** and shut down
 when you don't — schedules catch up via Dagster backfills/partitions when the stack was off.
 
+## When the laptop can be off
+
+The stack only works while the laptop is on and logged in. Almost everything it misses
+catches up by itself once it is back (see
+[missed-day catch-up](#failure-alerts--missed-day-catch-up)), but the options snapshot is
+lost for good if it is missed entirely. Keeping to these windows runs everything on schedule.
+
+### Keep it on (SAST)
+
+| day | keep on | free to switch off |
+|---|---|---|
+| Mon–Fri | 19:00 → 08:00 the next morning | 08:00–19:00 |
+| Saturday | 14:30–15:30 | 08:00–14:30, and from 15:30 |
+| Sunday | — | all day |
+
+Saturday evening through Monday 19:00 carries no data work, because neither market trades.
+Staying on until about 09:30 on weekdays also catches the morning check reports (08:00–09:15);
+switching off at 08:00 skips them, which loses nothing but the report.
+
+### What runs in those windows
+
+Durations measured 2026-09-19 over the preceding nine days.
+
+| time (SAST) | what | duration | if the laptop is off |
+|---|---|---|---|
+| 19:30 Mon–Fri | JSE ingest | seconds | recovered by the catch-up sensor |
+| ~22:10–22:35 Mon–Fri | options snapshot | 3–11 min | **recoverable only until 06:00** |
+| 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |
+| 01:00 Tue–Sat | processing | 4–7 min | recovered by the catch-up sensor |
+| 07:00 daily | backup | about a minute | skipped for that day |
+| 15:00 Saturday | retrain | under a minute | re-run on return, unless killed mid-run |
+
+The launchd checks in [Host agents](#host-agents-launchd) are reports: a skipped one loses
+nothing but that report. Scheduled jobs whose time passes while the Mac is **asleep** run on
+wake; ones that pass while it is **shut down** are skipped outright.
+
+### The one job you cannot get back
+
+The options snapshot captures live chains, so only today's can be taken. The repair sensor
+captures it whenever the stack is up between the NYSE close and 06:00 SAST (see
+[options snapshots](#options-snapshots-run-them-after-the-close)). If the laptop has to be off
+for an evening, have it on for about an hour before 06:00 — long enough for the sensor's
+30-minute tick and the capture itself — and nothing is lost.
+
+### When US daylight saving changes
+
+The New York-timed jobs move an hour later in SAST from the first Sunday of November, when US
+daylight saving ends, and back again from the second Sunday of March. South Africa does not
+change its clocks, so the launchd jobs stay put.
+
+| from November to March | time (SAST) |
+|---|---|
+| Saturday keep-on window | **15:30–16:30** |
+| options snapshot, and its deadline | about 23:10, recoverable until 07:00 |
+| NYSE ingest, processing | 01:30, 02:00 |
+
+Only the Saturday window changes in practice: everything else still falls inside 19:00–08:00.
+
+### Shutting down
+
+Both of these are safe in a free window:
+
+- **Clean stop:** `make down`, shut down, then `make up` after logging back in. `make down`
+  removes the containers, so **the stack does not come back by itself** — `make up` is what
+  restarts it.
+- **Plain shutdown** from the Apple menu. The containers restart on their own once Docker is
+  running, because their restart policy is `unless-stopped`, and `run_monitoring` reaps a run
+  cut off mid-flight (see [after stopping Docker mid-run](#after-stopping-docker-mid-run)).
+  This relies on Docker starting at login.
+
+Either way, nothing starts until you log in. Avoid switching off while a run is in progress —
+above all the retrain, which has no data-driven catch-up: a run killed partway is not a missed
+schedule tick, so it is not replayed.
+
+**One-time check:** Docker Desktop → Settings → General → *Start Docker Desktop when you sign
+in to your computer*. A plain shutdown brings the stack back only if this is on. Docker coming
+back after an update restart does not prove it — macOS reopens apps that were running before an
+update restart, which a normal shutdown does not guarantee.
+
 ## Connecting DBeaver
 
 Create a **PostgreSQL** connection with exactly these settings (values come from your `.env`):
