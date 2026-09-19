@@ -58,7 +58,7 @@ dev = [
     "ruff==0.16.7",
     "mypy==1.19.1",
     "pre-commit>=4.6.1",
-    "pandas-stubs>=2.2",
+    "pandas-stubs>=2.2,<3",
     "scipy-stubs>=1.14",
     "types-pyyaml>=6.0.12.20260724",
     # Starlette's TestClient warns that driving it with httpx is deprecated and will be

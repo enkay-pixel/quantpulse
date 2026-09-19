@@ -75,7 +75,7 @@ def load_features(
     raw = pd.read_sql(query, engine, params=params)
     if raw.empty:
         return pd.DataFrame(columns=["ticker", "date", *FEATURE_COLUMNS])
-    values = pd.json_normalize(raw["values"])
+    values = pd.json_normalize(raw["values"].tolist())
     frame = pd.concat([raw[["ticker", "date"]], values[FEATURE_COLUMNS]], axis=1)
     return frame.sort_values(["date", "ticker"]).reset_index(drop=True)
 
