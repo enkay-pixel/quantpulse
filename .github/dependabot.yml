@@ -59,6 +59,22 @@ updates:
       # bumping it is a manual act — edit the pin, run `uv lock`, run the QA loop. That is
       # the honest trade for an exact pin, and worth doing periodically rather than never.
       - dependency-name: "mypy"
+      # A version cap written in pyproject.toml does not constrain this bot: when a bump is
+      # blocked by our own upper bound, it WIDENS the bound and proposes the bump anyway. So a
+      # deliberate cap only holds if it is repeated here as an ignore rule. Every cap in
+      # pyproject.toml therefore needs an entry below, or it is decorative.
+      #
+      #   pandas-stubs — the stubs describe the library's API, so they can only move when the
+      #                 runtime library moves. pandas itself is capped above, which means the
+      #                 stubs must be capped too; a stubs major on its own type-checks the
+      #                 code against an API the installed pandas does not have.
+      #
+      #   yfinance    — capped pending a look at the 2.x API. No bump has been attempted yet,
+      #                 so treat the cap as unreviewed rather than as a known incompatibility.
+      - dependency-name: "pandas-stubs"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "yfinance"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/web"
