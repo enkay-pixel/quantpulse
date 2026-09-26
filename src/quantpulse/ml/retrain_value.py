@@ -33,6 +33,7 @@ import pandas as pd
 
 from quantpulse.data.calendar import DEFAULT_EXCHANGE
 from quantpulse.features.engineering import feature_columns_for
+from quantpulse.ml.metrics import newey_west_se
 from quantpulse.ml.training import TrainConfig
 
 logger = logging.getLogger(__name__)
@@ -51,23 +52,6 @@ class LagRow:
     mean_delta: float
     std_error: float
     n_favour_fresh: int
-
-
-def _newey_west(values: list[float], max_lag: int) -> float:
-    """Standard error of the mean that allows neighbouring windows to be correlated.
-
-    Weights fall linearly with distance so the estimate stays non-negative.
-    """
-    import numpy as np
-
-    arr = np.asarray(values, dtype=float)
-    n = len(arr)
-    resid = arr - arr.mean()
-    var = float(resid @ resid) / n
-    for lag in range(1, min(max_lag, n - 1) + 1):
-        cov = float(resid[lag:] @ resid[:-lag]) / n
-        var += 2.0 * (1.0 - lag / (max_lag + 1)) * cov
-    return float(np.sqrt(max(var, 0.0) / n))
 
 
 def retrain_value(
@@ -154,7 +138,7 @@ def retrain_value(
                 lag_days=lag * step_days,
                 n_windows=len(per_window),
                 mean_delta=float(np.mean(per_window)),
-                std_error=_newey_west(per_window, max_lag=max_lag),
+                std_error=newey_west_se(per_window, max_lag=max_lag),
                 n_favour_fresh=int(sum(1 for v in per_window if v > 0)),
             )
         )

@@ -64,3 +64,23 @@ def summarize_returns(returns: pd.Series, periods_per_year: int) -> dict[str, fl
         "max_drawdown": max_drawdown(returns),
         "n_periods": float(len(returns)),
     }
+
+
+def newey_west_se(values: list[float], max_lag: int) -> float:
+    """Standard error of the mean that allows neighbouring observations to be correlated.
+
+    Weights fall linearly with distance so the estimate stays non-negative.
+
+    Lives here rather than beside any one study because every rolling-origin measurement in
+    this package needs it: overlapping holdouts and forward labels that straddle window
+    boundaries make neighbouring origins correlated, and the plain standard error then reports
+    a sample larger than the period actually contains.
+    """
+    arr = np.asarray(values, dtype=float)
+    n = len(arr)
+    resid = arr - arr.mean()
+    var = float(resid @ resid) / n
+    for lag in range(1, min(max_lag, n - 1) + 1):
+        cov = float(resid[lag:] @ resid[:-lag]) / n
+        var += 2.0 * (1.0 - lag / (max_lag + 1)) * cov
+    return float(np.sqrt(max(var, 0.0) / n))
