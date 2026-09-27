@@ -370,6 +370,84 @@ def _staleness(exchange: str | None) -> None:
             )
 
 
+def _tuning_budget(exchange: str | None, n_origins: int) -> None:
+    """Report whether the tuner's budget, or its search at all, buys a better candidate."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.tuning_budget import CONTROL, tuning_budget
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            table = tuning_budget(engine, code, n_origins=n_origins)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        if table.empty:
+            logger.warning("%s: no rule had enough shared origins to compare", code)
+            continue
+        floor = table.attrs["seed_spread"]
+        logger.info(
+            "%s tuning budget: %d origins x %d seeds, %s to %s",
+            code,
+            table.attrs["origins"],
+            table.attrs["seeds"],
+            table.attrs["first_origin"],
+            table.attrs["last_origin"],
+        )
+        logger.info(
+            "%-11s %-11s %-9s %-9s %-7s %-7s %s",
+            "rule",
+            "sees",
+            "holdout",
+            f"vs {CONTROL}",
+            "t",
+            "autocorr",
+            "favours",
+        )
+        for row in table.to_dict("records"):
+            se = row["std_error"]
+            logger.info(
+                "%-11s %-11s %-9.4f %+-9.4f %-+7.2f %-+7.2f %d/%d",
+                row["rule"],
+                row["sees"],
+                row["mean_holdout_ic"],
+                row["mean_delta"],
+                row["mean_delta"] / se if se else float("nan"),
+                row["delta_autocorr"],
+                row["n_favour"],
+                row["n_origins"],
+            )
+        # The floor belongs to this procedure and is measured on this run, so it is printed with
+        # the table rather than left to be looked up: every line above is read against it.
+        logger.info(
+            "  seed spread %.4f — the floor these differences must clear; origin sd %.4f "
+            "against per-fit sd %.4f",
+            floor,
+            table.attrs["control_origin_sd"],
+            table.attrs["control_fit_sd"],
+        )
+        biggest = max(
+            (r for r in table.to_dict("records") if r["sees"] == "cv_ic"),
+            key=lambda r: abs(r["mean_delta"]),
+        )
+        if abs(biggest["mean_delta"]) < floor:
+            logger.info(
+                "  every arm differs from %s by less than the seed moves it (%.4f < %.4f), so "
+                "this run is underpowered to rank them rather than evidence that they agree",
+                CONTROL,
+                abs(biggest["mean_delta"]),
+                floor,
+            )
+        blind = [r for r in table.to_dict("records") if r["rule"].startswith("rand")]
+        if blind and max(r["mean_delta"] for r in blind) >= 0:
+            logger.info(
+                "  a sampler that never reads the objective is not worse than %s — the informed "
+                "trials are carrying nothing, so a larger budget is the wrong lever",
+                CONTROL,
+            )
+
+
 def _retrain_value(exchange: str | None) -> None:
     """Report whether a freshly fitted model beats an older one on the same window."""
     from quantpulse.data.calendar import EXCHANGES
@@ -563,6 +641,17 @@ def main(argv: list[str] | None = None) -> None:
         "retrain-value", help="Report whether retraining beats leaving a model alone"
     )
     retr.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    budget = sub.add_parser(
+        "tuning-budget",
+        help="Report whether the tuner's trial budget or its search buys a better candidate",
+    )
+    budget.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    budget.add_argument(
+        "--origins",
+        type=int,
+        default=20,
+        help="Rolling origins per market (hours of compute — 20 took about 5)",
+    )
     abl = sub.add_parser("ablation", help="Report which features earn their place")
     prn = sub.add_parser("prune", help="Select a feature set from evidence and measure it")
     prn.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
@@ -608,6 +697,8 @@ def main(argv: list[str] | None = None) -> None:
         _staleness(args.exchange)
     elif args.command == "retrain-value":
         _retrain_value(args.exchange)
+    elif args.command == "tuning-budget":
+        _tuning_budget(args.exchange, args.origins)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":

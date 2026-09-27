@@ -222,6 +222,21 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   under every IC figure, alongside the seed. Do not "fix" it by stopping on the holdout — that
   is the leak the inner split exists to prevent. The earlier numbers here (−0.555/+0.436, "CV
   helps one market and hurts the other") came from three or five seeds on one window.
+- **Most of the tuner's trials are not a search, and the folds do not rank the ones that are.**
+  TPE draws its first `n_startup_trials` (10 by default, which is what runs) without consulting
+  the objective, against a budget of 15 — so ten trials are a fixed grid set by the seed and the
+  bounds, redrawn identically at every retrain. Replaying that grid matches **13 of the 27
+  candidates ever produced**, exactly, on all five parameters: XJSE v1–v8 are all warm-up draw #2,
+  so nine consecutive retrains returned the same point, and the live JSE champion v3 is one of
+  them. Measured across 20 rolling origins per market (2026-09-26), random search matches or
+  beats TPE at both 15 and 40 trials on both markets, every arm difference is an order of
+  magnitude below the seed floor (0.019 XJSE / 0.021 XNYS), and the oracle over the same trials
+  scores 0.06–0.08 where no CV-based rule exceeds 0.04. So the trials *contain* good parameters
+  and cross-validated IC does not find them — the same defect as the early-stopping split, one
+  level up. Do not "fix" the stall by enlarging the budget; it was measured and it buys nothing.
+  Note also that the informed trials are what pull the learning rate up (XNYS mean 0.0403 vs
+  0.0151 for blind draws), which is what
+  [the ceiling](docs/findings/learning-rate-ceiling.md) caps on XJSE.
 - **Early stopping validates on RMSE while the gate scores IC.** On the full panel the final
   fit stops after a single boosting round in seven of eight seeds — RMSE on noisy 21-day
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding

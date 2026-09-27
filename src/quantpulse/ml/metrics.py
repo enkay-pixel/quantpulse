@@ -84,3 +84,21 @@ def newey_west_se(values: list[float], max_lag: int) -> float:
         cov = float(resid[lag:] @ resid[:-lag]) / n
         var += 2.0 * (1.0 - lag / (max_lag + 1)) * cov
     return float(np.sqrt(max(var, 0.0) / n))
+
+
+def lag1_autocorrelation(values: list[float]) -> float:
+    """Lag-1 autocorrelation of a series, as a check on whether its samples are independent.
+
+    Rolling-origin studies here produce series whose neighbours share almost all of their
+    history, so the standard error has to allow for correlation. This reports how much there is
+    instead of assuming a lag width is enough: a value near zero says the plain error would have
+    been fine, and a large one says the effective sample is well below the number of rows.
+    """
+    arr = np.asarray(values, dtype=float)
+    if len(arr) < 3:
+        return float("nan")
+    resid = arr - arr.mean()
+    denom = float(resid @ resid)
+    if denom == 0.0:
+        return float("nan")
+    return float(resid[1:] @ resid[:-1]) / denom

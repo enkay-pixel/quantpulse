@@ -105,6 +105,7 @@ notebook. The method they share is stated once in
 | [Model staleness](findings/model-staleness.md) | **Corrected 2026-09-01** — no decay on either market at 46 origins; the original six-week result was a five-origin artifact |
 | [Why the champion has three trees](findings/three-tree-champion.md) | **Re-measured 2026-09-01** — the inner split neither predicts nor anti-predicts the holdout; neither it nor CV stopping beats picking a round at random |
 | [Can the round count be chosen well?](findings/round-count.md) | **Corrected 2026-09-01** — the per-market result was one holdout's draw; no round count is shown to suit either market |
+| [Does the tuner's budget buy anything?](findings/tuning-budget.md) | No. Most trials are a seeded warm-up grid, redrawn every retrain, and 13 of 27 candidates ever produced are exact matches to one of its points. Random search matches or beats TPE at both budgets; the folds do not rank trials in a way that transfers to the holdout |
 
 ## Gaps, ranked by value per unit of effort
 

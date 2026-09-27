@@ -41,7 +41,7 @@ import pandas as pd
 
 from quantpulse.data.calendar import DEFAULT_EXCHANGE, get_exchange
 from quantpulse.features.engineering import feature_columns_for
-from quantpulse.ml.metrics import newey_west_se
+from quantpulse.ml.metrics import lag1_autocorrelation, newey_west_se
 from quantpulse.ml.training import TrainConfig
 
 logger = logging.getLogger(__name__)
@@ -103,6 +103,9 @@ class RuleRow:
     std_error: float
     n_origins: int
     n_favour: int
+    #: Lag-1 autocorrelation of this arm's per-origin differences. Reported rather than assumed:
+    #: it is what says whether the error width allows for enough neighbours.
+    delta_autocorr: float
     mean_learning_rate: float
     note: str
 
@@ -299,6 +302,7 @@ def tuning_budget(
                 std_error=newey_west_se(deltas, max_lag=max_lag),
                 n_origins=len(shared),
                 n_favour=int(sum(1 for d in deltas if d > 0)),
+                delta_autocorr=lag1_autocorrelation(deltas),
                 mean_learning_rate=sum(lrs[i] for i in shared if i in lrs)
                 / max(len([i for i in shared if i in lrs]), 1),
                 note=rule.note,
@@ -310,6 +314,23 @@ def tuning_budget(
     table.attrs["seeds"] = len(seeds)
     table.attrs["first_origin"] = str(dates[origins[0] - 1])
     table.attrs["last_origin"] = str(dates[origins[-1] - 1])
+    # The per-origin series, kept because the summary cannot be re-interrogated later: whether
+    # the error width was right, and whether the seeds carried any independent information, are
+    # both questions about these columns rather than about the means taken from them. A run that
+    # keeps only the summary has to be repeated in full to answer either.
+    table.attrs["per_origin"] = pd.DataFrame(
+        {
+            "origin": [str(dates[origins[i] - 1]) for i in range(len(origins))],
+            **{
+                rule.name: [per_origin(rule.name, "holdout_ic").get(i) for i in range(len(origins))]
+                for rule in RULES
+            },
+        }
+    )
+    # How correlated neighbouring origins actually are, rather than a lag width assumed to cover
+    # it. Reported for the control's own series and for each arm's differences, because pairing
+    # removes the shared market movement and the two can differ a lot.
+    table.attrs["control_autocorr"] = lag1_autocorrelation([control[i] for i in sorted(control)])
     # The floor this comparison has to clear, measured under this procedure rather than
     # borrowed: how far the control's own holdout IC moves when only the seed changes.
     spreads = [
@@ -323,4 +344,25 @@ def tuning_budget(
         > 1
     ]
     table.attrs["seed_spread"] = sum(spreads) / len(spreads) if spreads else float("nan")
+    # Whether averaging over seeds bought anything. If the spread of the origin means is close
+    # to the spread of every individual fit, the seeds carried no information the origins did
+    # not already have, and a sample counted in fits would have been inflated by the seed count.
+    import numpy as np
+
+    all_fits = [
+        picked[(CONTROL, i, s)]["holdout_ic"]
+        for i in range(len(origins))
+        for s in seeds
+        if (CONTROL, i, s) in picked
+    ]
+    # Both guarded on having something to take a spread of. A sample standard deviation of one
+    # value is not a small number, it is undefined, and numpy says so by warning and returning a
+    # nan that then reads as a measured result.
+    origin_means = [control[i] for i in sorted(control)]
+    table.attrs["control_origin_sd"] = (
+        float(np.std(origin_means, ddof=1)) if len(origin_means) > 1 else float("nan")
+    )
+    table.attrs["control_fit_sd"] = (
+        float(np.std(all_fits, ddof=1)) if len(all_fits) > 1 else float("nan")
+    )
     return table
