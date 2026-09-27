@@ -422,6 +422,30 @@ market whose ceiling compresses its range cannot supply one.
 Run at the same origins as the second round — XJSE 20, XNYS 36 — so the fold correlations being
 corrected are the ones already measured rather than a fresh draw.
 
+### Disclosure: a validity condition the rule above left out
+
+A three-origin smoke test ran first, to check the new aggregation executed. It did, and it passed
+two checks worth having: reliability came back well below 1.000, so the replicate seed genuinely
+produces a different fit, and every arm figure matched the previous smoke test exactly, so the
+extra fit does not disturb the sampler's stream.
+
+It also exposed a gap in the rule. With reliability low, dividing by its square root inflates
+every fold correlation severalfold, and one of them came out "corrected" to **+1.169** — outside
+the range a correlation can take. That is not a large correlation; it is the attenuation formula
+failing, because the reliability it divides by is too small or too noisily estimated to correct
+against. As written, rule 3 would have fired on it.
+
+So the rule gains a **validity condition**, not a new threshold: a corrected correlation outside
+[−1, 1] is reported as invalid, and rule 3 cannot fire on an invalid correction. This follows from
+what a correlation is rather than from anything seen in the data, and no number in the rule moves.
+
+What was seen, recorded because it was seen before the full run: reliability **+0.084** at t
++2.20 on three origins. If anything like that holds at scale, it is the most consequential number
+in this document — it would mean a single fit's holdout IC is mostly fit noise, which is rule 1's
+reading even where the t-statistic clears 2. Three origins is below the aggregation's own minimum
+for trusting anything, and the fold correlation from the same cells was +0.191 here and +0.016 at
+twenty origins last round, so none of this is being read as a result.
+
 ## What follows
 
 Nothing changes in the tuner as a result of this. The measured position is that the search could

@@ -464,7 +464,15 @@ def _tuning_budget(exchange: str | None, n_origins: int) -> None:
         for row in transfer.to_dict("records"):
             se = row["std_error"]
             bound = row.get("disattenuated")
-            shown = f"{bound:+.3f}" if bound is not None and bound == bound else "-"
+            # A correlation cannot exceed 1 in magnitude, so a correction that lands outside that
+            # range is not a large correlation — it is the formula failing because the reliability
+            # it divides by is too small or too noisily estimated to correct against.
+            if bound is None or bound != bound:
+                shown = "-"
+            elif abs(bound) > 1:
+                shown = "invalid"
+            else:
+                shown = f"{bound:+.3f}"
             logger.info(
                 "%-13s %-15s %-10s %+-8.3f %-+7.2f %-10s %d/%d",
                 row["name"],
@@ -498,6 +506,17 @@ def _tuning_budget(exchange: str | None, n_origins: int) -> None:
                     "at trial level, and the arm comparisons are reading mostly fit noise",
                     rel["mean_rho"],
                     rel_t,
+                )
+            elif bound is not None and bound == bound and abs(bound) > 1:
+                logger.info(
+                    "  holdout reliability rho %+.3f (t %+.2f) resolves but is too small to "
+                    "correct against — the corrected fold correlation lands at %+.3f, outside the "
+                    "range a correlation can take, so rule 3 cannot fire on it and the fold "
+                    "question stays unanswered; what the low reliability says about the arms is "
+                    "the finding",
+                    rel["mean_rho"],
+                    rel_t,
+                    bound,
                 )
             elif abs(cv_t) < 2 and bound is not None and bound == bound and abs(bound) < 0.2:
                 logger.info(
