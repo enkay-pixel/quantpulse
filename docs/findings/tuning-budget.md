@@ -261,6 +261,25 @@ Alongside this, XNYS runs at the **36 origins** the first round said its `prod` 
 comparison needs about 300 origins against a panel that holds at most 95, so more origins there
 buy nothing.
 
+### Disclosure: the control is structurally weak on XJSE
+
+A three-origin smoke test was run first, to check the new aggregation executed at all. It did, and
+it correctly refused to conclude anything. It also made a design flaw plain, and since directional
+numbers were seen before the full run, that is recorded here rather than presented afterwards as
+foresight.
+
+**The learning-rate control cannot work well on XJSE, by construction.** The ceiling confines the
+rate to 0.001–0.02, while the effect the control relies on — high rates winning the folds and
+losing the holdout — lives at 0.15–0.19. The ceiling removed the variance the control needs. On
+XNYS, where the ceiling is 0.2, the range is intact and the control should resolve.
+
+So the primary conclusion will rest on XNYS. On XJSE a null would be unreadable, and that is a
+limitation of this design rather than a result. **The decision rule above is not changed** — no
+threshold is being moved after seeing data, and the smoke-test numbers are used for nothing except
+this disclosure. What was seen: the fold correlation came out positive overall and near zero over
+the informed trials alone, on three origins, which is far too few to mean anything and is exactly
+why the run is being done at twenty and thirty-six.
+
 ## What follows
 
 Nothing changes in the tuner as a result of this. The measured position is that the search could
