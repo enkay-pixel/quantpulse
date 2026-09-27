@@ -212,6 +212,55 @@ Holding the effect and scaling the error as the square root of the sample:
 - `oracle_40` reads the holdout. It is a bias bound and never a target; nothing here proposes
   selecting on it.
 
+## Second round: does a fold score order the holdout at all? (pre-registered 2026-09-27)
+
+**Status: pre-registered, not yet measured.** Written and committed before the second run started.
+
+The first round left one question open and answered it only indirectly. `prod` against
+`arbitrary` compares **one selected fit per cell**, which is the weakest thing the run produces —
+hence 20 origins resolving neither market. The same trials answer a sharper question at far higher
+power: across the forty trials of a single study, does a better fold score go with a better
+holdout score? If it does not, then no rule ordering on fold IC can work, and the arms' failure to
+separate is explained rather than needing more origins.
+
+The first run threw those trials away. It now keeps them.
+
+### Measure
+
+Spearman rank correlation — rank, because selection is an argmax — between fold IC and holdout IC
+across the trials **within** each (origin, seed) cell. Seeds averaged within an origin, then mean
+and Newey-West across origins at `max_lag = 3`, as before. Reported over the long TPE study's
+forty trials, and split into the blind warm-up draws and the informed trials, because the informed
+ones are drawn toward the fold optimum and whether that changes their transfer is the question
+restated.
+
+### The control that makes a null readable
+
+A correlation near zero has two explanations that look identical: the fold score genuinely does
+not order the holdout, or the IC estimates are too noisy to correlate with anything. So the same
+cells are also correlated against the **learning rate**, which is already known to matter — high
+rates win the folds and lose the holdout, and the sign should come out negative.
+
+**If the control does not resolve, this run cannot answer the question and will be reported that
+way.** A null on the fold score is only informative alongside a control that resolved on the same
+data.
+
+### Second-round decision rule, fixed in advance
+
+1. If the learning-rate control resolves (|t| ≥ 2) and the fold-score correlation does not
+   (|t| < 2), then **the folds do not order the holdout**: no selection rule on fold IC can work,
+   the first round's unresolved arm comparison is explained, and the next thing to change is the
+   objective rather than the budget or the sample size.
+2. If the fold-score correlation resolves positive, selection is doing something real and the
+   first round was simply underpowered to see it in a single selected fit — in which case the arm
+   comparison is worth carrying to the sample size named above.
+3. If neither resolves, the run says nothing and is reported as such.
+
+Alongside this, XNYS runs at the **36 origins** the first round said its `prod` against
+`arbitrary` comparison would need, under the criteria already fixed above. XJSE stays at 20: its
+comparison needs about 300 origins against a panel that holds at most 95, so more origins there
+buy nothing.
+
 ## What follows
 
 Nothing changes in the tuner as a result of this. The measured position is that the search could

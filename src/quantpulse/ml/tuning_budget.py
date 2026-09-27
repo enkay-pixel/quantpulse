@@ -93,6 +93,44 @@ CONTROL = "prod"
 
 
 @dataclass(frozen=True)
+class Transfer:
+    """One rank correlation measured inside a cell and pooled across origins.
+
+    A selection rule can only work if the quantity it orders on orders the holdout too, so this
+    asks the question the arms answer indirectly: across the trials of a single study, does a
+    better fold score go with a better holdout score? It uses all forty trials of a cell rather
+    than the single fit a rule selects, which is where its power comes from.
+
+    `against` names the positive control's partner. The learning rate is known to matter — high
+    rates score the folds well and the holdout badly — so if the rate correlates with the holdout
+    while the fold score does not, a null on the fold score is a real null rather than IC
+    estimates too noisy to correlate with anything.
+    """
+
+    name: str
+    study: str
+    against: str
+    trials: str
+    mean_rho: float
+    std_error: float
+    n_origins: int
+    n_positive: int
+    note: str
+
+
+#: Correlations measured per cell. The warm-up and informed splits are separated because the
+#: informed trials are drawn toward the fold optimum, and whether that changes how well they
+#: transfer is the whole question restated.
+TRANSFERS: tuple[tuple[str, str, str, str, str], ...] = (
+    ("cv_all", "tpe10", "cv_ic", "all", "do the folds order the holdout, over the long budget"),
+    ("cv_warmup", "tpe10", "cv_ic", "warmup", "the same, over the blind draws only"),
+    ("cv_informed", "tpe10", "cv_ic", "informed", "the same, over the trials that used the folds"),
+    ("cv_random", "rand", "cv_ic", "all", "the same, with no learning anywhere in the trials"),
+    ("lr_all", "tpe10", "learning_rate", "all", "positive control — a known real effect"),
+)
+
+
+@dataclass(frozen=True)
 class RuleRow:
     """One rule's result, pooled across origins."""
 
@@ -240,6 +278,8 @@ def tuning_budget(
 
     # picked[(rule, origin_index, seed)] -> the selected trial's record
     picked: dict[tuple[str, int, int], dict[str, float]] = {}
+    # Every trial from every study, so the run can be re-interrogated without being repeated.
+    trials: list[dict[str, Any]] = []
     for i, origin in enumerate(origins):
         panel = frame[frame["date"].isin(dates[:origin])]
         train_frame, _ = split_by_date(panel, HOLDOUT_FRACTION, cfg.embargo_days)
@@ -265,6 +305,15 @@ def tuning_budget(
                     ceiling,
                     splits,
                 )
+            # Keep every trial, not only the ones a rule selected. The arms compare one fit per
+            # cell, which is the weakest thing the run produces; the trials themselves say
+            # whether the folds order them in a way that transfers at all, which is the question
+            # the arms can only answer indirectly and at far lower power.
+            for study_name, rows in studies.items():
+                for index, row in enumerate(rows):
+                    trials.append(
+                        {"study": study_name, "origin": i, "seed": seed, "trial": index, **row}
+                    )
             for rule in RULES:
                 rows = studies[rule.study]
                 if len(rows) < rule.n_trials:
@@ -306,6 +355,51 @@ def tuning_budget(
                 mean_learning_rate=sum(lrs[i] for i in shared if i in lrs)
                 / max(len([i for i in shared if i in lrs]), 1),
                 note=rule.note,
+            )
+        )
+
+    # --- does the fold score order the holdout at all? ---
+    from scipy import stats
+
+    trial_frame = pd.DataFrame(trials)
+
+    def cell_rho(study: str, against: str, subset: str, i: int, seed: int) -> float | None:
+        cell = trial_frame[
+            (trial_frame["study"] == study)
+            & (trial_frame["origin"] == i)
+            & (trial_frame["seed"] == seed)
+        ]
+        if subset == "warmup":
+            cell = cell[cell["trial"] < PRODUCTION_STARTUP]
+        elif subset == "informed":
+            cell = cell[cell["trial"] >= PRODUCTION_STARTUP]
+        if len(cell) < 5:
+            return None
+        rho = stats.spearmanr(cell[against], cell["holdout_ic"]).statistic
+        # Degenerate when every trial ties on one side, which is not a correlation of zero.
+        return None if rho != rho else float(rho)
+
+    transfers: list[Transfer] = []
+    for name, study, against, subset, note in TRANSFERS:
+        per: dict[int, float] = {}
+        for i in range(len(origins)):
+            vals = [r for s in seeds if (r := cell_rho(study, against, subset, i, s)) is not None]
+            if vals:
+                per[i] = sum(vals) / len(vals)
+        if len(per) < 3:
+            continue
+        series = [per[i] for i in sorted(per)]
+        transfers.append(
+            Transfer(
+                name=name,
+                study=study,
+                against=against,
+                trials=subset,
+                mean_rho=sum(series) / len(series),
+                std_error=newey_west_se(series, max_lag=max_lag),
+                n_origins=len(series),
+                n_positive=int(sum(1 for v in series if v > 0)),
+                note=note,
             )
         )
 
@@ -365,4 +459,8 @@ def tuning_budget(
     table.attrs["control_fit_sd"] = (
         float(np.std(all_fits, ddof=1)) if len(all_fits) > 1 else float("nan")
     )
+    table.attrs["transfer"] = pd.DataFrame([t.__dict__ for t in transfers])
+    # The raw trials, so a later question does not need the run repeated. This is the whole
+    # measurement; everything else on this table is a summary of it.
+    table.attrs["trials"] = trial_frame
     return table
