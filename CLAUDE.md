@@ -222,7 +222,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   under every IC figure, alongside the seed. Do not "fix" it by stopping on the holdout — that
   is the leak the inner split exists to prevent. The earlier numbers here (−0.555/+0.436, "CV
   helps one market and hurts the other") came from three or five seeds on one window.
-- **Most of the tuner's trials are not a search, and the folds do not rank the ones that are.**
+- **Most of the tuner's trials are not a search, and no rule on the folds finds the good ones.**
   TPE draws its first `n_startup_trials` (10 by default, which is what runs) without consulting
   the objective, against a budget of 15 — so ten trials are a fixed grid set by the seed and the
   bounds, redrawn identically at every retrain. Replaying that grid matches **13 of the 27
@@ -237,6 +237,16 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   Note also that the informed trials are what pull the learning rate up (XNYS mean 0.0403 vs
   0.0151 for blind draws), which is what
   [the ceiling](docs/findings/learning-rate-ceiling.md) caps on XJSE.
+  A second round (2026-09-27, XNYS at 36 origins) strengthened the gate to t +4.64 on 28/36
+  origins and **failed to settle why**. The rank correlation between fold IC and holdout IC is
+  near zero on both markets (+0.016 / +0.053), but the only control available for reading that as
+  a null — the learning rate — resolves with the *wrong sign* on XJSE, because the ceiling removed
+  the variance it needs, and does not resolve at all on XNYS. So "the folds carry no information"
+  is **unresolved, not measured**, and another budget sweep will not settle it: it needs a control
+  that does not depend on a parameter the pipeline caps. Two first-round claims were withdrawn in
+  the same round — a sample-size projection that assumed a stable effect (the effect flipped sign
+  at the larger sample), and a floor that compared a *paired* difference against an *unpaired*
+  seed spread.
 - **Early stopping validates on RMSE while the gate scores IC.** On the full panel the final
   fit stops after a single boosting round in seven of eight seeds — RMSE on noisy 21-day
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding
