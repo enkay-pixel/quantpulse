@@ -197,6 +197,11 @@ Holding the effect and scaling the error as the square root of the sample:
   origins at this stride, so on this market the question **cannot be resolved with the data that
   exists**, and should be reported that way rather than as a null.
 
+**Both projections were withdrawn on 2026-09-27.** XNYS was run at 36 origins and the comparison
+still did not resolve, because the effect flipped sign instead of holding while the error
+shrank — see "Three corrections this round forced" below. An arithmetic like this one assumes a
+stable effect, and that assumption is the thing being tested.
+
 ## Caveats
 
 - **The per-origin series was not retained on this run**, so the autocorrelation between
@@ -280,10 +285,101 @@ this disclosure. What was seen: the fold correlation came out positive overall a
 the informed trials alone, on three origins, which is far too few to mean anything and is exactly
 why the run is being done at twenty and thirty-six.
 
+## Second-round results
+
+Measured 2026-09-27, 6h40m. XJSE at 20 origins (2024-12-31 → 2026-08-05), XNYS at 36
+(2023-09-19 → 2026-08-25), 2 seeds, every trial retained.
+
+**XJSE reproduced the first round exactly** — every arm figure identical to three weeks of
+numbers taken a day earlier, same seeds and origins. Worth stating because nothing else in this
+document is a replication.
+
+### Does a fold score order the holdout?
+
+| | XJSE rho (t) | XNYS rho (t) |
+|---|---|---|
+| fold IC vs holdout, all 40 trials | +0.016 (+0.28) | +0.053 (+0.69) |
+| …warm-up draws only | −0.077 (−1.05) | +0.036 (+0.65) |
+| …informed trials only | −0.007 (−0.14) | +0.067 (+1.20) |
+| …independent sampler's trials | +0.012 (+0.25) | +0.073 (+1.34) |
+| **learning rate vs holdout (control)** | **+0.051 (+2.14)** | **−0.087 (−1.76)** |
+
+**The question is not settled, and the rule fixed in advance is what says so.**
+
+- **XNYS falls to rule 3.** The control does not resolve at |t| 1.76, so neither does anything
+  else, and the run says nothing. This was the market the conclusion was supposed to rest on,
+  because it is the one whose learning-rate range the ceiling leaves intact.
+- **XJSE satisfies rule 1 by the letter** — control resolves at |t| 2.14, fold correlation does
+  not at |t| 0.28 — so on that market the folds do not order the holdout. But **the control
+  resolved with the sign opposite to the one predicted**. Positive, not negative. Within the
+  capped band a higher rate scoring better is consistent with
+  [round-count.md](round-count.md), where lowering the rate cost XJSE 66% of peak IC, but that
+  reconciliation is offered after the fact. A control that contradicts its own prediction still
+  shows holdout IC is rankable by something, which is its job; it is weaker evidence than one
+  that had matched.
+
+So the fold-score correlation is near zero on both markets, +0.016 and +0.053, and **this run
+cannot establish that the null is real rather than the cells being too noisy to rank.** Reported
+as unresolved, not as a null.
+
+### The gate conclusion strengthened
+
+At 36 origins on XNYS, against the first round's 20:
+
+| arm | vs `prod` | t | favours |
+|---|---|---|---|
+| `tpe10_40` | +0.0051 | +1.79 | 23/36 |
+| `tpe5_15` | +0.0094 | +2.84 | 26/36 |
+| `rand_15` | +0.0088 | +2.24 | 26/36 |
+| **`rand_40`** | **+0.0101** | **+4.64** | **28/36** |
+| `arbitrary` | +0.0028 | +0.54 | 17/36 |
+| `oracle_40` | +0.0345 | +7.79 | 36/36 |
+
+Random search beats production TPE at t +4.64, up from +2.50, on 28 of 36 origins, and every
+no-learning and short-warm-up arm beats it. The first round's gate holds and sharpens.
+
+### Three corrections this round forced
+
+**The first round's sample-size projection was wrong.** It said `prod` against `arbitrary` would
+resolve on XNYS at about 36 origins. At 36 it still does not, and the effect did not grow — it
+**flipped sign**, from −0.0051 (t −1.50) to +0.0028 (t +0.54). The projection scaled the error
+while holding the effect fixed, and the effect was never fixed. That is this page's own warning
+about a mean that moves, applied to its own arithmetic.
+
+One qualification on the flip: the 16 added origins are all *earlier* (2023-09 to 2025-01), so
+the two runs cover different periods rather than nested ones. Noise and a period effect are not
+separable here.
+
+**Criterion 4 was mis-specified.** It required a *paired* difference to exceed the *unpaired*
+seed spread. Pairing cancels the seed — that is why it is done — so the floor should have been
+the spread of the paired difference under seed re-draws, which was never measured. This changes
+no conclusion, because the gate blocks adoption on its own, but the criterion should not be
+applied as though it were sound.
+
+**Pairing is now demonstrated rather than asserted.** Per-origin holdout IC autocorrelates at
+0.89 on XJSE and 0.73 on XNYS, so these origins are nowhere near independent and a test on
+*levels* at lag 3 would badly under-correct. The paired differences autocorrelate at 0.01 to
+0.40. And on both markets the spread of origin means is within a few percent of the spread of
+every individual fit (0.054 against 0.055; 0.036 against 0.039), confirming directly that the
+seeds carry no information the origins do not — counting fits as samples would have inflated the
+sample twofold.
+
+Every trial is saved this run (3,420 rows for XNYS), so the next question will not need it
+repeated. That omission is what made this round necessary.
+
 ## What follows
 
 Nothing changes in the tuner as a result of this. The measured position is that the search could
 be replaced by its own warm-up, or by fixed sensible defaults, **at no cost detectable against
 the seed** — which would make retrains cheaper and deterministic, and is worth testing as its own
-change rather than assumed here. The JSE promotion stall is not a tuning-budget problem, and the
-next thing worth measuring is the objective the folds compute, not how many times they are run.
+change rather than assumed here. The JSE promotion stall is not a tuning-budget problem.
+
+What the second round changes is which question is open. "Do the folds order the holdout" is the
+right question and **this design cannot answer it**, because the only control available for it —
+the learning rate — is destroyed by the ceiling on one market and falls short of resolution on
+the other. Answering it needs a control that does not depend on a parameter the pipeline caps.
+The obvious candidate is refitting the same parameters at a second seed and correlating the two
+holdout scores: that measures whether holdout IC is a reproducible quantity at all, which is
+what a null on the fold score needs in order to mean anything. It doubles the cost of a run,
+which is why it was not done here, and it is the next thing to build rather than another sweep
+of the budget.
