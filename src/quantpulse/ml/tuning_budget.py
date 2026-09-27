@@ -33,6 +33,7 @@ Three properties of the design carry the result:
 """
 
 import logging
+import math
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -60,6 +61,10 @@ PRODUCTION_STARTUP = 10
 #: trials by paying for them; the other buys them by drawing fewer blind ones.
 LONG_TRIALS = 40
 SHORT_STARTUP = 5
+
+#: Added to a cell's seed to refit its trials a second time. The offset is large so a replicate
+#: can never collide with another cell's own seed, which would make the two indistinguishable.
+REPLICATE_SEED_OFFSET = 1000
 
 
 @dataclass(frozen=True)
@@ -127,7 +132,18 @@ TRANSFERS: tuple[tuple[str, str, str, str, str], ...] = (
     ("cv_informed", "tpe10", "cv_ic", "informed", "the same, over the trials that used the folds"),
     ("cv_random", "rand", "cv_ic", "all", "the same, with no learning anywhere in the trials"),
     ("lr_all", "tpe10", "learning_rate", "all", "positive control — a known real effect"),
+    (
+        "reliability",
+        "tpe10",
+        "replicate_ic",
+        "all",
+        "the same parameters refitted at another seed — is the holdout score reproducible at all",
+    ),
 )
+
+#: The row whose correlation bounds every other row's. A measure cannot correlate with anything
+#: more strongly than it correlates with itself.
+RELIABILITY = "reliability"
 
 
 @dataclass(frozen=True)
@@ -185,6 +201,11 @@ def _record_study(
     Production scores only the trial it selects. Scoring all of them is what lets a selection
     rule be judged after the fact without re-running the search, and costs one extra fit per
     trial against the folds' several.
+
+    Each trial is also refitted at a second seed with its parameters held fixed, which measures
+    how reproducible the holdout score is at all. Only the final fit is repeated — the folds do
+    not need re-running, because the parameters are not being re-chosen — so the replicate costs
+    one fit against the six already being paid, not a second run.
     """
     from quantpulse.ml.metrics import information_coefficient
     from quantpulse.ml.training import (
@@ -193,6 +214,7 @@ def _record_study(
         train_final_model,
     )
 
+    replicate_cfg = replace(cfg, seed=cfg.seed + REPLICATE_SEED_OFFSET)
     study, n_trials = _study(study_name, seed)
     rows: list[dict[str, float]] = []
     for _ in range(n_trials):
@@ -202,6 +224,8 @@ def _record_study(
             cv_ic = cross_validated_ic(train_frame, feature_cols, params, cfg, splits)
             _, holdout = train_final_model(panel, feature_cols, params, cfg)
             holdout_ic = information_coefficient(holdout)
+            _, replicate = train_final_model(panel, feature_cols, params, replicate_cfg)
+            replicate_ic = information_coefficient(replicate)
         except Exception as exc:  # a single bad draw must not end the origin
             logger.warning("trial failed in %s: %s", study_name, exc)
             study.tell(trial, float("-inf"))
@@ -211,6 +235,7 @@ def _record_study(
             {
                 "cv_ic": cv_ic,
                 "holdout_ic": holdout_ic,
+                "replicate_ic": replicate_ic,
                 "learning_rate": float(params["learning_rate"]),
             }
         )
@@ -403,6 +428,20 @@ def tuning_budget(
             )
         )
 
+    # A correlation with the holdout is capped by how well the holdout correlates with itself, so
+    # an observed rho understates the truth by roughly the square root of that reliability.
+    # Dividing by it gives a LOWER bound on the real correlation — lower, because the other side
+    # of the pair has its own unmeasured unreliability which would only push the truth higher. If
+    # even the bound is near zero, the null is not an artefact of a noisy outcome. Aggregated
+    # first and corrected second: per-cell reliabilities near zero make the division explode.
+    by_name = {t.name: t for t in transfers}
+    reliability = by_name[RELIABILITY].mean_rho if RELIABILITY in by_name else float("nan")
+    bounds: dict[str, float] = {}
+    if reliability == reliability and reliability > 0:
+        for t in transfers:
+            if t.name != RELIABILITY and t.against == "cv_ic":
+                bounds[t.name] = t.mean_rho / math.sqrt(reliability)
+
     table = pd.DataFrame([r.__dict__ for r in results])
     table.attrs["origins"] = len(origins)
     table.attrs["seeds"] = len(seeds)
@@ -459,7 +498,11 @@ def tuning_budget(
     table.attrs["control_fit_sd"] = (
         float(np.std(all_fits, ddof=1)) if len(all_fits) > 1 else float("nan")
     )
-    table.attrs["transfer"] = pd.DataFrame([t.__dict__ for t in transfers])
+    transfer_frame = pd.DataFrame([t.__dict__ for t in transfers])
+    if bounds:
+        transfer_frame["disattenuated"] = transfer_frame["name"].map(bounds)
+    table.attrs["transfer"] = transfer_frame
+    table.attrs["reliability"] = reliability
     # The raw trials, so a later question does not need the run repeated. This is the whole
     # measurement; everything else on this table is a summary of it.
     table.attrs["trials"] = trial_frame

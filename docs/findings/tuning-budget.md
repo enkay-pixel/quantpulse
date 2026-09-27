@@ -367,6 +367,61 @@ sample twofold.
 Every trial is saved this run (3,420 rows for XNYS), so the next question will not need it
 repeated. That omission is what made this round necessary.
 
+## Third round: is the holdout score reproducible at all? (pre-registered 2026-09-27)
+
+**Status: pre-registered, not yet measured.** Written and committed before the third run started.
+
+The second round could not read its own null, because the only control it had — the learning rate
+— is compressed by the ceiling on XJSE and fell short of resolution on XNYS. This round replaces
+it with a control that depends on no parameter the pipeline caps.
+
+### The control
+
+Refit **the same parameters** at a second seed, holding panel, folds and holdout fixed, and
+correlate the two holdout scores across the trials of a cell. That measures how reproducible a
+holdout IC is when nothing changes but the fit's randomness.
+
+It is the right control because **a measure cannot correlate with anything more strongly than it
+correlates with itself.** So this reliability is a ceiling on every other correlation in the
+table, and it is the quantity that tells a real null apart from an outcome too noisy to correlate
+with anything.
+
+**Correcting a cost claim made in the second round's write-up:** that round said this control
+"doubles the cost of a run". It does not. Only the *final* fit is repeated — the folds are not
+re-run, because the parameters are not being re-chosen — so it adds one fit against the six a
+trial already pays, about **+17%**, not +100%. The earlier figure was wrong and made the control
+look more expensive than it is.
+
+### Attenuation, and why the correction is a bound
+
+An observed correlation is deflated by unreliability on both sides, by roughly the square root of
+each side's reliability. Dividing the observed fold correlation by the square root of the measured
+holdout reliability therefore gives a **lower bound** on the true correlation — lower, because the
+fold score has its own unmeasured unreliability which would only push the truth further up. If
+even that bound is near zero, the null is not an artefact of a noisy outcome.
+
+The correction is applied to the pooled means, not per cell: a per-cell reliability near zero
+makes the division explode.
+
+### Third-round decision rule, fixed in advance
+
+1. **If reliability does not resolve (|t| < 2) or is not positive**, then a single fit's holdout IC
+   is not a reproducible quantity at trial level. The fold question is then unanswerable by
+   correlation at this granularity — and, more seriously, **the arm comparisons in the first two
+   rounds are largely reading fit noise**, which would have to be said plainly.
+2. **If reliability resolves positive and the disattenuated fold correlation is still below 0.2 in
+   magnitude**, the null is real: no rule selecting on fold IC can work, and the tuner's objective
+   is the thing to change.
+3. **If reliability resolves positive and the disattenuated fold correlation is 0.2 or above**,
+   then the folds do carry transferable information that the arms were too weak to see, and the
+   selection rules deserve re-examination rather than replacement.
+
+The learning-rate correlation is kept as a secondary control, reported with the caveat that a
+market whose ceiling compresses its range cannot supply one.
+
+Run at the same origins as the second round — XJSE 20, XNYS 36 — so the fold correlations being
+corrected are the ones already measured rather than a fresh draw.
+
 ## What follows
 
 Nothing changes in the tuner as a result of this. The measured position is that the search could

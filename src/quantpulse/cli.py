@@ -452,48 +452,82 @@ def _tuning_budget(exchange: str | None, n_origins: int) -> None:
             return
         logger.info("%s: does a fold score order the holdout? (Spearman within a cell)", code)
         logger.info(
-            "%-13s %-15s %-10s %-8s %-7s %s", "what", "ordered on", "trials", "rho", "t", "positive"
+            "%-13s %-15s %-10s %-8s %-7s %-10s %s",
+            "what",
+            "ordered on",
+            "trials",
+            "rho",
+            "t",
+            "corrected",
+            "positive",
         )
         for row in transfer.to_dict("records"):
             se = row["std_error"]
+            bound = row.get("disattenuated")
+            shown = f"{bound:+.3f}" if bound is not None and bound == bound else "-"
             logger.info(
-                "%-13s %-15s %-10s %+-8.3f %-+7.2f %d/%d",
+                "%-13s %-15s %-10s %+-8.3f %-+7.2f %-10s %d/%d",
                 row["name"],
                 row["against"],
                 row["trials"],
                 row["mean_rho"],
                 row["mean_rho"] / se if se else float("nan"),
+                shown,
                 row["n_positive"],
                 row["n_origins"],
             )
         rows = {r["name"]: r for r in transfer.to_dict("records")}
-        cv, control_row = rows.get("cv_all"), rows.get("lr_all")
-        if cv and control_row:
-            cv_t = cv["mean_rho"] / cv["std_error"] if cv["std_error"] else float("nan")
-            ctl_t = (
-                control_row["mean_rho"] / control_row["std_error"]
-                if control_row["std_error"]
-                else float("nan")
-            )
-            # The control is what makes a null on the fold score readable. Without it, "no
-            # correlation" and "IC too noisy to correlate with anything" look identical.
-            if abs(cv_t) < 2 and abs(ctl_t) >= 2:
+
+        def t_of(row: dict[str, float] | None) -> float:
+            if not row or not row["std_error"]:
+                return float("nan")
+            return float(row["mean_rho"]) / float(row["std_error"])
+
+        cv, rel = rows.get("cv_all"), rows.get("reliability")
+        # Reliability is the control that does not depend on any capped parameter: a measure
+        # cannot correlate with anything more strongly than it correlates with itself. Without
+        # it, "the folds carry no information" and "the holdout score is not reproducible enough
+        # to correlate with anything" are indistinguishable, and only the first is a finding.
+        if cv and rel:
+            cv_t, rel_t = t_of(cv), t_of(rel)
+            bound = cv.get("disattenuated")
+            if abs(rel_t) < 2 or rel["mean_rho"] <= 0:
                 logger.info(
-                    "  the folds do not order the holdout (rho %+.3f, t %+.2f) while the learning "
-                    "rate does (rho %+.3f, t %+.2f) — so this is a real null, not noise swamping "
-                    "every correlation, and no rule selecting on fold IC can work",
+                    "  the holdout score does not reproduce across seeds (rho %+.3f, t %+.2f), so "
+                    "nothing can be shown to correlate with it — the fold question is unanswerable "
+                    "at trial level, and the arm comparisons are reading mostly fit noise",
+                    rel["mean_rho"],
+                    rel_t,
+                )
+            elif abs(cv_t) < 2 and bound is not None and bound == bound and abs(bound) < 0.2:
+                logger.info(
+                    "  the holdout score reproduces (rho %+.3f, t %+.2f) and the folds still do "
+                    "not order it (rho %+.3f, corrected for that reliability at most %+.3f) — a "
+                    "real null, so no rule selecting on fold IC can work",
+                    rel["mean_rho"],
+                    rel_t,
+                    cv["mean_rho"],
+                    bound,
+                )
+            else:
+                logger.info(
+                    "  holdout reliability rho %+.3f (t %+.2f); fold correlation rho %+.3f "
+                    "(t %+.2f), corrected %s — neither a clean null nor a clean effect",
+                    rel["mean_rho"],
+                    rel_t,
                     cv["mean_rho"],
                     cv_t,
-                    control_row["mean_rho"],
-                    ctl_t,
+                    f"{bound:+.3f}" if bound is not None and bound == bound else "n/a",
                 )
-            elif abs(ctl_t) < 2:
-                logger.info(
-                    "  the positive control did not resolve either (rho %+.3f, t %+.2f), so a null "
-                    "on the fold score says nothing here — the cells are too noisy to rank",
-                    control_row["mean_rho"],
-                    ctl_t,
-                )
+        # The learning rate stays as a secondary control, with the caveat that a market whose
+        # ceiling compresses its range cannot supply one.
+        lr = rows.get("lr_all")
+        if lr:
+            logger.info(
+                "  secondary control, learning rate vs holdout: rho %+.3f (t %+.2f)",
+                lr["mean_rho"],
+                t_of(lr),
+            )
 
 
 def _retrain_value(exchange: str | None) -> None:
