@@ -64,3 +64,41 @@ def summarize_returns(returns: pd.Series, periods_per_year: int) -> dict[str, fl
         "max_drawdown": max_drawdown(returns),
         "n_periods": float(len(returns)),
     }
+
+
+def newey_west_se(values: list[float], max_lag: int) -> float:
+    """Standard error of the mean that allows neighbouring observations to be correlated.
+
+    Weights fall linearly with distance so the estimate stays non-negative.
+
+    Lives here rather than beside any one study because every rolling-origin measurement in
+    this package needs it: overlapping holdouts and forward labels that straddle window
+    boundaries make neighbouring origins correlated, and the plain standard error then reports
+    a sample larger than the period actually contains.
+    """
+    arr = np.asarray(values, dtype=float)
+    n = len(arr)
+    resid = arr - arr.mean()
+    var = float(resid @ resid) / n
+    for lag in range(1, min(max_lag, n - 1) + 1):
+        cov = float(resid[lag:] @ resid[:-lag]) / n
+        var += 2.0 * (1.0 - lag / (max_lag + 1)) * cov
+    return float(np.sqrt(max(var, 0.0) / n))
+
+
+def lag1_autocorrelation(values: list[float]) -> float:
+    """Lag-1 autocorrelation of a series, as a check on whether its samples are independent.
+
+    Rolling-origin studies here produce series whose neighbours share almost all of their
+    history, so the standard error has to allow for correlation. This reports how much there is
+    instead of assuming a lag width is enough: a value near zero says the plain error would have
+    been fine, and a large one says the effective sample is well below the number of rows.
+    """
+    arr = np.asarray(values, dtype=float)
+    if len(arr) < 3:
+        return float("nan")
+    resid = arr - arr.mean()
+    denom = float(resid @ resid)
+    if denom == 0.0:
+        return float("nan")
+    return float(resid[1:] @ resid[:-1]) / denom

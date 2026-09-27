@@ -150,6 +150,28 @@ def cross_validated_ic(
     return float(np.mean(cross_validated_fold_ics(frame, feature_cols, params, cfg, splits)))
 
 
+def suggest_params(trial: optuna.Trial, *, learning_rate_ceiling: float) -> dict[str, Any]:
+    """Draw one point from the tuner's search space.
+
+    Separate from the search that uses it so that anything measuring the tuner searches the
+    same space production does. A study written out longhand elsewhere drifts from this one
+    silently, and then reports a result about a space nobody runs.
+
+    The order of the calls is part of the definition: a seeded sampler draws from one stream,
+    so reordering them changes every suggestion even though the space is unchanged.
+    """
+    return {
+        **DEFAULT_PARAMS,
+        "learning_rate": trial.suggest_float(
+            "learning_rate", LEARNING_RATE_FLOOR, learning_rate_ceiling, log=True
+        ),
+        "num_leaves": trial.suggest_int("num_leaves", 8, 96),
+        "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 20, 200),
+        "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
+        "lambda_l2": trial.suggest_float("lambda_l2", 1e-3, 10.0, log=True),
+    }
+
+
 def tune_hyperparameters(
     frame: pd.DataFrame,
     feature_cols: list[str],
@@ -172,16 +194,7 @@ def tune_hyperparameters(
     )
 
     def objective(trial: optuna.Trial) -> float:
-        params = {
-            **DEFAULT_PARAMS,
-            "learning_rate": trial.suggest_float(
-                "learning_rate", LEARNING_RATE_FLOOR, learning_rate_ceiling, log=True
-            ),
-            "num_leaves": trial.suggest_int("num_leaves", 8, 96),
-            "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 20, 200),
-            "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
-            "lambda_l2": trial.suggest_float("lambda_l2", 1e-3, 10.0, log=True),
-        }
+        params = suggest_params(trial, learning_rate_ceiling=learning_rate_ceiling)
         return cross_validated_ic(frame, feature_cols, params, cfg, splits)
 
     sampler = optuna.samplers.TPESampler(seed=cfg.seed)

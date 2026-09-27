@@ -87,6 +87,35 @@ remove, and XNYS candidates collapse at low rates too: 4 of 18 at the 0.02 ceili
 - **It will not end the JSE promotion stall by itself.** Capped candidates average 0.052 IC,
   and the momentum competitor has recently scored 0.084–0.101 on the same holdouts.
 
+## What the ceiling actually does (corrected 2026-09-27)
+
+The measurements above stand. The mechanism implied by the phrase "searches learning rates only
+up to 0.02" does not, and [tuning-budget.md](tuning-budget.md) is why.
+
+Two thirds of the tuner's trials are not a search. Optuna's TPE sampler draws its first ten
+trials without consulting the objective, and the budget is fifteen — so ten of them are a fixed
+grid set by the seed and the bounds, redrawn identically at every retrain. **The ceiling
+therefore rescales that fixed grid far more than it constrains any search.** Under the 0.02
+bound, all ten XJSE warm-up draws land between 0.0011 and 0.0113, entirely inside the band that
+historically held up; under 0.2, five of the ten sit above 0.02.
+
+This reframes two things written above.
+
+- The instability recorded under "Not reproducible, and that is informative" has a smaller
+  cause than a chaotic sampler. Only five trials respond to the data at all, and the argmax
+  across fifteen — ten of them fixed — flips between a warm-up draw and an informed trial on
+  tiny differences in fold IC. Nine consecutive XJSE retrains returned warm-up draw #2 and then
+  three did not; that is the flipping, not a search wandering.
+- The overfitting signature is real and is now attributable. Measured across 20 rolling origins,
+  the *informed* trials are what pull the selected learning rate up: on XNYS, where nothing caps
+  it, the production arm picks a mean rate of 0.0403 against 0.0151 for blind draws at the same
+  budget. The folds prefer high rates and the holdout does not, and the informed portion of the
+  search is the part doing the pulling.
+
+So the ceiling works, and it works by keeping a fixed grid inside a safe band on the market where
+that grid strays. It is a guard rail, not a better search — and the JSE champion it protects,
+v3, is itself one of those warm-up draws rather than a tuned model.
+
 ## An apparent contradiction, resolved
 
 [Round count](round-count.md) found that lowering the learning rate cost XJSE 66% of peak IC.
@@ -110,3 +139,5 @@ the change, so XNYS training is unaltered.
 - [Why the champion has three trees](three-tree-champion.md) — early stopping on this panel.
 - [Does retraining buy anything?](retrain-value.md) — the gate-conditional replay, and the
   tuning leak measured both ways.
+- [Does the tuner's budget buy anything?](tuning-budget.md) — why most of the trials are not a
+  search, and the mechanism correction above.

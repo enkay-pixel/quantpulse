@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 
 from quantpulse.ml import retrain_value as rv
+from quantpulse.ml.metrics import newey_west_se
 from quantpulse.ml.training import TrainConfig
 
 N_DATES = 900
@@ -103,8 +104,8 @@ def test_error_bar_widens_when_neighbouring_windows_move_together() -> None:
     drifting = [(-1.0) ** 0 * 0.01 * i for i in range(40)]  # a slow trend: strongly correlated
     alternating = [0.01 * (-1.0) ** i for i in range(40)]  # flips every window: anti-correlated
 
-    independent = rv._newey_west([0.0] * 40, max_lag=3)
+    independent = newey_west_se([0.0] * 40, max_lag=3)
     assert independent == pytest.approx(0.0)
-    assert rv._newey_west(drifting, max_lag=3) > 0
+    assert newey_west_se(drifting, max_lag=3) > 0
     # Anti-correlated neighbours cancel, so the allowance is smaller than the trending case.
-    assert rv._newey_west(alternating, max_lag=3) < rv._newey_west(drifting, max_lag=3)
+    assert newey_west_se(alternating, max_lag=3) < newey_west_se(drifting, max_lag=3)
