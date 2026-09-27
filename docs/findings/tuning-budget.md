@@ -1,8 +1,10 @@
 # Does the tuner's budget buy anything? (2026-09-26)
 
 Everything above the Results heading was written and **committed before the run started**, so the
-decision rule could not be chosen after seeing the numbers. The commit that fixed it is separate
-from the one that added the results.
+decision rule could not be chosen after seeing the numbers. That is checkable, but not from
+`main`: the two commits were squashed into one on merge, so the separation survives only in
+[PR #87](https://github.com/enkay-pixel/quantpulse/pull/87), where the pre-registration commit
+and the results commit are still listed apart.
 
 ## Why this is being measured
 
