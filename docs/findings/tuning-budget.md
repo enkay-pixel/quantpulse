@@ -364,12 +364,13 @@ every individual fit (0.054 against 0.055; 0.036 against 0.039), confirming dire
 seeds carry no information the origins do not — counting fits as samples would have inflated the
 sample twofold.
 
-Every trial is saved this run (3,420 rows for XNYS), so the next question will not need it
-repeated. That omission is what made this round necessary.
+Every trial is saved this run (6,840 rows for XNYS — first written here as 3,420, which multiplied
+origins by trials and dropped the two seeds; corrected 2026-09-28), so the next question will not
+need it repeated. That omission is what made this round necessary.
 
 ## Third round: is the holdout score reproducible at all? (pre-registered 2026-09-27)
 
-**Status: pre-registered, not yet measured.** Written and committed before the third run started.
+Written and committed before the third run started; results follow in the next section.
 
 The second round could not read its own null, because the only control it had — the learning rate
 — is compressed by the ceiling on XJSE and fell short of resolution on XNYS. This round replaces
@@ -446,19 +447,96 @@ reading even where the t-statistic clears 2. Three origins is below the aggregat
 for trusting anything, and the fold correlation from the same cells was +0.191 here and +0.016 at
 twenty origins last round, so none of this is being read as a result.
 
+## Third-round results
+
+Measured 2026-09-27 into 2026-09-28, 4h37m. Same origins as the second round — XJSE 20, XNYS 36 —
+and every one of the 10,640 trials reproduced the second round exactly, so the replicate fit did
+not disturb the trials it controls for. The replicate differs from its original in every trial,
+so the control is measuring something.
+
+### Rule 2 fires on both markets
+
+| | XJSE | XNYS |
+|---|---|---|
+| **reliability** — same parameters, second seed | **+0.131**, t +3.26, 16/20 | **+0.332**, t +8.46, 34/36 |
+| fold vs holdout, observed | +0.016 | +0.053 |
+| fold vs holdout, corrected for that reliability | **+0.044** | **+0.093** |
+
+The holdout score reproduces on both markets, and the corrected fold correlation is well under
+0.2 on both. By rule 2: **the folds do not order the holdout, and it is a real null rather than an
+outcome too noisy to correlate with anything.** The splits agree — on XNYS the warm-up, informed
+and independent-sampler trials correct to +0.063, +0.116 and +0.127, all under the line.
+
+One corrected value does cross it: XJSE's warm-up draws at **−0.212**. It is negative, and its
+uncorrected correlation (−0.077, t −1.05) does not resolve, so the correction is scaling noise
+rather than revealing an effect; rule 3 concerns transfer in the positive direction and does not
+fire on it.
+
+The learning-rate control is superseded. It resolved on neither market in the direction
+predicted; reliability resolved on both, which is the case for having built it.
+
+### An error in the pre-registration, and why the conclusion survives it
+
+The pre-registration said the corrected value is a *lower* bound — the fold score's own
+reliability is unmeasured and would only push the true correlation higher — and then said that
+"if even that bound is near zero, the null is not an artefact of a noisy outcome". **That does not
+follow.** A lower bound near zero puts no ceiling on the truth; establishing a null needs an upper
+bound. The rule was reasoned wrongly, and it is recorded here rather than quietly reinterpreted.
+
+The conclusion holds for a reason the pre-registration did not give. For the true correlation to
+reach 0.2, the five-fold average that the tuner optimises would have to be **less reproducible than
+a single holdout fit**:
+
+| | holdout reliability, measured | fold reliability needed for the truth to reach 0.2 |
+|---|---|---|
+| XJSE | 0.131 | below **0.049** |
+| XNYS | 0.332 | below **0.215** |
+
+An average over five folds should reproduce better than one fit, not worse, so the null stands
+under any plausible value. But it stands on that argument, not on a measurement: the fold score's
+reliability was never measured, and measuring it — refitting the folds at the second seed as well
+— is what would close this properly.
+
+### What the reliability itself says
+
+This is the number that matters most in the document. Refit the same parameters on the same data
+with only the seed changed, and holdout scores across a study's trials correlate at 0.13 on XJSE
+and 0.33 on XNYS. In the classical reading that makes roughly **an eighth** of the between-trial
+variation in a single fit's holdout IC attributable to the parameters on XJSE, and about **a
+third** on XNYS; the rest is the fit's own randomness.
+
+That one quantity accounts for every earlier result:
+
+- **No selection rule on the folds works**, because there is little parameter signal in the
+  holdout for any rule to find, and the folds do not find it either.
+- **The oracle's margin is the maximum's bias, now quantified** rather than asserted. The best of
+  forty draws that are mostly noise is a lucky one.
+- **Random search keeps matching TPE**, because a sampler cannot learn much from an objective whose
+  differences between trials are mostly noise.
+
+Two limits on that reading. Reliability here is *between parameter sets within a cell*: it says the
+parameters matter little relative to the fit's randomness, not that a model's holdout IC is
+unmeasurable — the seed spread already calibrates that for the promotion gate, and nothing here
+changes the gate's margins. And Spearman's rho stands in for the classical reliability
+coefficient, so the fractions are approximate.
+
 ## What follows
 
-Nothing changes in the tuner as a result of this. The measured position is that the search could
-be replaced by its own warm-up, or by fixed sensible defaults, **at no cost detectable against
-the seed** — which would make retrains cheaper and deterministic, and is worth testing as its own
-change rather than assumed here. The JSE promotion stall is not a tuning-budget problem.
+Nothing changes in the tuner as a result of this work alone, but the case for the change it
+points at is now made on evidence rather than suspicion. **Hyperparameter tuning is largely
+decorative on this pipeline**: the search does no better than random, the folds do not rank
+parameter sets in a way that transfers, and the parameters explain a minority of the variation the
+search is trying to exploit. The measured expectation is that **fixed defaults would cost nothing
+detectable against the seed**, while making retrains cheaper and deterministic — and a
+deterministic retrain removes the week-to-week parameter churn that the learning-rate collapses
+came from.
 
-What the second round changes is which question is open. "Do the folds order the holdout" is the
-right question and **this design cannot answer it**, because the only control available for it —
-the learning rate — is destroyed by the ceiling on one market and falls short of resolution on
-the other. Answering it needs a control that does not depend on a parameter the pipeline caps.
-The obvious candidate is refitting the same parameters at a second seed and correlating the two
-holdout scores: that measures whether holdout IC is a reproducible quantity at all, which is
-what a null on the fold score needs in order to mean anything. It doubles the cost of a run,
-which is why it was not done here, and it is the next thing to build rather than another sweep
-of the budget.
+That is the next thing to test, as its own change with its own comparison: production's tuned
+candidate against a fixed-default candidate, paired on origin and seed, judged on holdout IC with
+the gate's own margins. It should not be assumed from here. Nor are "the defaults" a free choice:
+`DEFAULT_PARAMS` sets a learning rate of 0.05, which is above XJSE's 0.02 ceiling, so a fixed
+configuration has to be per market for the same reason the ceiling is. The JSE promotion stall is
+not a tuning problem, and none of these three rounds bears on it beyond ruling that out.
+
+An earlier version of this section said the second-seed control "doubles the cost of a run". It
+added about 17%; see the third round's pre-registration.
