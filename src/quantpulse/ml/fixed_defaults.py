@@ -30,6 +30,7 @@ Three properties carry the result:
     be the same selection on the holdout by a shorter route.
 """
 
+import datetime as dt
 import logging
 import math
 import time
@@ -93,6 +94,19 @@ def search_center(ceiling: float) -> dict[str, Any]:
     return params
 
 
+def truncate_panel(frame: pd.DataFrame, as_of: str | None) -> pd.DataFrame:
+    """Keep only the panel's dates on or before `as_of`, or the whole panel when it is None.
+
+    The panel stores dates as `datetime.date`, and pandas refuses to compare those with a
+    `Timestamp` — so the cutoff is parsed to the same type rather than to whatever pandas would
+    choose. Getting this wrong fails loudly, which is the better outcome; a silent mismatch would
+    truncate nothing and reproduce nothing while appearing to.
+    """
+    if as_of is None:
+        return frame
+    return frame[frame["date"] <= dt.date.fromisoformat(as_of)]
+
+
 def non_inferiority(mean_delta: float, std_error: float, margin: float) -> tuple[float, bool]:
     """The one-sided lower bound on an arm's loss, and whether it is within the margin.
 
@@ -134,8 +148,15 @@ def fixed_defaults(
     step_days: int = 21,
     max_lag: int = 3,
     n_origins: int = 24,
+    as_of: str | None = None,
 ) -> pd.DataFrame:
-    """Score production's tuned candidate against fixed configurations across rolling origins."""
+    """Score production's tuned candidate against fixed configurations across rolling origins.
+
+    `as_of` truncates the panel to dates on or before it. Without it the study is not reproducible
+    across days: the origin grid is laid from the end of the data, so each weekday's ingest adds a
+    labelled date and moves every origin, and a rerun on Tuesday answers a different question from
+    Monday's. Pinning it is what lets one run be checked against another.
+    """
     from quantpulse.ml.metrics import information_coefficient
     from quantpulse.ml.pipeline import build_dataset
     from quantpulse.ml.training import (
@@ -152,6 +173,7 @@ def fixed_defaults(
     margin = market.ic_promotion_margin
     feature_cols = feature_columns_for(exchange)
     frame = build_dataset(engine, cfg, exchange)  # type: ignore[arg-type]
+    frame = truncate_panel(frame, as_of)
     dates = sorted(frame["date"].unique())
     origins = rolling_origins(len(dates), cfg, step_days, n_origins)
     fixed = {CANDIDATE: fixed_default(ceiling), "fixed_center": search_center(ceiling)}
@@ -251,6 +273,8 @@ def fixed_defaults(
     table.attrs["first_origin"] = str(dates[origins[0] - 1])
     table.attrs["last_origin"] = str(dates[origins[-1] - 1])
     table.attrs["margin"] = margin
+    table.attrs["as_of"] = as_of or "latest"
+    table.attrs["panel_end"] = str(dates[-1])[:10]
     # The floor a *paired* difference has to clear: how far the arm-minus-control difference itself
     # moves when only the seed changes, inside one origin. The tuning-budget study compared paired
     # differences against the unpaired spread of a single arm, which double-counts the seed that

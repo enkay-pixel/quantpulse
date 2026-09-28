@@ -83,6 +83,27 @@ def test_the_adoption_candidate_is_named_in_advance() -> None:
     assert CANDIDATE != CONTROL
 
 
+def test_truncate_panel_cuts_on_the_panels_own_date_type() -> None:
+    """The panel holds `datetime.date`. A cutoff parsed to a pandas Timestamp cannot be compared
+    with it, and the first version did exactly that — it crashed on first use, and the crash was
+    easy to miss because a stale output file from an earlier run was still sitting there."""
+    import datetime as dt
+
+    import pandas as pd
+
+    from quantpulse.ml.fixed_defaults import truncate_panel
+
+    frame = pd.DataFrame(
+        {"date": [dt.date(2026, 8, d) for d in (24, 25, 26, 27)], "x": [1, 2, 3, 4]}
+    )
+    kept = truncate_panel(frame, "2026-08-26")
+    assert list(kept["date"]) == [dt.date(2026, 8, d) for d in (24, 25, 26)]
+    # Inclusive of the cutoff itself, so "as of" a date includes that date.
+    assert dt.date(2026, 8, 26) in set(kept["date"])
+    # No cutoff means the whole panel — not an empty one.
+    assert truncate_panel(frame, None) is frame
+
+
 def test_non_inferiority_asks_about_the_worst_plausible_loss() -> None:
     margin = 0.008
     # Well inside: a small loss, tightly measured.

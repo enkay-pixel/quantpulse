@@ -102,6 +102,54 @@ spread, the report says the choice of fixed point matters — which would weaken
 - Only holdout IC is compared. The gate's drawdown floor and Sharpe veto are not, so a
   non-inferiority result here is about the metric the gate decides on, not every check it runs.
 
+## Disclosure: what the smoke test found, before the full run
+
+Recorded here, on `main`, before the full run starts — the rule this page was written under.
+
+**The origins moved between days, and rule 0 would have failed for a reason that had nothing to do
+with the tuner.** The first smoke test ran after Monday's JSE ingest had added one labelled date,
+and because `rolling_origins` lays its grid from the *end* of the data, that one date shifted every
+XJSE origin by a few days. The tuning-budget rounds only reproduced each other because both ran on
+the same Sunday. So the study was not reproducible across days, and nothing said so.
+
+It now takes an `as_of` cutoff. **2026-08-26** reproduces the tuning-budget origins on both
+markets — XJSE drops the one new date, and XNYS had none yet — and the full run is pinned to it,
+which is what "the same origins as the tuning-budget work" requires.
+
+**Rule 0 then passes, exactly.** On the three smoke origins the tuned arm reproduces the
+tuning-budget study's production arm to 0.0 in holdout IC and in learning rate, all six cells. So
+production's tuner and that study's production arm are the same thing — which retroactively
+confirms that every round of the tuning-budget work was measuring the real tuner — and pinning
+reproduces the panel, so Monday's ingest revised nothing historical in it.
+
+**A near-miss worth recording.** The first attempt at the pinned run crashed on a date-type
+mismatch, and a stale output file from the *unpinned* run was still in place. Compared against the
+tuning-budget arm, it produced differences up to 0.024 and read as "rule 0 fails" — a conclusion
+drawn from a crash. It was caught only because the run's own log lines were missing from the
+output. The fix is covered by a test, and the smoke script now deletes its output before running
+and checks the exit status. It is the same class as never piping a build to `/dev/null`: a hidden
+failure plus an old artefact is indistinguishable from a result.
+
+**The numbers the pinned smoke test showed**, recorded because they were seen, and three origins
+is far below what the rule rests on:
+
+| arm | vs `tuned` | lower bound | fits | median seconds |
+|---|---|---|---|---|
+| `fixed_default` | −0.0013 | −0.0023 | 1 | 0.42 |
+| `fixed_center` | −0.0178 | −0.0244 | 1 | 0.34 |
+| `tuned` | — | — | 61 | 23.4 |
+
+Two things in it bear on the design rather than the answer:
+
+- **The paired seed spread is several times the margin** — 0.036 for `fixed_default` against a
+  margin of 0.008. A single retrain's tuned-versus-fixed difference is therefore dominated by the
+  seed, and the rule relies on averaging over origins to resolve anything. That is what it was
+  built to do, but it means the full run's bound, not any one origin, carries the verdict.
+- **The cost claim holds in wall time**: about 23 seconds a tuned candidate against 0.4 for a fixed
+  one, the ~60× the fit counts predict.
+
+No threshold moves and no arm changes role. `fixed_default` stays the only candidate.
+
 ## Results
 
 Not yet measured.
