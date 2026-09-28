@@ -370,7 +370,7 @@ def _staleness(exchange: str | None) -> None:
             )
 
 
-def _fixed_defaults(exchange: str | None, n_origins: int) -> None:
+def _fixed_defaults(exchange: str | None, n_origins: int, as_of: str | None) -> None:
     """Report whether a fixed configuration is non-inferior to the tuned candidate."""
     from quantpulse.data.calendar import EXCHANGES
     from quantpulse.db import get_engine
@@ -379,7 +379,7 @@ def _fixed_defaults(exchange: str | None, n_origins: int) -> None:
     engine = get_engine()
     for code in [exchange] if exchange else sorted(EXCHANGES):
         try:
-            table = fixed_defaults(engine, code, n_origins=n_origins)
+            table = fixed_defaults(engine, code, n_origins=n_origins, as_of=as_of)
         except ValueError as exc:
             logger.error("%s: %s", code, exc)
             continue
@@ -842,6 +842,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     fixed.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     fixed.add_argument("--origins", type=int, default=20, help="Rolling origins per market")
+    fixed.add_argument(
+        "--as-of",
+        default=None,
+        help="Truncate the panel to this date (YYYY-MM-DD) so a run reproduces an earlier one",
+    )
     budget.add_argument(
         "--origins",
         type=int,
@@ -896,7 +901,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "tuning-budget":
         _tuning_budget(args.exchange, args.origins)
     elif args.command == "fixed-defaults":
-        _fixed_defaults(args.exchange, args.origins)
+        _fixed_defaults(args.exchange, args.origins, args.as_of)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":
