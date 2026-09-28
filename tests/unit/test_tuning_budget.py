@@ -15,12 +15,16 @@ import pytest
 from quantpulse.ml.metrics import lag1_autocorrelation
 from quantpulse.ml.training import suggest_params
 from quantpulse.ml.tuning_budget import (
+    BUDGET_SEEDS,
     CONTROL,
     LONG_TRIALS,
     PRODUCTION_STARTUP,
     PRODUCTION_TRIALS,
+    RELIABILITY,
+    REPLICATE_SEED_OFFSET,
     RULES,
     SHORT_STARTUP,
+    TRANSFERS,
     Rule,
     _pick,
     _study,
@@ -124,6 +128,34 @@ def test_the_control_is_one_of_the_rules_and_is_scored_on_the_folds() -> None:
     assert reads_holdout == ["oracle_40"]
     # At least one arm must be unable to use the data, or there is no floor for the rest.
     assert any(r.sees == "nothing" for r in RULES)
+
+
+def test_the_replicate_seed_cannot_collide_with_a_fit_seed() -> None:
+    """A replicate fitted at the same seed reproduces its original exactly.
+
+    Reliability would then come back at 1.0 and read as a control that passed perfectly, while
+    measuring nothing at all — the most dangerous failure this comparison has, because it looks
+    like the best possible result.
+    """
+    assert REPLICATE_SEED_OFFSET != 0
+    for seed in BUDGET_SEEDS:
+        replicate = seed + REPLICATE_SEED_OFFSET
+        assert replicate != seed
+        # Nor may it land on another cell's seed, which would confuse a replicate with a
+        # genuinely independent cell.
+        assert replicate not in BUDGET_SEEDS
+
+
+def test_reliability_is_measured_against_the_replicate_and_bounds_the_rest() -> None:
+    by_name = {t[0]: t for t in TRANSFERS}
+    assert RELIABILITY in by_name
+    _, study, against, subset, _ = by_name[RELIABILITY]
+    assert against == "replicate_ic"
+    assert subset == "all"
+    # The fold rows it bounds must be measured on the same study, or the correction is applied
+    # across two different sets of trials.
+    fold_rows = [t for t in TRANSFERS if t[2] == "cv_ic" and t[1] == study]
+    assert fold_rows, "nothing for the reliability row to bound"
 
 
 def test_autocorrelation_separates_a_drifting_series_from_an_alternating_one() -> None:

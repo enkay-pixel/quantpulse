@@ -238,15 +238,18 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   0.0151 for blind draws), which is what
   [the ceiling](docs/findings/learning-rate-ceiling.md) caps on XJSE.
   A second round (2026-09-27, XNYS at 36 origins) strengthened the gate to t +4.64 on 28/36
-  origins and **failed to settle why**. The rank correlation between fold IC and holdout IC is
-  near zero on both markets (+0.016 / +0.053), but the only control available for reading that as
-  a null — the learning rate — resolves with the *wrong sign* on XJSE, because the ceiling removed
-  the variance it needs, and does not resolve at all on XNYS. So "the folds carry no information"
-  is **unresolved, not measured**, and another budget sweep will not settle it: it needs a control
-  that does not depend on a parameter the pipeline caps. Two first-round claims were withdrawn in
-  the same round — a sample-size projection that assumed a stable effect (the effect flipped sign
-  at the larger sample), and a floor that compared a *paired* difference against an *unpaired*
-  seed spread.
+  origins, and a third settled why. **Refit the same parameters with only the seed changed and
+  their holdout scores correlate at just 0.13 on XJSE and 0.33 on XNYS** — so roughly an eighth
+  and a third of the between-trial variation in a single fit's holdout IC is the parameters, and
+  the rest is the fit's randomness. Corrected for that, the folds still do not order the holdout
+  (+0.044 / +0.093). That one number explains the rest: no selection rule works because there is
+  little parameter signal to find, and the oracle's margin is the best of forty mostly-noise draws.
+  **Tuning is largely decorative on this pipeline**; test fixed defaults before touching the tuner
+  again — and note `DEFAULT_PARAMS`' 0.05 learning rate is above XJSE's ceiling, so they must be
+  per market. The null rests on an argument (the five-fold average would have to reproduce worse
+  than one holdout fit) rather than a measurement: the fold score's own reliability is unmeasured.
+  Reliability is the control to reach for whenever a correlation with a noisy outcome reads as
+  zero — a measure cannot correlate with anything more than it correlates with itself.
 - **Early stopping validates on RMSE while the gate scores IC.** On the full panel the final
   fit stops after a single boosting round in seven of eight seeds — RMSE on noisy 21-day
   forward returns plateaus immediately, so `early_stopping` sees no improvement. Holding
