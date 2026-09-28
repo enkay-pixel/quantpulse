@@ -123,7 +123,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   Publishing a site later means Quartz on GitHub Pages, which is free; Obsidian Publish is
   $8/month and declined.
 - Commits: imperative subject, body explains why, trailer
-  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. Pre-commit hooks installed —
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Pre-commit hooks installed —
   incl. gitleaks (222 rules) over every staged diff, since this repo is public and a
   leaked token must be *rotated*, not force-pushed away. False positives go in
   `.gitleaks.toml` narrowly scoped to rule + path + line pattern, never as a blanket skip.
