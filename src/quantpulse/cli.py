@@ -370,6 +370,95 @@ def _staleness(exchange: str | None) -> None:
             )
 
 
+def _fixed_defaults(exchange: str | None, n_origins: int) -> None:
+    """Report whether a fixed configuration is non-inferior to the tuned candidate."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.ml.fixed_defaults import CANDIDATE, CONTROL, fixed_defaults
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        try:
+            table = fixed_defaults(engine, code, n_origins=n_origins)
+        except ValueError as exc:
+            logger.error("%s: %s", code, exc)
+            continue
+        if table.empty:
+            logger.warning("%s: no arm had origins to compare", code)
+            continue
+        margin = table.attrs["margin"]
+        logger.info(
+            "%s fixed defaults: %d origins x %d seeds, %s to %s, margin %.4f",
+            code,
+            table.attrs["origins"],
+            table.attrs["seeds"],
+            table.attrs["first_origin"],
+            table.attrs["last_origin"],
+            margin,
+        )
+        logger.info(
+            "%-14s %-8s %-9s %-7s %-10s %-9s %-6s %s",
+            "arm",
+            "holdout",
+            f"vs {CONTROL}",
+            "t",
+            "worst(95)",
+            "verdict",
+            "fits",
+            "favours",
+        )
+        for row in table.to_dict("records"):
+            se = row["std_error"]
+            if row["arm"] == CONTROL:
+                verdict = "control"
+            else:
+                verdict = "OK" if row["non_inferior"] else "not shown"
+            logger.info(
+                "%-14s %-8.4f %+-9.4f %-+7.2f %+-10.4f %-9s %-6d %d/%d",
+                row["arm"],
+                row["mean_holdout_ic"],
+                row["mean_delta"],
+                row["mean_delta"] / se if se else float("nan"),
+                row["lower_bound"],
+                verdict,
+                row["fits_per_candidate"],
+                row["n_favour"],
+                row["n_origins"],
+            )
+        spread = table.attrs["paired_seed_spread"]
+        logger.info(
+            "  paired seed spread (the floor a paired difference must clear): %s",
+            ", ".join(f"{k} {v:.4f}" for k, v in spread.items()),
+        )
+        cand = next((r for r in table.to_dict("records") if r["arm"] == CANDIDATE), None)
+        if cand is None:
+            continue
+        # The verdict is read off the pre-registered candidate only. The other fixed arm is shown
+        # for whether the particular fixed point matters, and is never eligible: picking whichever
+        # fixed arm scored better would be selecting on the holdout by a shorter route.
+        if cand["non_inferior"]:
+            logger.info(
+                "  %s is non-inferior: its worst plausible loss %+.4f is inside the margin -%.4f, "
+                "at %d fit(s) a candidate against %d — replacing the tuner is supported on this "
+                "evidence, subject to a live check",
+                CANDIDATE,
+                cand["lower_bound"],
+                margin,
+                cand["fits_per_candidate"],
+                next(
+                    r["fits_per_candidate"] for r in table.to_dict("records") if r["arm"] == CONTROL
+                ),
+            )
+        else:
+            logger.info(
+                "  %s is not shown non-inferior: its worst plausible loss %+.4f is beyond the "
+                "margin -%.4f — keep the tuner on this market",
+                CANDIDATE,
+                cand["lower_bound"],
+                margin,
+            )
+
+
 def _tuning_budget(exchange: str | None, n_origins: int) -> None:
     """Report whether the tuner's budget, or its search at all, buys a better candidate."""
     from quantpulse.data.calendar import EXCHANGES
@@ -747,6 +836,12 @@ def main(argv: list[str] | None = None) -> None:
         help="Report whether the tuner's trial budget or its search buys a better candidate",
     )
     budget.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    fixed = sub.add_parser(
+        "fixed-defaults",
+        help="Report whether a fixed configuration can replace the tuner (non-inferiority)",
+    )
+    fixed.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    fixed.add_argument("--origins", type=int, default=20, help="Rolling origins per market")
     budget.add_argument(
         "--origins",
         type=int,
@@ -800,6 +895,8 @@ def main(argv: list[str] | None = None) -> None:
         _retrain_value(args.exchange)
     elif args.command == "tuning-budget":
         _tuning_budget(args.exchange, args.origins)
+    elif args.command == "fixed-defaults":
+        _fixed_defaults(args.exchange, args.origins)
     elif args.command == "demote":
         _demote(args.exchange, args.reason, args.version, args.dry_run)
     elif args.command == "train":

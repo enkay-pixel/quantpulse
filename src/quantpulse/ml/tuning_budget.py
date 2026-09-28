@@ -255,6 +255,22 @@ def _pick(rows: list[dict[str, float]], rule: Rule, arbitrary_index: int) -> dic
     return max(window, key=lambda r: r[rule.sees])
 
 
+def rolling_origins(n_dates: int, cfg: TrainConfig, step_days: int, n_origins: int) -> list[int]:
+    """The origin indices every rolling comparison in this package runs on.
+
+    Shared so that two studies asking different questions of the same retrains run on literally
+    the same retrains. A result that one study's arm reproduces another's exactly is the strongest
+    check available here, and it is only possible when neither study computes its own origins.
+
+    An origin is an index into the sorted dates; the panel at that origin is every date before it.
+    The most recent `n_origins` are kept, since those are the retrains closest to production.
+    """
+    earliest = max(cfg.min_train_dates + cfg.embargo_days, n_dates // 3)
+    if n_dates - earliest < step_days * 4:
+        raise ValueError(f"panel has {n_dates} dates, too few for origins of {step_days}")
+    return list(range(earliest, n_dates, step_days))[-n_origins:]
+
+
 def tuning_budget(
     engine: object,
     exchange: str = DEFAULT_EXCHANGE,
@@ -285,12 +301,7 @@ def tuning_budget(
     # Origins are spaced by the label horizon rather than by the retrain cadence: a weekly
     # stride would tile the period with holdouts that are nearly the same window, which adds
     # rows without adding evidence.
-    latest = len(dates)
-    earliest = max(cfg.min_train_dates + cfg.embargo_days, len(dates) // 3)
-    span = latest - earliest
-    if span < step_days * 4:
-        raise ValueError(f"panel has {len(dates)} dates, too few for origins of {step_days}")
-    origins = list(range(earliest, latest, step_days))[-n_origins:]
+    origins = rolling_origins(len(dates), cfg, step_days, n_origins)
     logger.info(
         "%s: %d origins between %s and %s, %d seed(s), ceiling %.3g",
         exchange,

@@ -150,6 +150,20 @@ def cross_validated_ic(
     return float(np.mean(cross_validated_fold_ics(frame, feature_cols, params, cfg, splits)))
 
 
+#: The tuner's bounds for everything but the learning rate, whose upper bound is per market, as
+#: (low, high, log-scaled). Held as data rather than written into the search so that anything
+#: describing the space — its centre, say — reads the same numbers and the same scale the search
+#: does, instead of a copy that can drift.
+SEARCH_BOUNDS: dict[str, tuple[float, float, bool]] = {
+    "num_leaves": (8, 96, False),
+    "min_data_in_leaf": (20, 200, False),
+    "feature_fraction": (0.5, 1.0, False),
+    "lambda_l2": (1e-3, 10.0, True),
+}
+#: Searched as integers; the rest as floats.
+INTEGER_PARAMS = frozenset({"num_leaves", "min_data_in_leaf"})
+
+
 def suggest_params(trial: optuna.Trial, *, learning_rate_ceiling: float) -> dict[str, Any]:
     """Draw one point from the tuner's search space.
 
@@ -160,16 +174,20 @@ def suggest_params(trial: optuna.Trial, *, learning_rate_ceiling: float) -> dict
     The order of the calls is part of the definition: a seeded sampler draws from one stream,
     so reordering them changes every suggestion even though the space is unchanged.
     """
-    return {
+    params: dict[str, Any] = {
         **DEFAULT_PARAMS,
         "learning_rate": trial.suggest_float(
             "learning_rate", LEARNING_RATE_FLOOR, learning_rate_ceiling, log=True
         ),
-        "num_leaves": trial.suggest_int("num_leaves", 8, 96),
-        "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 20, 200),
-        "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
-        "lambda_l2": trial.suggest_float("lambda_l2", 1e-3, 10.0, log=True),
     }
+    # Insertion order of SEARCH_BOUNDS is the order of the draws, which the docstring says is
+    # part of the definition.
+    for name, (low, high, log) in SEARCH_BOUNDS.items():
+        if name in INTEGER_PARAMS:
+            params[name] = trial.suggest_int(name, int(low), int(high), log=log)
+        else:
+            params[name] = trial.suggest_float(name, low, high, log=log)
+    return params
 
 
 def tune_hyperparameters(
