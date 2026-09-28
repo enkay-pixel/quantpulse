@@ -370,7 +370,11 @@ need it repeated. That omission is what made this round necessary.
 
 ## Third round: is the holdout score reproducible at all? (pre-registered 2026-09-27)
 
-Written and committed before the third run started; results follow in the next section.
+Written and committed before the third run started; results follow in the next section. As with
+the first round, the squash merge folded the pre-registration into the results commit, so the
+order is checkable in [PR #89](https://github.com/enkay-pixel/quantpulse/pull/89) rather than on
+`main`. The second round's pre-registration went to `main` directly before its run, and survives
+there as its own commits.
 
 The second round could not read its own null, because the only control it had — the learning rate
 — is compressed by the ceiling on XJSE and fell short of resolution on XNYS. This round replaces

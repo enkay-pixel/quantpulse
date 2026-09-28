@@ -96,6 +96,24 @@ Related: a holdout read many times stops being out-of-sample in the way it was w
 new. Prefer a fresh panel period to confirm anything a holdout has already been consulted
 about repeatedly.
 
+### Fix the decision rule before the run, where the merge cannot erase it
+
+Writing a decision rule down before measuring is what stops it being chosen after the numbers are
+seen — but only if the order can still be checked afterwards. **Push the pre-registration to `main`
+before the run starts**, as its own commit. A pre-registration committed to a feature branch is
+folded into the results commit by the squash merge this repository uses, and the evidence that it
+came first then survives only in the pull request. That happened twice in the tuning-budget work
+before the pattern was noticed.
+
+The same applies to anything seen before the run. A smoke test that shows directional numbers is a
+peek: record what it showed, in the same pre-registered document and before the full run, rather
+than letting it quietly inform the reading afterwards. A peek that is disclosed is a caveat; one
+that is not is a forking path.
+
+When the pre-registered reasoning turns out to be wrong, say so where the result is written, and
+give the argument the conclusion actually rests on. Quietly re-reading the rule until it fits is
+the failure this whole page exists to prevent.
+
 ## Verify a test by breaking the code it guards
 
 A green test proves nothing until it has been seen to fail. Break the guard, watch the test
