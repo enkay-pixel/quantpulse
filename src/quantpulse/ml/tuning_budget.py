@@ -279,8 +279,13 @@ def tuning_budget(
     step_days: int = 21,
     max_lag: int = 3,
     n_origins: int = 24,
+    as_of: str | None = None,
 ) -> pd.DataFrame:
     """Score selection rules against what production does, across rolling origins.
+
+    `as_of` truncates the panel as `fixed_defaults` does, for the same reason: the origin grid is
+    laid from the end of the data, so without it a rerun after any ingest lands on different
+    origins and cannot regenerate an earlier run.
 
     Each origin re-runs the production procedure on the panel truncated at that date, so every
     cell is a retrain that could have happened that week rather than a variation on one window.
@@ -289,13 +294,14 @@ def tuning_budget(
     production rule, averaged over seeds inside an origin and then over origins.
     """
     from quantpulse.ml.cv import purged_walk_forward_splits
+    from quantpulse.ml.fixed_defaults import truncate_panel
     from quantpulse.ml.pipeline import build_dataset
     from quantpulse.ml.training import HOLDOUT_FRACTION, split_by_date
 
     cfg = cfg or TrainConfig()
     ceiling = get_exchange(exchange).learning_rate_ceiling
     feature_cols = feature_columns_for(exchange)
-    frame = build_dataset(engine, cfg, exchange)  # type: ignore[arg-type]
+    frame = truncate_panel(build_dataset(engine, cfg, exchange), as_of)  # type: ignore[arg-type]
     dates = sorted(frame["date"].unique())
 
     # Origins are spaced by the label horizon rather than by the retrain cadence: a weekly
