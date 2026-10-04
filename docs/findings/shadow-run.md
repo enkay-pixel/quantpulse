@@ -82,6 +82,33 @@ The weekly holdout differences are reported alongside and decide nothing.
 - **Holdout IC is the metric throughout**, as in the study. The gate's drawdown floor and Sharpe veto
   are not checked here.
 
+## Disclosure: a dry run, before the first shadow week
+
+Recorded here, before the first shadow week, because it was seen.
+
+After deployment, the shadow was run once against the live panel to check it worked end to end,
+inside a session that was then rolled back — nothing was written, and the live id sequence did not
+move. No ingest had run since the retrain of 2026-10-03, so the panel was that retrain's, and the
+shadow paired with its candidates on both markets.
+
+**It went against the study.** On that one holdout:
+
+| | `fixed_default` | candidate | difference | margin |
+|---|---|---|---|---|
+| XJSE | 0.0081 | v14 0.0352 | **−0.0271** | −0.008 |
+| XNYS | 0.0177 | v15 0.0254 | **−0.0077** | −0.006 |
+
+How much it should weigh: it is one holdout, and the study measured the paired difference on a single
+holdout to move by about 0.025 when only the seed changes, so −0.027 is roughly one such swing. It is
+also a holdout comparison, which this rule says decides nothing. It is reported because it is the
+first look on data later than the study's pin, and because it points the other way.
+
+**Nothing in the rule changes.** No threshold moves, no arm changes, and the reading still waits for
+the forward windows. But it is a reason not to treat the switch as a foregone conclusion — which is
+what this check is for — and it bears on the disclosure above about where the burden sits: under a
+rule that switches unless harm is shown, an early unfavourable reading like this one does not stop
+the switch unless the forward evidence confirms it.
+
 ## Results
 
 Not yet measured.
