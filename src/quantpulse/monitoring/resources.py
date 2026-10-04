@@ -95,8 +95,10 @@ def _options_growth(engine: Engine) -> float | None:
     down and overstate the runway.
     """
     with engine.connect() as conn:
-        total = conn.execute(text("SELECT pg_total_relation_size('option_quotes')")).scalar_one()
-        days = conn.execute(
+        total: int = conn.execute(
+            text("SELECT pg_total_relation_size('option_quotes')")
+        ).scalar_one()
+        days: int = conn.execute(
             text(
                 "SELECT count(*) FROM (SELECT snapshot_date FROM option_quotes "
                 "WHERE snapshot_date < current_date GROUP BY snapshot_date) d"
