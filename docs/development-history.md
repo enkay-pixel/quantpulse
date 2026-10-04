@@ -450,6 +450,23 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     comment always asked to match, but nothing enforced it, so a dependency bot moved the
     client alone and the drift surfaced only from reading a freeze diff. `check_tool_pins.py`
     covers it alongside the pre-commit revs.
+36. **Local test runs wrote to the production database (2026-10-04)**: building the shadow run, the
+    two retrain tests in `test_drift_sensor.py` stubbed the trainer and `active_tickers` but not the
+    new shadow, so materialising the asset ran a real one. Integration tests see the real
+    DATABASE_URL — only the unit suite is redirected to a dead address — and with the stack's .env
+    loaded that is the live `market` database. Each local run therefore read production, fitted
+    real models against it, and tried to write shadow rows into its `model_runs`: **27 attempts**,
+    measured from the live id sequence moving 40 → 67, across about half an hour of bisecting. Every
+    one was refused, and no row landed, only because the migration allowing `shadow` had not yet
+    been applied there; applied first, they would have written fake shadows paired with real
+    production candidates. It surfaced indirectly, as a psycopg connection "deleted while still
+    open" — which CI reported against an unrelated test, because the leak was collected wherever
+    the garbage collector happened to run. Two lessons. A patch to `quantpulse.db.get_session` does
+    not reach a module that imported it by name, so the integration suite now redirects
+    DATABASE_URL itself to `market_test`, and a test pins that. And a count of refused statements
+    in the server log is not a count of anything until it is split by what was refused: the first
+    two figures given for this incident (35, then 6) came from lumping deliberate negative tests in
+    with real writes, and from a listing truncated by `head`; the sequence is what settled it.
 
 ## Fault injection: exercising a path that had never run (2026-08-13)
 

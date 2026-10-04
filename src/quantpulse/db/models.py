@@ -98,7 +98,11 @@ class ModelRun(Base):
     __tablename__ = "model_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    run_type: Mapped[str] = mapped_column(String(16))  # 'train' | 'promotion' | 'demotion'
+    # 'train' | 'promotion' | 'demotion' | 'shadow'. A shadow is a configuration fitted beside
+    # the weekly candidate for comparison only: it is never registered, never gated, and never
+    # becomes champion, and the check constraint below makes the last of those a property of the
+    # table rather than of the code that writes it.
+    run_type: Mapped[str] = mapped_column(String(16))
     exchange: Mapped[str] = mapped_column(String(8), default="XNYS")  # whose champion
     mlflow_run_id: Mapped[str | None] = mapped_column(String(64))
     model_version: Mapped[str | None] = mapped_column(String(64))  # MLflow version, a string
@@ -110,10 +114,17 @@ class ModelRun(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("run_type IN ('train', 'promotion', 'demotion')", name="run_type_valid"),
+        CheckConstraint(
+            "run_type IN ('train', 'promotion', 'demotion', 'shadow')", name="run_type_valid"
+        ),
         CheckConstraint(
             "decision IN ('promoted', 'rejected') OR decision IS NULL", name="decision_valid"
         ),
+        # Several readers identify champions by `decision = 'promoted'` alone, without looking
+        # at run_type: the live record's start date and the backfilled boundary both do. A
+        # shadow carrying a decision would be read as a promotion by every one of them, so the
+        # table refuses it outright.
+        CheckConstraint("run_type <> 'shadow' OR decision IS NULL", name="shadow_never_decides"),
     )
 
 

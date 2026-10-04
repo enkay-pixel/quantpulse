@@ -14,6 +14,8 @@ constantly and mostly does not execute an asset at all. Same convention, same re
 """
 
 import datetime as dt
+from collections.abc import Callable
+from typing import Any
 
 import dagster as dg
 from quantpulse.config import get_settings
@@ -451,6 +453,33 @@ def resource_headroom() -> dg.AssetCheckResult:
     )
 
 
+def run_shadow(
+    exchange: str,
+    log: Any,
+    record: Callable[..., dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Fit and record the shadow configuration for one market. Never raises.
+
+    The shadow is a comparison riding along with the retrain, so it must not be able to fail
+    the retrain: whatever goes wrong — a fit that errors, a row the table refuses — is logged and
+    reported in the run's metadata, and the production result already committed stands. Its own
+    session rolls back on error, so a failed shadow leaves no row behind either.
+
+    `record` is the function that does the work, passed in so the isolation can be tested with
+    one that fails.
+    """
+    if record is None:
+        from quantpulse.ml.shadow import record_shadow
+
+        record = record_shadow
+    try:
+        with get_session() as session:
+            return record(get_engine(), session, exchange)
+    except Exception as exc:  # the one place a broad catch is the point
+        log.warning("%s shadow failed and was skipped; production is unaffected: %s", exchange, exc)
+        return {"status": "failed", "error": f"{type(exc).__name__}: {exc}"[:300]}
+
+
 @dg.asset(group_name="training", kinds={"python", "mlflow"}, op_tags={"compute": "heavy"})
 def champion_model(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
     """Train a challenger per market, evaluate on holdout backtest, promote if it wins.
@@ -487,6 +516,10 @@ def champion_model(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
             )
         for key, value in summary.items():
             metadata[f"{exchange}/{key}"] = dg.MetadataValue.text(str(value))
+        # Only once the block above has exited — that exit is the production commit. The shadow
+        # gets a session of its own, so nothing it does can roll back the row it rides beside.
+        for key, value in run_shadow(exchange, context.log).items():
+            metadata[f"{exchange}/shadow/{key}"] = dg.MetadataValue.text(str(value))
     if not metadata:
         raise ValueError("No configured market has tickers — run `quantpulse sync-universe`")
     return dg.MaterializeResult(metadata=metadata)
