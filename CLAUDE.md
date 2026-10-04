@@ -143,6 +143,14 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Unanchored `.gitignore` dirs (`data/`) silently exclude same-named src packages from
   git AND hatchling wheels — keep artifact ignores root-anchored (`/data/`).
 - Dagster metadata rejects numpy types — cast to Python scalars.
+- **Every database URL names its driver** (`postgresql+psycopg2://`, never bare
+  `postgresql://`). SQLAlchemy resolves a bare scheme to its *default* driver, and 2.1 changed that
+  default from psycopg2 to psycopg 3 — so the SQLAlchemy 2.1 bump silently moved Dagster's storage
+  onto a driver it was not built against. Most paths kept working; the webserver's index page
+  failed on "the connection is closed". CI could not see it (Dagster's tests avoid Postgres by
+  design), so it surfaced only after rebuilding. `test_every_database_url_names_its_driver` guards
+  it. Whenever a dependency bump touches the DB layer, rebuild and load the Dagster UI, not just
+  the daemon — the daemon writing ticks is not evidence the webserver can read.
 - MLflow 3.x server: `MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false` or it OOMs small
   containers ~1 min after boot.
 - Dagster schedules must declare `default_status=RUNNING` (test enforces it).

@@ -2,7 +2,7 @@ name: quantpulse
 
 x-app-env: &app-env
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/${POSTGRES_DB:-market}
-  DAGSTER_PG_URL: postgresql://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/dagster
+  DAGSTER_PG_URL: postgresql+psycopg2://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/dagster
   MLFLOW_TRACKING_URI: http://mlflow:5000
   QUANTPULSE_UNIVERSE_FILE: /app/configs/universe.yaml
   # dbt profile (transform/profiles.yml) reads these:
