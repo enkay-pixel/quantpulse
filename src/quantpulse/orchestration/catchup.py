@@ -111,7 +111,7 @@ def missing_trading_days(
     if not expected:
         return []
     with get_engine().connect() as conn:
-        universe_size = conn.execute(
+        universe_size: int = conn.execute(
             text("SELECT count(*) FROM universe WHERE active AND exchange = :ex"),
             {"ex": exchange},
         ).scalar_one()
@@ -213,11 +213,11 @@ def option_snapshot_incomplete(today: dt.date, exchange: str = DEFAULT_EXCHANGE)
     `is_post_close()`.
     """
     with get_engine().connect() as conn:
-        universe_size = conn.execute(
+        universe_size: int = conn.execute(
             text("SELECT count(*) FROM universe WHERE active AND exchange = :ex"),
             {"ex": exchange},
         ).scalar_one()
-        covered = conn.execute(
+        covered: int = conn.execute(
             text(
                 "SELECT count(DISTINCT o.ticker) FROM option_quotes o "
                 "JOIN universe u ON u.ticker = o.ticker AND u.exchange = :ex "

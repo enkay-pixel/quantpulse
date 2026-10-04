@@ -150,6 +150,15 @@ filterwarnings = [
     # The leading `.*` is load-bearing: mlflow colorizes the text, so the message starts
     # with an ANSI escape and a prefix-anchored pattern never matches it.
     "ignore:.*Any type hint is inferred as AnyType:UserWarning",
+    # MLflow's SQLAlchemy tracking store maps a relationship with the `noload` loader, which
+    # SQLAlchemy 2.1 deprecates. Only the tests reach that store; production talks to the MLflow
+    # server over HTTP. Raised as an error it aborts SQLAlchemy's global mapper configuration
+    # part-way, which then fails every later test that touches a mapper with "One or more mappers
+    # failed to initialize" — so one third-party warning reads as several unrelated failures.
+    # Scoped to the message, and this project never uses noload, so it can only match MLflow's.
+    # Deprecated, not removed: when SQLAlchemy drops it, MLflow's store breaks outright rather
+    # than warning, so re-check on each MLflow or SQLAlchemy bump.
+    "ignore:The ``noload`` loader strategy is deprecated:sqlalchemy.exc.SADeprecationWarning",
     # dbt_common's logger opens transform/logs/dbt.log and never closes it, so running dbt
     # in-process leaks the handle and the interpreter reports it at collection. Both entries
     # are the same leak seen twice: once as the ResourceWarning, once as pytest surfacing the
