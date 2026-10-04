@@ -114,6 +114,18 @@ When the pre-registered reasoning turns out to be wrong, say so where the result
 give the argument the conclusion actually rests on. Quietly re-reading the rule until it fits is
 the failure this whole page exists to prevent.
 
+## Keep the evidence somewhere that outlives the session
+
+A finding that says its raw data is saved has to point at somewhere durable, or the claim expires
+without anyone noticing. The tuning-budget rounds wrote every trial to a session's temporary
+directory and recorded that the next question "will not need it repeated"; a cleanup emptied the
+directory days later, and the claim stayed in the document, false.
+
+Write experiment output to `~/quantpulse-experiments/<study>-asof-<date>/`, alongside the
+database backups, and pin the run with `--as-of` so it can be regenerated if that is lost too. The
+pin matters as much as the files: rolling-origin studies lay their grid from the end of the data,
+so without it a rerun after any ingest answers a slightly different question.
+
 ## Verify a test by breaking the code it guards
 
 A green test proves nothing until it has been seen to fail. Break the guard, watch the test

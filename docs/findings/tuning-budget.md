@@ -228,7 +228,8 @@ power: across the forty trials of a single study, does a better fold score go wi
 holdout score? If it does not, then no rule ordering on fold IC can work, and the arms' failure to
 separate is explained rather than needing more origins.
 
-The first run threw those trials away. It now keeps them.
+The first run threw those trials away. The module now keeps them — though see the correction
+under the second round's results: keeping them in a run is not the same as keeping them.
 
 ### Measure
 
@@ -288,7 +289,8 @@ why the run is being done at twenty and thirty-six.
 ## Second-round results
 
 Measured 2026-09-27, 6h40m. XJSE at 20 origins (2024-12-31 → 2026-08-05), XNYS at 36
-(2023-09-19 → 2026-08-25), 2 seeds, every trial retained.
+(2023-09-19 → 2026-08-25), 2 seeds, every trial retained by the run (the files were later
+lost; see the correction below).
 
 **XJSE reproduced the first round exactly** — every arm figure identical to three weeks of
 numbers taken a day earlier, same seeds and origins. Worth stating because nothing else in this
@@ -367,6 +369,18 @@ sample twofold.
 Every trial is saved this run (6,840 rows for XNYS — first written here as 3,420, which multiplied
 origins by trials and dropped the two seeds; corrected 2026-09-28), so the next question will not
 need it repeated. That omission is what made this round necessary.
+
+**Corrected 2026-10-04: the trials are not saved.** They were written to a session's temporary
+directory, which a cleanup emptied a few days later, along with the first and third rounds' trials
+and the fixed-defaults run that followed. Nothing in the findings rests on them — every figure here
+was read from them while they existed — but the claim above, that the next question would not need
+the run repeated, is false, and it is left visible rather than quietly rewritten.
+
+They can be regenerated exactly. All three rounds ran before the ingest of 2026-09-28, so
+`quantpulse tuning-budget --as-of 2026-08-26` lays the same origins on the same panel; without the
+cutoff a rerun lands on different origins, because the grid is laid from the end of the data and
+every ingest moves it. See [How to measure things here](../measurement.md#keep-the-evidence-somewhere-that-outlives-the-session)
+for where evidence now goes.
 
 ## Third round: is the holdout score reproducible at all? (pre-registered 2026-09-27)
 

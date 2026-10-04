@@ -459,7 +459,7 @@ def _fixed_defaults(exchange: str | None, n_origins: int, as_of: str | None) -> 
             )
 
 
-def _tuning_budget(exchange: str | None, n_origins: int) -> None:
+def _tuning_budget(exchange: str | None, n_origins: int, as_of: str | None) -> None:
     """Report whether the tuner's budget, or its search at all, buys a better candidate."""
     from quantpulse.data.calendar import EXCHANGES
     from quantpulse.db import get_engine
@@ -468,7 +468,7 @@ def _tuning_budget(exchange: str | None, n_origins: int) -> None:
     engine = get_engine()
     for code in [exchange] if exchange else sorted(EXCHANGES):
         try:
-            table = tuning_budget(engine, code, n_origins=n_origins)
+            table = tuning_budget(engine, code, n_origins=n_origins, as_of=as_of)
         except ValueError as exc:
             logger.error("%s: %s", code, exc)
             continue
@@ -853,6 +853,11 @@ def main(argv: list[str] | None = None) -> None:
         default=20,
         help="Rolling origins per market (hours of compute — 20 took about 5)",
     )
+    budget.add_argument(
+        "--as-of",
+        default=None,
+        help="Truncate the panel to this date (YYYY-MM-DD) so a run reproduces an earlier one",
+    )
     abl = sub.add_parser("ablation", help="Report which features earn their place")
     prn = sub.add_parser("prune", help="Select a feature set from evidence and measure it")
     prn.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
@@ -899,7 +904,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "retrain-value":
         _retrain_value(args.exchange)
     elif args.command == "tuning-budget":
-        _tuning_budget(args.exchange, args.origins)
+        _tuning_budget(args.exchange, args.origins, args.as_of)
     elif args.command == "fixed-defaults":
         _fixed_defaults(args.exchange, args.origins, args.as_of)
     elif args.command == "demote":
