@@ -239,6 +239,16 @@ def _train_calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setattr(
         "quantpulse.data.universe.active_tickers", lambda session, exchange: ["AAA"]
     )
+
+    # The shadow rides along with every retrain and does real reads, fits and writes. Left in,
+    # it ran against whatever database the environment named — the live one, on a laptop with
+    # the stack's .env loaded. These tests are about which markets a retrain touches, so the
+    # shadow is recorded rather than run, and must follow exactly the markets that trained.
+    def fake_shadow(exchange: str, log: object) -> dict[str, object]:
+        seen.append(f"shadow:{exchange}")
+        return {"status": "stubbed"}
+
+    monkeypatch.setattr(qp_assets, "run_shadow", fake_shadow)
     return seen
 
 
@@ -259,7 +269,10 @@ def test_a_drift_triggered_retrain_only_trains_the_market_that_drifted(
     # Materialized rather than invoked directly, so the tags travel the real path: a run is
     # created, tagged, and the asset reads them back off it.
     assert dg.materialize([champion_model], tags={"trigger": "drift", "exchange": "XJSE"}).success
-    assert seen == ["XJSE"], f"drift on XJSE must not retrain {set(seen) - {'XJSE'}}"
+    trained = [m for m in seen if not m.startswith("shadow:")]
+    assert trained == ["XJSE"], f"drift on XJSE must not retrain {set(trained) - {'XJSE'}}"
+    # The shadow follows the retrain and nothing else: one per market trained, none beyond.
+    assert [m for m in seen if m.startswith("shadow:")] == ["shadow:XJSE"]
 
 
 def test_the_weekly_retrain_still_covers_every_market(
@@ -271,7 +284,8 @@ def test_the_weekly_retrain_still_covers_every_market(
 
     seen = _train_calls(monkeypatch)
     assert dg.materialize([champion_model]).success
-    assert sorted(seen) == ["XJSE", "XNYS"]
+    assert sorted(m for m in seen if not m.startswith("shadow:")) == ["XJSE", "XNYS"]
+    assert sorted(m for m in seen if m.startswith("shadow:")) == ["shadow:XJSE", "shadow:XNYS"]
 
 
 def test_the_sensor_tags_the_run_with_the_market_the_job_reads(db_engine: Engine) -> None:
