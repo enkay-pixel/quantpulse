@@ -1,6 +1,6 @@
 # Can a fixed configuration replace the tuner? (pre-registered 2026-09-28)
 
-**Status: pre-registered, not yet measured.** This page reached `main` before the run started,
+**Measured 2026-10-04; everything above Results was on `main` before the run started**,
 following the rule in [How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it)
 that a pre-registration committed to a feature branch is erased by the squash merge.
 
@@ -152,4 +152,81 @@ No threshold moves and no arm changes role. `fixed_default` stays the only candi
 
 ## Results
 
-Not yet measured.
+Measured 2026-10-04, pinned `--as-of 2026-08-26`. XJSE 20 origins, XNYS 36, two seeds — 336 cells.
+
+**The first run of this measurement was lost unread.** It wrote to a session's temporary directory,
+which a cleanup emptied before anyone looked; see
+[How to measure things here](../measurement.md#keep-the-evidence-somewhere-that-outlives-the-session).
+The figures below come from a rerun on the same pin, kept in
+`~/quantpulse-experiments/fixed-defaults-asof-2026-08-26/`.
+
+### Rule 0 holds on every cell that can still be checked
+
+The tuning-budget trials it was to be checked against went with the same cleanup, so the check
+survives only on the six cells the smoke test printed. On all six the tuned arm reproduces the
+tuning-budget production arm **exactly**, to six decimals in holdout IC and in learning rate — a week
+after the smoke test, with five more trading days in the database. The tuned arm's means also
+reproduce the tuning-budget rounds exactly: 0.0353 on XJSE, 0.0340 on XNYS.
+
+### XJSE — rule 1 fires: non-inferior, narrowly
+
+| arm | holdout IC | vs `tuned` | t | worst plausible | favours |
+|---|---|---|---|---|---|
+| `tuned` | 0.0353 | — | — | — | — |
+| **`fixed_default`** | 0.0330 | −0.0023 | −1.27 | **−0.0053** | 8/20 |
+| `fixed_center` | 0.0264 | −0.0089 | −2.01 | −0.0162 | 4/20 |
+
+Against a margin of −0.008, `fixed_default` is non-inferior under the pre-registered error. It stays
+so under every error tried — but the paired differences autocorrelate at **−0.45**, which shrinks a
+Newey-West error, and under the plain error that ignores it the worst case is **−0.0078**, inside the
+line by 0.0002:
+
+| error | worst plausible | verdict |
+|---|---|---|
+| plain | −0.0078 | non-inferior |
+| Newey-West lag 1 | −0.0063 | non-inferior |
+| Newey-West lag 3 (pre-registered) | −0.0053 | non-inferior |
+| Newey-West lag 5 | −0.0049 | non-inferior |
+
+An error of 0.0035 would flip it; the plain one is 0.0033. **Supported, but borderline.**
+
+### XNYS — rule 1 fires, and the fixed configuration is better
+
+| arm | holdout IC | vs `tuned` | t | worst plausible | favours |
+|---|---|---|---|---|---|
+| `tuned` | 0.0340 | — | — | — | — |
+| **`fixed_default`** | **0.0464** | **+0.0123** | **+2.73** | **+0.0049** | **28/36** |
+| `fixed_center` | 0.0323 | −0.0017 | −0.28 | −0.0118 | 14/36 |
+
+The worst plausible case is above zero under every error tried (+0.0040 to +0.0073). The question
+asked was non-inferiority; superiority is reported because it is there, not because it was the test,
+and it should be read with that in mind.
+
+### The fixed point matters
+
+`fixed_center` fails non-inferiority on both markets while `fixed_default` passes. By the
+pre-registered diagnostic the two differ by less than the paired seed spread (XJSE 0.0066 against
+0.024–0.038; XNYS 0.014 against 0.027), so that rule does not flag it — but one fixed point passing
+and the other failing on both markets says "a fixed configuration" is not one thing, and the case
+here is for these defaults specifically, not for fixing parameters in general.
+
+### Cost
+
+A tuned candidate costs 61 fits and a median 13.8 s (XJSE) / 18.8 s (XNYS); a fixed one, 1 fit and
+0.18 s / 0.24 s — about 76× faster, and deterministic.
+
+### What this does not establish
+
+- **These holdouts have been consulted many times.** Every tuning-budget round and this study read
+  them, and the decision to look at fixed defaults at all came from them. A result on heavily-read
+  windows is the kind this project has seen reverse before.
+- **Holdout IC does not predict live returns well here** — the standing caveat on every holdout
+  figure in this project.
+- **XJSE already runs a fixed configuration in practice.** Its tuner has returned warm-up draw #2 for
+  three straight weeks, so on XJSE the comparison is between two fixed points, not tuned and fixed.
+
+## What follows
+
+Not a switch. The pre-registered rule says replacing the tuner is supported *subject to a live
+check*, and the caveats above are what that check is for. It is specified, before it starts, in
+[the shadow run](shadow-run.md).

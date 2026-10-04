@@ -720,8 +720,13 @@ def portfolio_positions(session: SessionDep, exchange: ExchangeDep) -> schemas.P
 
 @router.get("/models/history", response_model=list[schemas.ModelRunOut])
 def model_history(session: SessionDep, exchange: ExchangeDep) -> list[schemas.ModelRunOut]:
+    # Production's history only. A shadow is a configuration fitted beside the candidate for
+    # comparison, never a model that ran or could have run, and listing it beside promotions and
+    # rejections would read as a decision that was never made.
     runs = session.scalars(
-        select(ModelRun).where(ModelRun.exchange == exchange).order_by(ModelRun.id.desc())
+        select(ModelRun)
+        .where(ModelRun.exchange == exchange, ModelRun.run_type != "shadow")
+        .order_by(ModelRun.id.desc())
     ).all()
     return [
         schemas.ModelRunOut(

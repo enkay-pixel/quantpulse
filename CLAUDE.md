@@ -143,6 +143,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Unanchored `.gitignore` dirs (`data/`) silently exclude same-named src packages from
   git AND hatchling wheels — keep artifact ignores root-anchored (`/data/`).
 - Dagster metadata rejects numpy types — cast to Python scalars.
+- **`model_runs` holds `shadow` rows**, written by the weekly retrain beside each candidate for the
+  [shadow run](docs/findings/shadow-run.md). They are never registered, gated or champion, and the
+  table refuses one with any decision (`shadow_never_decides`), because `/track-record` and
+  `fct_portfolio_daily` identify champions by `decision = 'promoted'` *without* checking run_type.
+  A new reader of `model_runs` must either filter `run_type = 'train'` or rely on that constraint —
+  and `/models/history`, which lists every row, excludes shadows explicitly.
 - **Every database URL names its driver** (`postgresql+psycopg2://`, never bare
   `postgresql://`). SQLAlchemy resolves a bare scheme to its *default* driver, and 2.1 changed that
   default from psycopg2 to psycopg 3 — so the SQLAlchemy 2.1 bump silently moved Dagster's storage

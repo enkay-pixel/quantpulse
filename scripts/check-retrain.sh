@@ -64,6 +64,27 @@ if [ -z "$ROWS" ]; then
 else
     printf '%s retrain outcome:\n' "$(stamp)"
     printf '  %s\n' "$ROWS"
+    # The shadow fitted beside each candidate, reported but never counted: it is a comparison,
+    # not a candidate, so it takes no part in the promotion or stall logic below. An unpaired
+    # shadow sat a different exam from the candidate, and its difference is not a result.
+    SHADOWS=$(psql_q "
+        SELECT '  shadow ' || exchange || ' (' || coalesce(metrics->>'arm', '?') || '): ic '
+               || coalesce(round((metrics->>'holdout_ic')::numeric, 4)::text, 'n/a')
+               || ' vs candidate v' || coalesce(metrics->>'shadows_version', '?') || ' '
+               || coalesce(round((metrics->>'production_holdout_ic')::numeric, 4)::text, 'n/a')
+               || CASE WHEN (metrics->>'paired')::boolean
+                       THEN ' | difference ' || to_char((metrics->>'delta_ic')::numeric, 'S0.0000')
+                       ELSE ' | NOT PAIRED — not comparable' END
+        FROM model_runs
+        WHERE run_type = 'shadow' AND created_at::date = current_date
+        ORDER BY exchange, id;")
+    if [ -n "$SHADOWS" ]; then
+        printf '%s\n' "$SHADOWS"
+    else
+        # A retrain without its shadow means the shadow failed or was not deployed; the retrain
+        # itself is unaffected either way, so this is a note, not an alert.
+        printf '  shadow: none recorded today — check the training run'"'"'s metadata\n'
+    fi
 fi
 
 # A promotion changes what scores from now on, so it is the case worth interrupting for.
