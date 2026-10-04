@@ -1,0 +1,13 @@
+# Keep host build output out of every image's build context.
+#
+# The web image installs its dependencies with `npm ci` and then copies the web source over the
+# top. Without these lines that copy carries the host's own node_modules in with it, replacing the
+# freshly installed Linux packages with whatever the laptop last installed — macOS native bindings
+# included. The image then depends on the state of the developer's checkout rather than on the
+# lock, and works only while the two happen to agree. When they drifted, the build failed inside
+# the bundler with a JavaScript layer from one version calling native code from another.
+#
+# Scoped to exactly that. The Python images copy named paths and never read anything under web/,
+# so these entries cannot change what they contain.
+web/node_modules
+web/dist
