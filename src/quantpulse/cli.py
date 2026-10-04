@@ -370,6 +370,45 @@ def _staleness(exchange: str | None) -> None:
             )
 
 
+def _shadow_forward(exchange: str | None) -> None:
+    """Report the shadow run: health every time, results only once the rule can be read.
+
+    The rule reads once, after the last window matures. A report that printed each week's
+    difference as it came in would invite reading it early, and under a rule that stops the switch
+    only on harm, looking often enough lets noise stop it — so until the verdict is readable this
+    shows each week's health and progress and withholds the scores.
+    """
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine, get_session
+    from quantpulse.ml.shadow_forward import READABLE, shadow_forward, week_scores
+
+    engine = get_engine()
+    for code in [exchange] if exchange else sorted(EXCHANGES):
+        with get_session() as session:
+            weeks, v = shadow_forward(engine, session, code)
+        readable = v["state"] in READABLE
+        logger.info("%s shadow run: %s — %s", code, v["state"], v["action"])
+        for w in weeks:
+            scores = week_scores(w, v["state"])
+            logger.info(
+                "  %s v%-3s %-15s %2d/21  %s%s",
+                w.retrain_date,
+                w.candidate_version or "-",
+                w.status,
+                w.forward_sessions,
+                scores,
+                f"  ({w.note})" if w.note else "",
+            )
+        if readable:
+            logger.info(
+                "  mean difference %+.4f, upper bound %+.4f against margin -%.4f over %d week(s)",
+                v["mean_delta"],
+                v["upper_bound"],
+                v["margin"],
+                v["weeks"],
+            )
+
+
 def _fixed_defaults(exchange: str | None, n_origins: int, as_of: str | None) -> None:
     """Report whether a fixed configuration is non-inferior to the tuned candidate."""
     from quantpulse.data.calendar import EXCHANGES
@@ -842,6 +881,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     fixed.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     fixed.add_argument("--origins", type=int, default=20, help="Rolling origins per market")
+    fwd = sub.add_parser(
+        "shadow-forward",
+        help="Report the shadow run's forward evidence (results hidden until the window closes)",
+    )
+    fwd.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
     fixed.add_argument(
         "--as-of",
         default=None,
@@ -905,6 +949,8 @@ def main(argv: list[str] | None = None) -> None:
         _retrain_value(args.exchange)
     elif args.command == "tuning-budget":
         _tuning_budget(args.exchange, args.origins, args.as_of)
+    elif args.command == "shadow-forward":
+        _shadow_forward(args.exchange)
     elif args.command == "fixed-defaults":
         _fixed_defaults(args.exchange, args.origins, args.as_of)
     elif args.command == "demote":

@@ -76,11 +76,26 @@ The weekly holdout differences are reported alongside and decide nothing.
   runs.
 - **On XJSE the tuned arm is already a fixed point.** Its tuner has returned the same warm-up draw for
   three straight weeks, so the XJSE comparison is between two fixed configurations.
-- **The forward scorer is not yet written.** Its method is fixed above, and the first window does not
-  mature until about four weeks after the first shadow retrain, so it will be built in that time with
-  nothing left to choose.
+- **The forward scorer is built** — `quantpulse shadow-forward`, implementing the measure above with
+  every constant the rule fixes. Its foundation was checked on real data before the first shadow
+  week, without reading any forward return: refitting with `--as-of` the 2026-10-03 candidates'
+  holdout end reproduces v14 and v15 to twelve decimal places, a difference of exactly zero, and the
+  fixed refits match the dry run. So every week's real models can be recovered.
 - **Holdout IC is the metric throughout**, as in the study. The gate's drawdown floor and Sharpe veto
   are not checked here.
+
+## Addition: interim reports withhold the scores
+
+Made before the first shadow week, and stricter than the protocol above rather than different from
+it — the decision rule is unchanged.
+
+Windows start maturing around 9 November and the rule reads once, around the end of December. A
+report that showed each week's difference as it matured would invite reading it early, and under a
+rule that stops the switch only on harm, looking often enough lets noise stop it. So until the rule
+can be read, `quantpulse shadow-forward` shows each week's health and progress — its status, how
+many sessions have matured, whether its refit reproduced — and withholds the scores. Engineering
+problems still surface early, as rule 3 requires; the effect does not. A test fails if a score is
+shown before the window closes.
 
 ## Disclosure: a dry run, before the first shadow week
 
