@@ -87,6 +87,15 @@ def saturdays(start: dt.date = WINDOW_START, end: dt.date = WINDOW_END) -> list[
     return [start + dt.timedelta(weeks=i) for i in range((end - start).days // 7 + 1)]
 
 
+def due(retrain_dates: list[dt.date], today: dt.date) -> list[dt.date]:
+    """The retrain dates that have passed by `today` in New York.
+
+    A Saturday counts from the day after. Counted on the day itself, a run that morning — before
+    the retrain has fired — would file that retrain as missing and lose a week that is not lost.
+    """
+    return [d for d in retrain_dates if d < today]
+
+
 def forward_window(frame: pd.DataFrame, holdout_end: dt.date) -> tuple[pd.DataFrame, int]:
     """The first matured sessions after the holdout, up to `FORWARD_SESSIONS`, and their count.
 
@@ -288,5 +297,5 @@ def shadow_forward(
     full = build_dataset(engine, cfg, exchange)
     # Today in New York, where the schedule runs — never the container's UTC date.
     today = dt.datetime.now(SCHEDULE_ZONE).date()
-    weeks = [score_week(full, exchange, d, *pairs[d], cfg) for d in dates if d <= today]
+    weeks = [score_week(full, exchange, d, *pairs[d], cfg) for d in due(dates, today)]
     return weeks, verdict(weeks, get_exchange(exchange).ic_promotion_margin, expected=len(dates))

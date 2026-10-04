@@ -97,6 +97,24 @@ many sessions have matured, whether its refit reproduced — and withholds the s
 problems still surface early, as rule 3 requires; the effect does not. A test fails if a score is
 shown before the window closes.
 
+## Addition: the reading is the first readable run
+
+Made before the first shadow week, and stricter than the protocol above rather than different from
+it — the decision rule is unchanged.
+
+"Read once" leaves open *which* run is the reading. The scorer can be run on any day, and a verdict
+computed after a data revision can differ from one computed before it — so a reader who disliked the
+first verdict could read again later without moving a single threshold. A weekly job,
+`scripts/check-shadow-forward.sh` (Mondays), closes that. The first of its runs to find a market's
+rule readable saves the output, with the commit and image that produced it, to
+`~/quantpulse-experiments/shadow-run/<market>.verdict.txt`, and that market is never scored again.
+**That file is the reading.** The day it happens is set by the exchange calendars, not chosen.
+
+The same job reports lost weeks as they happen, so rule 3's engineering problems are found while the
+window is still open. For the same reason a retrain now counts as due from the day after its
+Saturday: counted on the day itself, a run that morning would file a retrain that had not yet fired
+as lost.
+
 ## Disclosure: a dry run, before the first shadow week
 
 Recorded here, before the first shadow week, because it was seen.
