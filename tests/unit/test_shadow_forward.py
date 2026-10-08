@@ -19,6 +19,7 @@ from quantpulse.ml.shadow_forward import (
     FORWARD_SESSIONS,
     NEWEY_WEST_LAG,
     Week,
+    due,
     forward_ic,
     forward_window,
     reproduces,
@@ -38,6 +39,14 @@ def test_the_window_is_the_eight_pre_registered_saturdays() -> None:
     assert all(d.weekday() == 5 for d in days)
     with pytest.raises(ValueError):
         saturdays(dt.date(2026, 10, 9), dt.date(2026, 11, 28))
+
+
+def test_a_retrain_is_not_due_until_its_saturday_has_passed() -> None:
+    """A run on the Saturday morning, before the retrain fires, must not count it as missing."""
+    first, second = saturdays()[:2]
+    assert due([first, second], today=first) == []
+    assert due([first, second], today=first + dt.timedelta(days=1)) == [first]
+    assert due([first, second], today=second + dt.timedelta(days=1)) == [first, second]
 
 
 def _panel(dates: list[dt.date], tickers: int = 5) -> pd.DataFrame:

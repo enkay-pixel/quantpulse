@@ -214,7 +214,7 @@ docker compose exec -T api grep -c "some_new_symbol" /app/src/quantpulse/api/rou
 
 ## Host agents (launchd)
 
-Seven scheduled jobs on the dev machine. Each keeps only its *schedule* in
+Eight scheduled jobs on the dev machine. Each keeps only its *schedule* in
 `~/Library/LaunchAgents/com.quantpulse.*.plist`; the logic lives in `scripts/` or the
 Makefile, so changing behaviour is a code change with a diff. All log to
 `~/Library/Logs/quantpulse-*.log`.
@@ -229,6 +229,7 @@ separate agent fleet, not this repo. The ones below are the ones a fresh clone c
 | `jse-close` | 19:47 weekdays | Checks today's JSE session landed and no benchmark bar is missing, after the 19:30 ingest |
 | `daily-pipeline` | 08:00 Tue–Sat | Reports whether last night's run reached predictions on **both** markets, and which champion scored. Tue–Sat rather than Mon–Fri because the 19:00 New York process job lands at 01:00 local the next day |
 | `retrain-check` | Sat 17:37 | Reports the weekly retrain's outcome per market — decision, candidate IC, and the incumbent and baseline it had to beat |
+| `shadow-forward` | Mon 20:37 | Scores the [shadow run](findings/shadow-run.md) forward and notifies when its verdict becomes readable, a week is lost, or the scorer fails |
 | `readiness` | 21:45 weekdays | Warns if the stack is down or on battery, 15 min before the option window |
 | `power` | every 2h | Warns only when sleep is disabled **and** on battery — the combination that runs the machine flat |
 | `prune-cache` | Sun 03:00 | Reclaims Docker build cache, keeps the uv wheel cache |
@@ -241,6 +242,17 @@ repairs: the catch-up sensor already retries a missing benchmark on its own, and
 from a script is how a misdated bar gets written (see data-dictionary.md). It also stays
 quiet before 19:30, since until the schedule has had its turn an absent session is not a
 missed one — the same `ingest_overdue` distinction the sensor draws.
+
+`shadow-forward` has one job beyond reporting: the first run that finds a market's verdict
+readable saves it to `~/quantpulse-experiments/shadow-run/<market>.verdict.txt`, and that
+market is never scored again. The saved file *is* the reading — deleting it to get a fresh one
+re-reads the rule on later data, which is what reading it once rules out. Until then the log
+holds each week's health and progress and none of its scores. A lost week notifies when first
+seen and then weekly while it stands, because two of them make the run not clean and the cause
+has to be fixed while the window is still open. The fits run in a throwaway container off the
+daemon's service definition — about half a minute per market per week, at most a few minutes
+for the whole window — and never inside the live daemon. Once every market's verdict is saved
+the job has nothing left to do and can be unloaded.
 
 The checks notify but never act: bringing the stack up automatically would override a
 deliberate `make down` before travel. Disable any of them with

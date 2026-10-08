@@ -150,7 +150,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   A new reader of `model_runs` must either filter `run_type = 'train'` or rely on that constraint —
   and `/models/history`, which lists every row, excludes shadows explicitly. `quantpulse
   shadow-forward` scores the shadow weeks forward and **withholds the scores until the window
-  closes** — don't add a way round that; it is what stops the rule being read early.
+  closes** — don't add a way round that; it is what stops the rule being read early. The weekly
+  `scripts/check-shadow-forward.sh` saves the first readable verdict per market to
+  `~/quantpulse-experiments/shadow-run/` and never scores that market again: **that file is the
+  reading**. Don't delete it to refresh the result — re-reading after more data is the forking path
+  the rule exists to close.
 - **Every database URL names its driver** (`postgresql+psycopg2://`, never bare
   `postgresql://`). SQLAlchemy resolves a bare scheme to its *default* driver, and 2.1 changed that
   default from psycopg2 to psycopg 3 — so the SQLAlchemy 2.1 bump silently moved Dagster's storage
