@@ -63,7 +63,8 @@ if [ -z "$ROWS" ]; then
     fi
 else
     printf '%s retrain outcome:\n' "$(stamp)"
-    printf '  %s\n' "$ROWS"
+    # One row per market. A printf format indents only the first line of a multi-line value.
+    printf '%s\n' "$ROWS" | sed 's/^/  /'
     # The shadow fitted beside each candidate, reported but never counted: it is a comparison,
     # not a candidate, so it takes no part in the promotion or stall logic below. An unpaired
     # shadow sat a different exam from the candidate, and its difference is not a result.
