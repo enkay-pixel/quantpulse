@@ -118,9 +118,14 @@ v3's recorded holdout IC to every digit (0.062547779031685), so the window and t
 right ones. The replay matches what v3 served closely but not exactly: per-session ICs correlate
 0.999 over the 32 live sessions (−0.1267 replayed, −0.1246 served), while single scores differ by
 up to 0.00098 against a typical within-session spread of 0.0014. Since the holdout reproduces
-exactly, the difference is in what the serving path saw on the day. Served sessions averaged 28.8
-tickers against the replay's 29, which points at bars that arrived after scoring — not verified.
-The served-only row does not depend on the replay, and it reads the same way.
+exactly, the difference is in what the serving path saw on the day. **Traced the same day: there
+is no train/serve skew.** On 29 of the 32 live sessions the replay equals the served score
+exactly. The whole gap is 2026-08-11 to 08-13, when STX40.JO's bar was written after the session
+had been scored — the late benchmark bar the [runbook](../runbook.md#host-agents-launchd)
+records — so those three sessions were ranked over 28 tickers and STX40.JO was never scored on
+them. Scored dates are never re-scored, by design, so the served record keeps what was actually
+served. Evidence: `~/quantpulse-experiments/served-vs-replay-asof-2026-10-09/`. The served-only
+row does not depend on the replay either way, and it reads the same as the replayed one.
 
 ### What it says
 
