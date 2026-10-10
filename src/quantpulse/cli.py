@@ -409,6 +409,73 @@ def _shadow_forward(exchange: str | None) -> None:
             )
 
 
+def _champion_forward(exchange: str, version: str, data_end: str, as_of: str) -> None:
+    """Report one model version against the standing competitor on sessions it never saw."""
+    import datetime as dt
+
+    from quantpulse.db import get_engine
+    from quantpulse.ml.champion_forward import champion_forward
+
+    series = champion_forward(
+        get_engine(),
+        exchange,
+        version,
+        dt.date.fromisoformat(data_end),
+        dt.date.fromisoformat(as_of),
+    )
+    a = series.attrs
+    logger.info(
+        "%s v%s vs %s: holdout ended %s; forward %s to %s, pinned at %s",
+        exchange,
+        version,
+        a["competitor"],
+        a["holdout_end"],
+        a["first"],
+        a["last"],
+        a["as_of"],
+    )
+    logger.info(
+        "  holdout IC replayed %.6f vs recorded %s — %s",
+        a["replayed_holdout_ic"],
+        a["recorded_holdout_ic"],
+        "reproduced" if a["holdout_reproduced"] else "NOT REPRODUCED: the replay is not that model",
+    )
+    logger.info(
+        "  served on %d sessions (%d rows); largest gap between replay and served score %.2e",
+        a["served_sessions"],
+        a["served_rows"],
+        a["max_replay_gap"],
+    )
+    for label in ("replayed", "served"):
+        r = a[label]
+        if r["state"] == "too_few_sessions":
+            logger.info("  %-8s %d session(s) — too few to compare", label, r["sessions"])
+            continue
+        logger.info(
+            "  %-8s %d sessions: model %+.4f, %s %+.4f, difference %+.4f ± %.4f "
+            "(95%% one-sided %+.4f to %+.4f) — %s",
+            label,
+            r["sessions"],
+            r["model_ic"],
+            a["competitor"],
+            r["competitor_ic"],
+            r["mean_delta"],
+            r["std_error"],
+            r["lower_bound"],
+            r["upper_bound"],
+            r["state"],
+        )
+        logger.info(
+            "           by 21-session block: %s",
+            ", ".join(f"{b:+.4f}" for b in r["block_deltas"]),
+        )
+        if r["sessions_needed"]:
+            logger.info(
+                "           unresolved: the same mean would need about %.0f sessions in all",
+                r["sessions_needed"],
+            )
+
+
 def _fixed_defaults(exchange: str | None, n_origins: int, as_of: str | None) -> None:
     """Report whether a fixed configuration is non-inferior to the tuned candidate."""
     from quantpulse.data.calendar import EXCHANGES
@@ -886,6 +953,22 @@ def main(argv: list[str] | None = None) -> None:
         help="Report the shadow run's forward evidence (results hidden until the window closes)",
     )
     fwd.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    champ = sub.add_parser(
+        "champion-forward",
+        help="Score one model version against the standing competitor on sessions it never saw",
+    )
+    champ.add_argument("--exchange", required=True, help="Market code, e.g. XJSE")
+    champ.add_argument("--version", required=True, help="Registered model version, e.g. 3")
+    champ.add_argument(
+        "--data-end",
+        required=True,
+        help="Last session of the data the version was fitted on (YYYY-MM-DD)",
+    )
+    champ.add_argument(
+        "--as-of",
+        required=True,
+        help="Score only labels matured by this session (YYYY-MM-DD), so a rerun reproduces it",
+    )
     fixed.add_argument(
         "--as-of",
         default=None,
@@ -951,6 +1034,8 @@ def main(argv: list[str] | None = None) -> None:
         _tuning_budget(args.exchange, args.origins, args.as_of)
     elif args.command == "shadow-forward":
         _shadow_forward(args.exchange)
+    elif args.command == "champion-forward":
+        _champion_forward(args.exchange, args.version, args.data_end, args.as_of)
     elif args.command == "fixed-defaults":
         _fixed_defaults(args.exchange, args.origins, args.as_of)
     elif args.command == "demote":
