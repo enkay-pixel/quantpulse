@@ -1,8 +1,10 @@
 # Does the live JSE champion beat momentum going forward? (pre-registered 2026-10-10)
 
-**Status: pre-registered, not yet measured.** This page reaches `main` before the measurement is
-built or run, under the rule in
+**Status: measured 2026-10-10. By the pre-registered rule v3 is ahead — because momentum
+collapsed, not because v3 found anything.** The sections down to the results are the
+pre-registration, pushed to `main` on its own before any code or run existed, under the rule in
 [How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
+They are unchanged.
 
 ## Why
 
@@ -98,9 +100,55 @@ Reported alongside, deciding nothing: each signal's own mean IC; Δ in the three
 - **v3 uses 63-day momentum as one of its thirteen inputs.** The comparison is therefore partly
   between momentum and a model that already contains it, which is why it is paired.
 
-## Results
+## Results (measured 2026-10-10, pinned at 2026-10-09)
 
-Not yet measured.
+| XJSE, 2026-06-26 to 2026-09-09 | sessions | v3 IC | momentum IC | Δ | one-sided 95% bound | reading |
+|---|---|---|---|---|---|---|
+| replayed | 53 | −0.0097 | −0.2383 | **+0.2286** ± 0.0899 | lower +0.0807 | v3 ahead |
+| served only | 32 | −0.1246 | −0.2544 | +0.1297 ± 0.0776 | lower +0.0021 | v3 ahead, barely |
+
+| 21-session block | v3 | momentum | Δ |
+|---|---|---|---|
+| 06-26 to 07-24, before v3 went live | +0.1685 | −0.2140 | +0.3825 |
+| 07-27 to 08-25 | −0.0362 | −0.2707 | +0.2344 |
+| 08-26 to 09-09, 11 sessions | −0.2994 | −0.2229 | −0.0765 |
+
+**Both checks held, one exactly.** Re-scoring the holdout the reconstructed window implies gives
+v3's recorded holdout IC to every digit (0.062547779031685), so the window and the model are the
+right ones. The replay matches what v3 served closely but not exactly: per-session ICs correlate
+0.999 over the 32 live sessions (−0.1267 replayed, −0.1246 served), while single scores differ by
+up to 0.00098 against a typical within-session spread of 0.0014. Since the holdout reproduces
+exactly, the difference is in what the serving path saw on the day. Served sessions averaged 28.8
+tickers against the replay's 29, which points at bars that arrived after scoring — not verified.
+The served-only row does not depend on the replay, and it reads the same way.
+
+### What it says
+
+- **Momentum collapsed.** Its forward IC was −0.24 across the window and below −0.21 in every
+  block. Every gate run from 2026-08-15 to 2026-10-10 scored it between +0.12 and +0.05 on its
+  trailing holdout, and rejected every JSE candidate for losing to it. The trailing-holdout check
+  was measuring a regime that had already turned — the [regime study](jse-momentum-regime.md)'s
+  warning, arriving in the opposite direction to the one it planned for.
+- **v3 did not find anything.** Its own forward IC is about zero (−0.0097), positive before it went
+  live and negative since (−0.125 on the sessions it served). "Ahead" means it lost less.
+- **The lead is all in the first 42 sessions.** In the latest 11, v3 was behind.
+
+### What it does not say
+
+- That v3 is a good model. Its forward IC is zero or negative in every way it was cut.
+- That momentum has no forward value. Across 49 windows its edge is unresolved (t +0.9), and this
+  is about two and a half independent windows.
+- How far to trust the error. The per-session difference has a lag-1 autocorrelation of 0.74, and a
+  lag-20 Newey-West error from 53 sessions is rough, as the pre-registration said. The gap, 0.23,
+  is well past the roughly 0.1 the pre-registration said a resolvable one would need; the
+  served-only row clears its bound by 0.002.
+
+Under the pre-registered reading, this supports asking whether a trailing-holdout momentum check is
+the right gate on this market. It changes nothing by itself.
+
+Evidence: `~/quantpulse-experiments/champion-vs-momentum-asof-2026-10-09/`, holding the per-session
+series, the run's attributes and log, `run.py` and the commit that ran it. To regenerate:
+`quantpulse champion-forward --exchange XJSE --version 3 --data-end 2026-07-24 --as-of 2026-10-09`.
 
 ## Related
 
