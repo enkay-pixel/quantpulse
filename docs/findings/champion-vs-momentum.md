@@ -151,6 +151,13 @@ row does not depend on the replay either way, and it reads the same as the repla
 Under the pre-registered reading, this supports asking whether a trailing-holdout momentum check is
 the right gate on this market. It changes nothing by itself.
 
+**Asked and decided, 2026-10-10: the gate stays as it is.** Removing the check would admit
+candidates with no measured forward skill — the JSE model's is about zero across 49 windows, and
+v3's is zero or negative here — so it would trade a gate that tracks momentum for one that tracks
+noise. Momentum's collapse is now entering the trailing holdout, and its bar has fallen from 0.12
+to 0.05, so the stall will probably end without any change. When a JSE candidate next passes, read
+it as momentum weakening, not as the model improving.
+
 Evidence: `~/quantpulse-experiments/champion-vs-momentum-asof-2026-10-09/`, holding the per-session
 series, the run's attributes and log, `run.py` and the commit that ran it. To regenerate:
 `quantpulse champion-forward --exchange XJSE --version 3 --data-end 2026-07-24 --as-of 2026-10-09`.
