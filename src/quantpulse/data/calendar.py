@@ -11,6 +11,7 @@ from functools import lru_cache
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
+import pandas as pd
 
 NEW_YORK = ZoneInfo("America/New_York")
 
@@ -150,3 +151,21 @@ def is_post_close(now: dt.datetime | None = None, exchange: str | None = None) -
         now = now.replace(tzinfo=ex.tz)
     local = now.astimezone(ex.tz)
     return is_trading_day(local.date(), ex.code) and local.hour >= ex.close_hour
+
+
+def session_in_progress(now: dt.datetime | None = None, exchange: str | None = None) -> bool:
+    """Is one of this exchange's sessions trading at `now`?
+
+    Read from the calendar's own open and close for the day, so early closes and holidays
+    come out right without an opening hour being kept here as well.
+    """
+    ex = get_exchange(exchange)
+    now = now or dt.datetime.now(ex.tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ex.tz)
+    cal = _calendar(ex.code)
+    day = now.astimezone(ex.tz).date()
+    if not cal.is_session(str(day)):
+        return False
+    opens, closes = cal.session_open_close(str(day))
+    return bool(opens <= pd.Timestamp(now) < closes)

@@ -34,7 +34,12 @@ def patched(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     # Both of the sensor's "which sessions need re-ingesting" sources must be stubbed, or
     # this suite reaches for a database it is not supposed to need. The root conftest points
     # it at a dead address, so a forgotten stub fails here rather than silently querying.
-    monkeypatch.setattr(catchup, "benchmark_missing_days", lambda expected, exchange=None: [])
+    monkeypatch.setattr(catchup, "ticker_gap_days", lambda expected, exchange=None: [])
+    # The fetch-window guard reads the real clock; frozen open by default so no test depends
+    # on the hour it happens to run.
+    monkeypatch.setattr(
+        catchup, "fetch_would_end_in_open_session", lambda day, now=None, exchange=None: False
+    )
     return {"windows": windows, "monkeypatch": monkeypatch}
 
 
@@ -98,27 +103,51 @@ def test_nothing_missing_still_reads_as_nothing_missing(patched: dict[str, objec
     assert "out of attempts" not in str(result.skip_reason)
 
 
-def test_a_benchmark_only_gap_is_requested(patched: dict[str, object]) -> None:
-    """Coverage is fine, the benchmark bar is not — the session must still be re-ingested.
+def test_a_ticker_only_gap_is_requested_as_a_fill(patched: dict[str, object]) -> None:
+    """Coverage is fine, some tickers are not — the session must still be re-ingested, and
+    only to fill: the bars it already has stay as stored.
 
     Without this wiring nothing retries an otherwise-complete day, so the gap sits until
-    someone compares mart day counts by hand.
+    someone compares day counts by hand.
     """
     mp = patched["monkeypatch"]
     mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
     mp.setattr(catchup, "missing_trading_days", lambda expected, exchange=None: [])  # type: ignore[attr-defined]
     mp.setattr(  # type: ignore[attr-defined]
         catchup,
-        "benchmark_missing_days",
+        "ticker_gap_days",
         lambda expected, exchange=None: [MISSED] if exchange == "XNYS" else [],
     )
 
     result = _evaluate()
     (request,) = result.run_requests or []
     assert request.partition_key == f"{MISSED}|XNYS"
+    assert request.tags.get(catchup.FILL_ONLY_TAG) == "true"
 
 
-def test_a_session_missing_both_coverage_and_benchmark_is_requested_once(
+def test_a_thin_session_is_re_ingested_whole_not_filled(patched: dict[str, object]) -> None:
+    """A coverage gap keeps its full re-ingest: most of the day is missing, and the fill tag
+    on it would change behaviour this branch has always had."""
+    patched["monkeypatch"].setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
+    (request,) = _evaluate().run_requests or []
+    assert catchup.FILL_ONLY_TAG not in request.tags
+
+
+def test_nothing_is_requested_while_its_fetch_would_reach_an_open_session(
+    patched: dict[str, object],
+) -> None:
+    """Yesterday's one-day fetch runs up to today; while today trades, it waits."""
+    mp = patched["monkeypatch"]
+    mp.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: True)  # type: ignore[attr-defined]
+    mp.setattr(  # type: ignore[attr-defined]
+        catchup,
+        "fetch_would_end_in_open_session",
+        lambda day, now=None, exchange=None: day == MISSED,
+    )
+    assert not (_evaluate().run_requests or [])
+
+
+def test_a_session_missing_both_coverage_and_tickers_is_requested_once(
     patched: dict[str, object],
 ) -> None:
     """One session, one run, one attempt spent. Requesting it twice would double the rate
@@ -130,7 +159,7 @@ def test_a_session_missing_both_coverage_and_benchmark_is_requested_once(
         catchup, "missing_trading_days", lambda expected, exchange=None: [MISSED]
     )
     mp.setattr(  # type: ignore[attr-defined]
-        catchup, "benchmark_missing_days", lambda expected, exchange=None: [MISSED]
+        catchup, "ticker_gap_days", lambda expected, exchange=None: [MISSED]
     )
 
     result = _evaluate()
