@@ -226,7 +226,7 @@ separate agent fleet, not this repo. The ones below are the ones a fresh clone c
 | Agent | When | Does |
 |---|---|---|
 | `backup` | 07:00 daily | Dumps `market`, keeps 14 |
-| `jse-close` | 19:47 weekdays | Checks today's JSE session landed, after the 19:30 ingest; reports any of the last five sessions in either market that is missing tickers or a benchmark bar, and whether the Stooq fallback is reachable |
+| `jse-close` | 19:47 weekdays | Checks today's JSE session landed, after the 19:30 ingest; reports any of the last five sessions in either market that is missing tickers or a benchmark bar |
 | `daily-pipeline` | 08:00 Tue–Sat | Reports whether last night's run reached predictions on **both** markets, and which champion scored. Tue–Sat rather than Mon–Fri because the 19:00 New York process job lands at 01:00 local the next day |
 | `retrain-check` | Sat 17:37 | Reports the weekly retrain's outcome per market — decision, candidate IC, and the incumbent and baseline it had to beat |
 | `shadow-forward` | Mon 20:37 | Scores the [shadow run](findings/shadow-run.md) forward and notifies when its verdict becomes readable, a week is lost, or the scorer fails |
@@ -250,8 +250,13 @@ lands just above that is never retried. Five of 29 JSE tickers and three of 50 N
 missing that way on 2026-10-12. Each line says whether the sensor will retry the session or
 nothing will; a gap nothing will retry is closed by re-materializing that `raw_prices`
 partition once the vendor has the bar, and only after the market has closed for the day.
-It also probes the Stooq fallback, which fails silently: on 2026-10-13 it was unreachable from
-this machine, and its symbol mapping only builds US symbols, so it cannot serve a JSE ticker.
+**While the [shadow run](findings/shadow-run.md) is open** — until its verdict is read, around
+the end of December 2026 — re-fetch only sessions later than the most recent retrain's data. Its
+scorer refits each week from the stored data and needs the refit to reproduce, so revising a
+session a past retrain's labels already used makes that week unrecoverable.
+There is no second price source to fall back on: the Stooq fallback was removed on 2026-10-13
+([incident 37](development-history.md)), so a gap closes only when yfinance has the bar and the
+partition is re-fetched.
 
 `shadow-forward` has one job beyond reporting: the first run that finds a market's verdict
 readable saves it to `~/quantpulse-experiments/shadow-run/<market>.verdict.txt`, and that
@@ -433,7 +438,8 @@ whole situation.
 
 - **Containers won't start / Docker not found**: open Docker Desktop first (`open -a Docker`), wait
   for the whale icon, retry `make up`.
-- **yfinance rate limiting**: ingestion retries with backoff and falls back to Stooq; a partition
-  that still fails can be re-materialized later — the pipeline is idempotent (upserts).
+- **yfinance rate limiting**: ingestion retries with backoff, then fails the run, which the
+  catch-up sensor retries; a partition that still fails can be re-materialized later — the
+  pipeline is idempotent (upserts). There is no second source.
 - **Memory pressure**: `docker stats` to inspect; every service carries a compose memory limit. Cap
   Docker Desktop at ~6 GB (Settings → Resources).

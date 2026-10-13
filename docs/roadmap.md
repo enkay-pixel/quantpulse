@@ -21,7 +21,7 @@ give investment advice, and the disclaimer stays.
 | # | Milestone | Substance |
 |---|---|---|
 | M0 | Scaffold | uv + ruff + mypy + pytest + pre-commit, compose, CI, ADRs |
-| M1 | Data platform | Alembic schema, yfinance ingest (retries, Stooq fallback), NYSE calendar, quality checks, CLI |
+| M1 | Data platform | Alembic schema, yfinance ingest (retries; the Stooq fallback was removed 2026-10-13), NYSE calendar, quality checks, CLI |
 | M2 | ML core | Features, purged walk-forward CV, LightGBM + Optuna, backtester, MLflow registry, promotion gate |
 | M3 | Orchestration | Dagster assets/partitions/checks/schedules/drift sensor; full Docker stack (~1.1 GB idle) |
 | M4 | API | Read-only FastAPI, DI-overridable for tests |

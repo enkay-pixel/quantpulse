@@ -9,7 +9,11 @@ from quantpulse.db import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers that exist already. fileConfig disables them by default, which silences every
+    # module imported before a migration that runs in the same process — the CLI's own log
+    # line after `init-db`, and any test that reads a log once the integration fixtures have
+    # migrated.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # URL priority: value already injected (tests) > env var > application settings
 if not config.get_main_option("sqlalchemy.url"):

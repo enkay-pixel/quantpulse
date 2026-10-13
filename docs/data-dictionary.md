@@ -26,7 +26,7 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 | Table | Grain | Purpose |
 |---|---|---|
 | `universe` | ticker | Tradable universe with metadata (name, type stock/etf, active flag, **exchange** — the source of truth for which market a ticker belongs to) |
-| `prices` | (ticker, date) | Daily OHLCV bars, adjusted; source column (yfinance/stooq). Vendor unit glitches repaired on write (see `data/cleaning.py`) |
+| `prices` | (ticker, date) | Daily OHLCV bars, adjusted; source column, always `yfinance` (the constraint still admits `stooq`, from a fallback removed 2026-10-13). Vendor unit glitches repaired on write (see `data/cleaning.py`) |
 | `features` | (ticker, date) | Engineered features; cross-sectional ranks are computed **within** each exchange |
 | `predictions` | (ticker, date, model_version) | Champion-model forward-return scores, per market's own champion |
 | `model_runs` | run id | Training/evaluation/promotion audit log (metrics, decision, MLflow run id, **exchange**). Append-only: a `demotion` row withdraws *its own version's* promotion (the prior champion stands). `metrics` also carries audit strings — the holdout window (`holdout_start/end/days`) and demotion reasons — which the API filters to numbers |

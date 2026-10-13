@@ -68,7 +68,7 @@ def partition_date_and_exchange(context: dg.AssetExecutionContext) -> tuple[dt.d
     kinds={"python", "postgres"},
 )
 def raw_prices(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
-    """Daily OHLCV bars for one market's active universe (yfinance, Stooq fallback)."""
+    """Daily OHLCV bars for one market's active universe, from yfinance."""
     from quantpulse.data.ingest import fetch_daily_bars, upsert_prices
     from quantpulse.data.universe import active_tickers
 
