@@ -79,15 +79,26 @@ ticker — the benchmark is simply not one ticker among fifty. Non-blocking: a s
 benchmark thins the alpha numbers, it does not corrupt them, and it must never stop an
 ingest.
 
-The catch-up sensor then *acts* on it. `catchup.benchmark_missing_days` makes an absent
-benchmark its own reason to re-ingest a session, alongside thin coverage; the two reasons
-are deduplicated so a day that is both spends one attempt, not two. It is bounded twice
-over, because unlike coverage this trigger cannot fix itself — a re-ingest only helps if
-the vendor has since published. The per-session daily budget caps attempts at three, and
-`BENCHMARK_RETRY_SESSIONS` keeps only the newest five ingested sessions eligible, so a bar
-that never arrives stops being chased after about a week instead of being re-fetched for
-the full 30-day lookback. The asset check goes on reporting it over the longer window:
-reporting forever is cheap, retrying forever is not.
+The catch-up sensor then *acts* on it — and, since 2026-10-13, on any ticker a session is
+missing, not only the benchmark. `catchup.ticker_gap_days` makes a session with absent
+tickers its own reason to re-ingest it, alongside thin coverage; the two reasons are
+deduplicated so a day that is both spends one attempt, not two. It is bounded three times
+over, because unlike coverage this trigger cannot fix itself — a re-ingest only helps if the
+vendor has since published:
+
+- The per-session daily budget caps attempts at three, and `TICKER_GAP_RETRY_SESSIONS` keeps
+  only the newest five ingested sessions eligible, so a bar that never arrives stops being
+  chased after about a week instead of being re-fetched for the full 30-day lookback. The
+  post-close check goes on reporting it: reporting forever is cheap, retrying forever is not.
+- A session a training run has already used is never filled. Refits that check a model —
+  the shadow scorer's, every week — need its training data unchanged.
+- The re-ingest is **fill-only**: it fetches just the missing tickers and inserts without
+  overwriting, so the bars the session already has stay as stored. Re-serving a stored day
+  after a dividend would otherwise put a differently adjusted close between unadjusted
+  neighbours. A vendor that still has nothing is recorded as such, not as a failure.
+
+No catch-up of yesterday is requested while today's session is trading, since that one-day
+fetch would end on the open session — the misdating described below.
 
 **Usually the cause is a bar that has not arrived yet, not one that is missing.** JSE bars
 in particular can land a day or more late: STX40.JO had no 2026-08-11 bar when the session

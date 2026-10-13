@@ -68,31 +68,59 @@ def partition_date_and_exchange(context: dg.AssetExecutionContext) -> tuple[dt.d
     kinds={"python", "postgres"},
 )
 def raw_prices(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
-    """Daily OHLCV bars for one market's active universe, from yfinance."""
-    from quantpulse.data.ingest import fetch_daily_bars, upsert_prices
+    """Daily OHLCV bars for one market's active universe, from yfinance.
+
+    A run tagged fill-only (the catch-up sensor's retry of a session missing some tickers)
+    fetches just those tickers and inserts without overwriting, so the bars the session
+    already has stay exactly as stored. A vendor that still has nothing for them is the
+    expected answer there, not a failure; the gap stays reported until it fills or ages out.
+    """
+    from quantpulse.data.ingest import NoBarsReturned, fetch_daily_bars, upsert_prices
     from quantpulse.data.universe import active_tickers
+    from quantpulse.orchestration.catchup import FILL_ONLY_TAG, missing_tickers
 
     day, exchange = partition_date_and_exchange(context)
     if not is_trading_day(day, exchange):
         return dg.MaterializeResult(
             metadata={"rows": 0, "note": f"not a {exchange} trading day", "exchange": exchange}
         )
-    with get_session() as session:
-        tickers = active_tickers(session, exchange)
+    fill_only = context.run.tags.get(FILL_ONLY_TAG) == "true"
+    if fill_only:
+        tickers = missing_tickers(day, exchange)
+        if not tickers:
+            return dg.MaterializeResult(
+                metadata={"rows": 0, "note": "nothing missing", "exchange": exchange}
+            )
+    else:
+        with get_session() as session:
+            tickers = active_tickers(session, exchange)
     if not tickers:
         # Another market being configured is not an error for this one.
         return dg.MaterializeResult(
             metadata={"rows": 0, "note": f"no active {exchange} tickers", "exchange": exchange}
         )
-    bars = fetch_daily_bars(tickers, day, day)
+    try:
+        bars = fetch_daily_bars(tickers, day, day)
+    except NoBarsReturned:
+        if not fill_only:
+            raise
+        return dg.MaterializeResult(
+            metadata={
+                "rows": 0,
+                "note": f"vendor still has no bar for {', '.join(tickers)}",
+                "date": str(day),
+                "exchange": exchange,
+            }
+        )
     with get_session() as session:
-        rows = upsert_prices(session, bars)
+        rows = upsert_prices(session, bars, overwrite=not fill_only)
     return dg.MaterializeResult(
         metadata={
             "rows": rows,
             "tickers": len(bars["ticker"].unique()) if not bars.empty else 0,
             "date": str(day),
             "exchange": exchange,
+            "fill_only": fill_only,
         }
     )
 

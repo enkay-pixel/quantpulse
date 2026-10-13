@@ -482,8 +482,10 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     The NYSE bars were at yfinance by the next afternoon: the gap was late, not missing, which
     is a case for re-fetching rather than for a second vendor whose units and adjustments
     differ. The post-close check now reports every partial session and whether anything will
-    retry it, and the fallback is removed. A fallback is a recovery path like any other here,
-    and one that has never produced a row has never been tested. Testing the replacement
+    retry it, the fallback is removed, and the catch-up sensor fills a partial session's
+    missing tickers until a retrain has used it, without rewriting the bars it already has.
+    A fallback is a recovery path like any other here, and one that has never produced a row
+    has never been tested. Testing the replacement
     surfaced a quieter bug: Alembic's `env.py` called `fileConfig` with its default, which
     disables every logger that already exists, so any process migrating in-process — the test
     fixtures, `quantpulse init-db` — silenced every module imported before it. The warning

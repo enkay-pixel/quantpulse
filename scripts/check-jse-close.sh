@@ -85,6 +85,15 @@ else
     notes+=("XJSE $DAY: $COVERED/$UNIVERSE tickers")
 fi
 
+# What the catch-up sensor will do about a partial session depends on whether a training run
+# has used it yet, and that cut-off comes from the sensor's own code, not a copy of the rule.
+TRAINED=$(docker compose exec -T dagster-daemon python -c "
+from quantpulse.data.calendar import EXCHANGES
+from quantpulse.orchestration.catchup import latest_training_day
+for ex in sorted(EXCHANGES):
+    print(f'{ex}|{latest_training_day(ex) or \"none\"}')" 2>/dev/null | tr -d '\r')
+trained_through() { printf '%s\n' "$TRAINED" | awk -F'|' -v ex="$1" '$1 == ex { print $2 }'; }
+
 # 2. Benchmark gaps — the quiet failure this script exists for. Scoped to the recent window
 #    the catch-up sensor can still act on; older holes are the asset check's to report.
 for pair in "XJSE:STX40.JO" "XNYS:SPY"; do
@@ -99,18 +108,24 @@ for pair in "XJSE:STX40.JO" "XNYS:SPY"; do
           SELECT 1 FROM prices b WHERE b.ticker = '$bench' AND b.date = s.d);")
     [ -n "$gaps" ] && problems+=("$ex benchmark $bench missing: $gaps")
 
-    # 2b. Every other ticker the same way. The catch-up sensor judges a session done once the
-    #     floor share of the universe has arrived, and the scheduled ingest fetches only its own
-    #     day, so a session that lands just above the floor is never retried by anything. Its
-    #     missing tickers also skew the features around it, which shift by row, not by session.
-    #     Only tickers already trading before the day count, so a new listing is not a gap; the
-    #     benchmark is left to the check above.
+    # 2b. Every other ticker the same way. Missing tickers skew the features around the gap,
+    #     which shift by row, not by session. The sensor fills a session above the floor only
+    #     until a training run has used it, after which it is left as trained on; each line says
+    #     which applies. Only tickers already trading before the day count, so a new listing is
+    #     not a gap; the benchmark is left to the check above.
+    trained="$(trained_through "$ex")"
     while IFS='|' read -r day covered universe missing tickers; do
         [ -n "${day:-}" ] || continue
         if [ $((covered * 100)) -lt $((FLOOR * universe)) ]; then
-            retry="below the catch-up floor, so the sensor retries it within its attempt limit"
+            retry="below the catch-up floor, so the sensor re-ingests it within its attempt limit"
+        elif [ -z "$trained" ]; then
+            # Said rather than guessed: claiming the sensor will act when its cut-off could not
+            # be read would be the same silent reassurance this check exists to replace.
+            retry="the sensor's training cut-off could not be read, so whether it fills this is unknown"
+        elif [ "$trained" = "none" ] || [[ "$day" > "$trained" ]]; then
+            retry="the sensor fills it until the next retrain"
         else
-            retry="above the catch-up floor, so nothing will retry it"
+            retry="a retrain has already used it, so nothing will fill it"
         fi
         problems+=("$ex $day missing $missing of $universe ($tickers) — $retry")
     done <<EOF

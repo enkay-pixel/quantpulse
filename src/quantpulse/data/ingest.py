@@ -27,6 +27,15 @@ class IngestionError(RuntimeError):
     pass
 
 
+class NoBarsReturned(IngestionError):
+    """The vendor answered, with nothing usable for any requested ticker.
+
+    Separate from a failed request because the two mean different things to a re-ingest that
+    only fills gaps: a vendor that is down is a failure to report, while one that has simply
+    not published the missing bars yet is the expected answer most of the time.
+    """
+
+
 @retry(
     retry=retry_if_exception_type(Exception),
     wait=wait_exponential(multiplier=2, min=2, max=30),
@@ -113,12 +122,16 @@ def fetch_daily_bars(tickers: list[str], start: dt.date, end: dt.date) -> pd.Dat
 
     cleaned = clean_bars(bars)
     if cleaned.empty:
-        raise IngestionError(f"No usable bars fetched for {len(tickers)} tickers {start}..{end}")
+        raise NoBarsReturned(f"No usable bars fetched for {len(tickers)} tickers {start}..{end}")
     return cleaned
 
 
-def upsert_prices(session: Session, bars: pd.DataFrame) -> int:
+def upsert_prices(session: Session, bars: pd.DataFrame, overwrite: bool = True) -> int:
     """Idempotent insert-or-update on (ticker, date). Returns number of rows written.
+
+    With `overwrite=False` a bar already stored is left exactly as it is, and only absent
+    ones are inserted — what a re-ingest that fills gaps needs. The count is then the rows
+    actually inserted, not the rows offered.
 
     Vendor unit glitches are repaired first (see data.cleaning): Yahoo intermittently
     reports a JSE close in Rand rather than cents, which reads as a -99% day followed by
@@ -129,8 +142,19 @@ def upsert_prices(session: Session, bars: pd.DataFrame) -> int:
         return 0
     bars, _ = repair_price_units(bars)
     records = bars[BAR_COLUMNS].to_dict(orient="records")
+    inserted = 0
     for chunk in chunked(records):
         stmt = pg_insert(Price).values(list(chunk))
+        if not overwrite:
+            # Counted from RETURNING: a multi-row insert's rowcount is not reliable here, and
+            # a skipped conflict returns no row.
+            fresh = session.execute(
+                stmt.on_conflict_do_nothing(index_elements=[Price.ticker, Price.date]).returning(
+                    Price.ticker
+                )
+            )
+            inserted += len(fresh.all())
+            continue
         stmt = stmt.on_conflict_do_update(
             index_elements=[Price.ticker, Price.date],
             set_={
@@ -143,4 +167,4 @@ def upsert_prices(session: Session, bars: pd.DataFrame) -> int:
             },
         )
         session.execute(stmt)
-    return len(records)
+    return len(records) if overwrite else inserted

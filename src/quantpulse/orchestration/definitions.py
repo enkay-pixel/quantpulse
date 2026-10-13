@@ -199,16 +199,22 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
     - The retry budget comes from Dagster's run history for the partition, and every
       run_key is fresh: a run_key is deduplicated forever, so a fixed one strands the
       day after a single premature or failed attempt.
+
+    A session that landed but is missing some tickers is retried too, fill-only, until a
+    training run has used it. And nothing is requested whose one-day fetch would run into a
+    session still trading; it waits for the close.
     """
     import datetime as dt
 
     from quantpulse.data.calendar import trading_days
     from quantpulse.orchestration.catchup import (
-        benchmark_missing_days,
+        FILL_ONLY_TAG,
         exchange_day_start_utc,
+        fetch_would_end_in_open_session,
         ingest_overdue,
         missing_trading_days,
         next_ingest_attempt,
+        ticker_gap_days,
     )
 
     requests: list[dg.RunRequest] = []
@@ -220,12 +226,17 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
         recent = trading_days(today - dt.timedelta(days=LOOKBACK_DAYS), end, exchange)
         day_start = exchange_day_start_utc(today, exchange)
         # Two reasons to re-ingest a session, deduplicated into one queue so a day that is
-        # both thin AND missing its benchmark is requested once and spends one attempt.
-        # Coverage first: it is the older, broader signal, and a session it flags is
-        # missing the benchmark's bar too.
-        due = missing_trading_days(recent, exchange)
-        due += [day for day in benchmark_missing_days(recent, exchange) if day not in set(due)]
-        for day in sorted(due)[:MAX_CATCHUP_PER_TICK]:
+        # both thin AND missing particular tickers is requested once and spends one attempt.
+        # Coverage first: it is the older, broader signal, and its re-ingest fetches every
+        # ticker. A session flagged only for missing tickers is filled, never rewritten.
+        thin = missing_trading_days(recent, exchange)
+        gaps = [day for day in ticker_gap_days(recent, exchange) if day not in set(thin)]
+        due = [
+            day
+            for day in sorted(thin + gaps)
+            if not fetch_would_end_in_open_session(day, exchange=exchange)
+        ]
+        for day in due[:MAX_CATCHUP_PER_TICK]:
             key = dg.MultiPartitionKey({"date": str(day), "exchange": exchange})
             # Scheduled runs carry the same partition tag, so a failing 18:30 ingest
             # also consumes this budget rather than being retried on top of.
@@ -248,7 +259,11 @@ def missed_partition_catchup_sensor(context: dg.SensorEvaluationContext) -> dg.S
                 exhausted.append(f"{exchange} {day}")
                 continue
             requests.append(
-                dg.RunRequest(partition_key=key, run_key=f"catchup-{exchange}-{day}-{attempt}")
+                dg.RunRequest(
+                    partition_key=key,
+                    run_key=f"catchup-{exchange}-{day}-{attempt}",
+                    tags={FILL_ONLY_TAG: "true"} if day in gaps else None,
+                )
             )
     if not requests:
         # Distinguish the two silences. "Nothing missing" and "missing, but I have given

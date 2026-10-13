@@ -157,6 +157,10 @@ Two sensors keep the pipeline honest without any paid service:
   scheduled ingest time is past (the exchange date flips at midnight, hours before
   trading), and retries are budgeted from Dagster's run history with attempt-numbered
   run_keys — max 3 runs that actually reached the feed per session, never a reused key.
+  A session that landed but is missing particular tickers is retried too, fill-only — just
+  those tickers, nothing stored is rewritten — until a training run has used it. Nothing is
+  requested for yesterday while today's session is trading. See the
+  [data dictionary](data-dictionary.md) for why each bound is there.
 
 Check both from the Dagster UI (Automation → Sensors) or `GET /alerts`.
 
@@ -243,17 +247,17 @@ from a script is how a misdated bar gets written (see data-dictionary.md). It al
 quiet before 19:30, since until the schedule has had its turn an absent session is not a
 missed one — the same `ingest_overdue` distinction the sensor draws.
 
-It reports any ticker missing from a recent session, not only the benchmark, because the
-pipeline has no other way back to one. The scheduled ingest fetches only its own day, and the
-catch-up sensor counts a session done once 80% of the universe has arrived, so a session that
-lands just above that is never retried. Five of 29 JSE tickers and three of 50 NYSE ones went
-missing that way on 2026-10-12. Each line says whether the sensor will retry the session or
-nothing will; a gap nothing will retry is closed by re-materializing that `raw_prices`
-partition once the vendor has the bar, and only after the market has closed for the day.
+It reports any ticker missing from a recent session, not only the benchmark. The scheduled
+ingest fetches only its own day, so until the catch-up sensor learned to fill missing tickers
+a session that landed above the 80% floor was never retried: five of 29 JSE tickers and three
+of 50 NYSE ones went missing that way on 2026-10-12. Each line now says what the sensor will
+do — re-ingest a thin session, fill a partial one until the next retrain, or nothing, because
+a retrain has already used it. The last kind is closed by hand, by re-materializing that
+`raw_prices` partition once the vendor has the bar and the market has closed for the day.
 **While the [shadow run](findings/shadow-run.md) is open** — until its verdict is read, around
-the end of December 2026 — re-fetch only sessions later than the most recent retrain's data. Its
-scorer refits each week from the stored data and needs the refit to reproduce, so revising a
-session a past retrain's labels already used makes that week unrecoverable.
+the end of December 2026 — leave those alone. Its scorer refits each week from the stored data
+and needs the refit to reproduce, so revising a session a past retrain's labels already used
+makes that week unrecoverable.
 There is no second price source to fall back on: the Stooq fallback was removed on 2026-10-13
 ([incident 37](development-history.md)), so a gap closes only when yfinance has the bar and the
 partition is re-fetched.

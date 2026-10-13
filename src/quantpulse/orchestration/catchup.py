@@ -17,6 +17,7 @@ from quantpulse.data.calendar import (
     DEFAULT_EXCHANGE,
     get_exchange,
     is_post_close,  # noqa: F401
+    session_in_progress,
 )
 from quantpulse.db import get_engine
 
@@ -47,11 +48,17 @@ PROCESS_TIMEZONE = "America/New_York"
 # reported by the run-failure sensor.
 MAX_INGEST_ATTEMPTS_PER_SESSION = 3
 
-# How many of the newest ingested sessions stay eligible for a benchmark-only re-ingest.
-# Bounds the cost when a bar is never published: eligibility expires rather than retrying
-# for the whole lookback. Five sessions is about a week of chances, which is ample for a
-# bar that arrives a day or two late.
-BENCHMARK_RETRY_SESSIONS = 5
+# How many of the newest ingested sessions stay eligible for a re-ingest that fills missing
+# tickers. Bounds the cost when a bar is never published: eligibility expires rather than
+# retrying for the whole lookback. Five sessions is about a week of chances, which is ample
+# for a bar that arrives a day or two late.
+TICKER_GAP_RETRY_SESSIONS = 5
+
+#: Run tag marking a re-ingest that may only add the bars a session is missing. A session
+#: that is already partly stored keeps every bar it has: re-fetching it would rewrite those
+#: with whatever the vendor serves now, which after a corporate action is a differently
+#: adjusted price sitting between unadjusted neighbours.
+FILL_ONLY_TAG = "quantpulse/fill_only"
 
 
 def ingest_overdue(now: dt.datetime | None = None, exchange: str = DEFAULT_EXCHANGE) -> bool:
@@ -134,47 +141,82 @@ def missing_trading_days(
     return missing
 
 
-def benchmark_gaps_to_retry(
+def ticker_gaps_to_retry(
     ingested: Iterable[dt.date],
-    benchmark_dates: Iterable[dt.date],
-    limit: int = BENCHMARK_RETRY_SESSIONS,
+    gap_days: Iterable[dt.date],
+    trained_through: dt.date | None,
+    limit: int = TICKER_GAP_RETRY_SESSIONS,
 ) -> list[dt.date]:
-    """Which recently-ingested sessions are missing their benchmark bar, oldest first.
+    """Which recently-ingested sessions are missing tickers and may still be filled, oldest
+    first.
 
-    Split from the query below so the window arithmetic is unit-testable without a
-    database.
+    Split from the query below so the window arithmetic is unit-testable without a database.
 
     Only the newest `limit` ingested sessions are eligible. A coverage-triggered retry is
-    self-limiting, because a re-ingest that works fixes the coverage that asked for it.
-    This one is not: the vendor may never publish the bar, and without a bound a single
-    absent bar would re-ingest its session every day for the whole lookback. The freshness
-    asset check keeps reporting the gap regardless — reporting is cheap, retrying is not.
+    self-limiting, because a re-ingest that works fixes the coverage that asked for it. This
+    one is not: the vendor may never publish a bar, and without a bound a single absent bar
+    would re-ingest its session every day for the whole lookback. The post-close check keeps
+    reporting the gap regardless — reporting is cheap, retrying is not.
+
+    And no session a training run has already used. A retrain records what it was fitted
+    on, and anything that refits it later to check it — the shadow scorer does every week —
+    needs that data unchanged; filling a gap after the fact turns a reproducible model into
+    one that can no longer be rebuilt. `trained_through` is the date of the newest training
+    run in exchange time, and a session on or before it counts as used.
     """
-    have = set(benchmark_dates)
+    gaps = set(gap_days)
     recent = sorted(set(ingested))[-limit:] if limit > 0 else []
-    return [day for day in recent if day not in have]
+    return [
+        day for day in recent if day in gaps and (trained_through is None or day > trained_through)
+    ]
 
 
-def benchmark_missing_days(
-    expected: list[dt.date], exchange: str = DEFAULT_EXCHANGE
-) -> list[dt.date]:
-    """Sessions worth re-ingesting solely because the market's benchmark bar is absent.
+def latest_training_day(exchange: str = DEFAULT_EXCHANGE) -> dt.date | None:
+    """The exchange-time date of this market's newest training run, or None if it has none."""
+    with get_engine().connect() as conn:
+        newest: dt.datetime | None = conn.execute(
+            text(
+                "SELECT max(created_at) FROM model_runs WHERE run_type = 'train' AND exchange = :ex"
+            ),
+            {"ex": exchange},
+        ).scalar_one()
+    return newest.astimezone(get_exchange(exchange).tz).date() if newest else None
 
-    Coverage cannot see this. The benchmark is one ticker, so losing it barely moves the
-    coverage ratio and the day is judged complete — but `fct_alpha_beta` and
-    `fct_portfolio_vs_benchmark` inner-join it, so its absence drops the whole day from
-    them while the track record keeps it.
+
+#: Active tickers absent on a session they were already trading before it. A ticker with no
+#: earlier bar is a new listing rather than a gap.
+_MISSING_TICKERS = """
+    SELECT u.ticker FROM universe u
+    WHERE u.exchange = :ex AND u.active
+      AND NOT EXISTS (SELECT 1 FROM prices p WHERE p.ticker = u.ticker AND p.date = :day)
+      AND EXISTS (SELECT 1 FROM prices p WHERE p.ticker = u.ticker AND p.date < :day)
+    ORDER BY u.ticker
+"""
+
+
+def missing_tickers(day: dt.date, exchange: str = DEFAULT_EXCHANGE) -> list[str]:
+    """The tickers a stored session is missing — what a fill-only re-ingest fetches."""
+    with get_engine().connect() as conn:
+        rows = conn.execute(text(_MISSING_TICKERS), {"ex": exchange, "day": day}).all()
+    return [r.ticker for r in rows]
+
+
+def ticker_gap_days(expected: list[dt.date], exchange: str = DEFAULT_EXCHANGE) -> list[dt.date]:
+    """Sessions worth re-ingesting because some of their tickers are absent.
+
+    Coverage cannot see this. A session counts as ingested once the floor share of the
+    universe has arrived, and the scheduled ingest fetches only its own day, so the tickers
+    that did not arrive are never asked for again. That costs more than the missing rows:
+    features and labels shift by row, so a missing day stretches those tickers' returns
+    across the gap. The market's benchmark is one such ticker, and its absence also drops
+    the whole day from the marts that join on it.
 
     Considers only sessions the market actually ingested. A day with no data at all belongs
     to `missing_trading_days`; requesting it here as well would spend the session's retry
     budget twice over for one cause.
-
-    Safe to retry because the ingest job is partitioned by single date: for a ticker with a
-    genuine hole, a one-day window returns nothing rather than a neighbouring bar.
     """
     if not expected:
         return []
-    benchmark = get_exchange(exchange).benchmark
     start, end = min(expected), max(expected)
     with get_engine().connect() as conn:
         ingested = conn.execute(
@@ -185,17 +227,35 @@ def benchmark_missing_days(
             ),
             {"start": start, "end": end, "ex": exchange},
         ).all()
-        covered = conn.execute(
-            text("SELECT date FROM prices WHERE ticker = :t AND date >= :start AND date <= :end"),
-            {"t": benchmark, "start": start, "end": end},
-        ).all()
-    expected_set = set(expected)
-    missing = benchmark_gaps_to_retry(
-        [r.date for r in ingested if r.date in expected_set], [r.date for r in covered]
-    )
+        expected_set = set(expected)
+        days = [r.date for r in ingested if r.date in expected_set]
+        gap_days = [
+            day
+            for day in days
+            if conn.execute(text(_MISSING_TICKERS), {"ex": exchange, "day": day}).first()
+        ]
+    missing = ticker_gaps_to_retry(days, gap_days, latest_training_day(exchange))
     if missing:
-        logger.info("Catch-up: %s missing its benchmark %s on %s", exchange, benchmark, missing[:5])
+        logger.info("Catch-up: %s sessions missing tickers: %s", exchange, missing[:5])
     return missing
+
+
+def fetch_would_end_in_open_session(
+    day: dt.date, now: dt.datetime | None = None, exchange: str = DEFAULT_EXCHANGE
+) -> bool:
+    """Would a one-day ingest of `day` ask the vendor for a session still trading?
+
+    The vendor's end bound is exclusive, so a one-day request for `day` runs to `day + 1`.
+    When that is today and today's session is open, the vendor can return the session in
+    progress labelled as `day` — today's price under yesterday's date, the misdating the
+    data dictionary records. Wait for the close; every other day is safe.
+    """
+    ex = get_exchange(exchange)
+    now = now or dt.datetime.now(ex.tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ex.tz)
+    today = now.astimezone(ex.tz).date()
+    return day + dt.timedelta(days=1) == today and session_in_progress(now, exchange)
 
 
 def option_snapshot_incomplete(today: dt.date, exchange: str = DEFAULT_EXCHANGE) -> float | None:
