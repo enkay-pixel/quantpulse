@@ -226,7 +226,7 @@ separate agent fleet, not this repo. The ones below are the ones a fresh clone c
 | Agent | When | Does |
 |---|---|---|
 | `backup` | 07:00 daily | Dumps `market`, keeps 14 |
-| `jse-close` | 19:47 weekdays | Checks today's JSE session landed and no benchmark bar is missing, after the 19:30 ingest |
+| `jse-close` | 19:47 weekdays | Checks today's JSE session landed, after the 19:30 ingest; reports any of the last five sessions in either market that is missing tickers or a benchmark bar, and whether the Stooq fallback is reachable |
 | `daily-pipeline` | 08:00 Tue–Sat | Reports whether last night's run reached predictions on **both** markets, and which champion scored. Tue–Sat rather than Mon–Fri because the 19:00 New York process job lands at 01:00 local the next day |
 | `retrain-check` | Sat 17:37 | Reports the weekly retrain's outcome per market — decision, candidate IC, and the incumbent and baseline it had to beat |
 | `shadow-forward` | Mon 20:37 | Scores the [shadow run](findings/shadow-run.md) forward and notifies when its verdict becomes readable, a week is lost, or the scorer fails |
@@ -242,6 +242,16 @@ repairs: the catch-up sensor already retries a missing benchmark on its own, and
 from a script is how a misdated bar gets written (see data-dictionary.md). It also stays
 quiet before 19:30, since until the schedule has had its turn an absent session is not a
 missed one — the same `ingest_overdue` distinction the sensor draws.
+
+It reports any ticker missing from a recent session, not only the benchmark, because the
+pipeline has no other way back to one. The scheduled ingest fetches only its own day, and the
+catch-up sensor counts a session done once 80% of the universe has arrived, so a session that
+lands just above that is never retried. Five of 29 JSE tickers and three of 50 NYSE ones went
+missing that way on 2026-10-12. Each line says whether the sensor will retry the session or
+nothing will; a gap nothing will retry is closed by re-materializing that `raw_prices`
+partition once the vendor has the bar, and only after the market has closed for the day.
+It also probes the Stooq fallback, which fails silently: on 2026-10-13 it was unreachable from
+this machine, and its symbol mapping only builds US symbols, so it cannot serve a JSE ticker.
 
 `shadow-forward` has one job beyond reporting: the first run that finds a market's verdict
 readable saves it to `~/quantpulse-experiments/shadow-run/<market>.verdict.txt`, and that

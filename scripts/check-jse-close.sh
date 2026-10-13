@@ -47,13 +47,16 @@ fi
 psql_q() { docker compose exec -T postgres psql -U quantpulse -d market -tAc "$1" 2>/dev/null; }
 
 # The exchange's own date, never the container's UTC date.
+# The catch-up floor comes from the sensor's own constant, so the line this reports on is
+# the line the sensor acts on.
 STATE=$(docker compose exec -T dagster-daemon python -c \
     "from quantpulse.data.calendar import market_today, is_trading_day
-from quantpulse.orchestration.catchup import ingest_overdue
+from quantpulse.orchestration.catchup import MIN_COVERAGE, ingest_overdue
 d = market_today('XJSE')
-print(f'{d}|{int(is_trading_day(d, \"XJSE\"))}|{int(ingest_overdue(exchange=\"XJSE\"))}')" \
+print(f'{d}|{int(is_trading_day(d, \"XJSE\"))}|{int(ingest_overdue(exchange=\"XJSE\"))}|{round(MIN_COVERAGE * 100)}')" \
     2>/dev/null | tr -d '\r')
-IFS='|' read -r DAY TRADING OVERDUE <<<"$STATE"
+IFS='|' read -r DAY TRADING OVERDUE FLOOR <<<"$STATE"
+FLOOR="${FLOOR:-80}"
 
 if [ -z "$DAY" ]; then
     printf '%s could not resolve the JSE trading date — skipping\n' "$(stamp)"
@@ -77,9 +80,8 @@ if [ "${OVERDUE:-1}" != "1" ]; then
     notes+=("XJSE $DAY ingest not due yet")
 elif [ "${COVERED:-0}" -eq 0 ]; then
     problems+=("no XJSE bars for $DAY — the 19:30 ingest did not land")
-elif [ "${UNIVERSE:-0}" -gt 0 ] && [ "$((COVERED * 100 / UNIVERSE))" -lt 80 ]; then
-    problems+=("XJSE $DAY only $COVERED/$UNIVERSE tickers — below the catch-up floor")
 else
+    # A partial session is reported below, with the tickers it is missing.
     notes+=("XJSE $DAY: $COVERED/$UNIVERSE tickers")
 fi
 
@@ -96,18 +98,71 @@ for pair in "XJSE:STX40.JO" "XNYS:SPY"; do
         ) s WHERE NOT EXISTS (
           SELECT 1 FROM prices b WHERE b.ticker = '$bench' AND b.date = s.d);")
     [ -n "$gaps" ] && problems+=("$ex benchmark $bench missing: $gaps")
+
+    # 2b. Every other ticker the same way. The catch-up sensor judges a session done once the
+    #     floor share of the universe has arrived, and the scheduled ingest fetches only its own
+    #     day, so a session that lands just above the floor is never retried by anything. Its
+    #     missing tickers also skew the features around it, which shift by row, not by session.
+    #     Only tickers already trading before the day count, so a new listing is not a gap; the
+    #     benchmark is left to the check above.
+    while IFS='|' read -r day covered universe missing tickers; do
+        [ -n "${day:-}" ] || continue
+        if [ $((covered * 100)) -lt $((FLOOR * universe)) ]; then
+            retry="below the catch-up floor, so the sensor retries it within its attempt limit"
+        else
+            retry="above the catch-up floor, so nothing will retry it"
+        fi
+        problems+=("$ex $day missing $missing of $universe ($tickers) — $retry")
+    done <<EOF
+$(psql_q "
+    WITH recent AS (
+        SELECT p.date AS d, count(*) AS covered FROM prices p
+        JOIN universe u ON u.ticker = p.ticker AND u.exchange = '$ex'
+        GROUP BY p.date ORDER BY p.date DESC LIMIT 5)
+    SELECT r.d || '|' || r.covered || '|'
+           || (SELECT count(*) FROM universe WHERE active AND exchange = '$ex') || '|'
+           || count(*) || '|' || string_agg(u.ticker, ', ' ORDER BY u.ticker)
+    FROM recent r JOIN universe u ON u.exchange = '$ex' AND u.active AND u.ticker <> '$bench'
+    WHERE NOT EXISTS (SELECT 1 FROM prices p WHERE p.ticker = u.ticker AND p.date = r.d)
+      AND EXISTS (SELECT 1 FROM prices p WHERE p.ticker = u.ticker AND p.date < r.d)
+    GROUP BY r.d, r.covered ORDER BY r.d;")
+EOF
 done
+
+# 2c. The fallback source. Bars yfinance does not return are asked of Stooq, and a failure there
+#     is only logged, so a fallback that cannot be reached looks like a working one until a gap
+#     needs it. Probed with a US symbol, the kind the fallback is built to fetch.
+FALLBACK=$(docker compose exec -T dagster-daemon python -c "
+import datetime as dt
+import httpx
+from quantpulse.data.ingest import _STOOQ_URL, _stooq_symbol
+start = (dt.date.today() - dt.timedelta(days=10)).strftime('%Y%m%d')
+try:
+    r = httpx.get(_STOOQ_URL, params={'s': _stooq_symbol('SPY'), 'd1': start, 'i': 'd'},
+                  timeout=10, follow_redirects=True)
+    lines = r.text.splitlines()
+    print('ok' if r.status_code == 200 and lines and 'Close' in lines[0] else f'HTTP {r.status_code}')
+except Exception as exc:
+    print(type(exc).__name__)" 2>/dev/null | tr -d '\r' | tail -1)
+if [ "$FALLBACK" = "ok" ]; then
+    notes+=("Stooq fallback reachable")
+else
+    problems+=("Stooq fallback unreachable (${FALLBACK:-no answer}) — a bar yfinance misses has no second source")
+fi
 
 # 3. Anything the pipeline itself reported today.
 ALERTS=$(psql_q "SELECT count(*) FROM pipeline_alerts WHERE created_at::date = current_date;")
 [ "${ALERTS:-0}" -gt 0 ] && problems+=("$ALERTS pipeline alert(s) today")
 
-# `set -u` treats an empty array as unbound on expansion, so default it — otherwise the
-# only path that reports nothing good (every check a problem) dies before printing.
-summary="$(
-    IFS='; '
-    echo "${notes[*]-}"
-)"
+# Joins with "; ". An IFS join uses only the separator's first character, which ran the items
+# together. `set -u` treats an empty array as unbound on expansion, so callers default it —
+# otherwise the only path that reports nothing good (every check a problem) dies before printing.
+join() {
+    local out
+    out="$(printf '%s; ' "$@")"
+    printf '%s' "${out%; }"
+}
+summary="$(join "${notes[@]-}")"
 # Raise every current problem before sweeping, so conditions still true are not read as
 # resolved. The early exits above never reach here by design: a stack that is down or a
 # non-session day means the checks did not run, and reporting "cleared" for a condition
@@ -135,20 +190,14 @@ if [ ${#problems[@]} -eq 0 ]; then
     exit 0
 fi
 
-message="$(
-    IFS='; '
-    echo "${problems[*]}"
-)"
-printf '%s ATTENTION: %s (%s)\n' "$(stamp)" "$message" "$summary"
+message="$(join "${problems[@]}")"
+printf '%s ATTENTION: %s%s\n' "$(stamp)" "$message" "${summary:+ ($summary)}"
 [ -n "$resolved" ] && printf '%s resolved: %s\n' "$(stamp)" "$resolved"
 
 # Only what is new or due goes to the banner. A known gap restated every evening is what
 # trains you to dismiss this notification unread.
 if [ ${#due[@]} -gt 0 ]; then
-    banner="$(
-        IFS='; '
-        echo "${due[*]}"
-    )"
+    banner="$(join "${due[@]}")"
     # A benchmark gap is usually a late bar that fixes itself, so the notification says what
     # to do rather than implying breakage: the sensor retries on tomorrow's budget.
     osascript -e "display notification \"${banner//\"/\'}\" \
