@@ -130,19 +130,23 @@ horizon-mismatch finding and the bias list in [roadmap.md](roadmap.md).
 Two Dagster sensors (`orchestration/definitions.py`) close the two failure modes a
 local-first platform actually hits:
 
-- `pipeline_failure_alert` — a run-failure sensor writing to a JSONL log in
-  `DAGSTER_HOME` (`monitoring/alerts.py`, served at `/alerts`) plus a best-effort macOS
-  notification. Silent failure is the worst outcome for a system whose value is
+- `pipeline_failure_alert` — a run-failure sensor writing to the `pipeline_alerts` table in
+  Postgres (`monitoring/alerts.py`, served at `/alerts`) plus a best-effort macOS
+  notification. Postgres rather than a file, because the daemon records alerts while the API
+  serves them from another container. Silent failure is the worst outcome for a system whose value is
   accumulating daily history that cannot be backfilled.
 - `missed_partition_catchup_sensor` — per market, compares expected sessions on that
   market's calendar against actual price coverage (`orchestration/catchup.py`) and
   re-requests any day below 80% coverage, bounded per tick per market. Schedules only fire
-  while the stack is up, and this runs on a laptop that sleeps. A session is also
-  re-requested when its **benchmark** bar is absent, which coverage cannot detect (one
-  ticker never moves the ratio) but which deletes the whole day from the CAPM marts. Each
-  session gets three attempts per day and the budget resets daily, so an outage that
-  exhausts it recovers on its own; benchmark-only retries additionally expire after five
-  sessions, because retrying cannot help if the vendor never publishes the bar.
+  while the stack is up, and this runs on a laptop that sleeps. A session that landed but is
+  **missing particular tickers** is re-requested too, which coverage cannot detect (a few
+  tickers barely move the ratio) — for the benchmark that deletes the whole day from the CAPM
+  marts, and for any ticker it stretches its features across the gap. That retry is
+  fill-only (just the missing tickers, never overwriting a stored bar), expires after five
+  sessions, and stops once a training run has used the session, per
+  [ADR 0006](adr/0006-price-data-is-filled-not-rewritten.md). Each session gets three attempts
+  per day and the budget resets daily, so an outage that exhausts it recovers on its own; and
+  nothing is requested for yesterday while today's session is trading.
 - `benchmark_freshness` (asset check) — reports any session a market ingested whose
   benchmark lacks a bar, over a 30-session window. Separate from `recent_prices_quality`
   because that judges every ticker against one completeness ratio, where a single absent
@@ -197,4 +201,6 @@ constraints), [0004](adr/0004-no-llm-question-answering-layer.md) (why there is 
 question-answering layer — the deterministic verdict functions already do that job, and
 cannot fabricate a number), and
 [0005](adr/0005-exchange-as-a-first-class-dimension.md) (exchange as a first-class
-dimension — the multi-market architecture).
+dimension — the multi-market architecture), and
+[0006](adr/0006-price-data-is-filled-not-rewritten.md) (price data is filled, never rewritten,
+and fixed once a model has trained on it).

@@ -115,7 +115,7 @@ no model is promoted on either market without beating the rule first.
 ```mermaid
 flowchart LR
     subgraph Dagster["Dagster (daily & weekly schedules)"]
-        A[Ingest daily bars\nyfinance + fallback] --> B[Feature\nengineering]
+        A[Ingest daily bars\nyfinance] --> B[Feature\nengineering]
         B --> C[Score with\nchampion model]
         B --> T[Weekly retrain\nOptuna + purged CV]
         T --> E{Beats champion\non holdout backtest?}
@@ -160,7 +160,8 @@ flowchart LR
   as a description of the fit rather than evidence of skill.
 - **Fails loudly, catches up by itself** — a run-failure sensor logs every failure (served at
   `/alerts`, plus a desktop notification) and a catch-up sensor re-requests any trading day the
-  schedule slept through, so a laptop that sleeps doesn't silently cost you irreplaceable history.
+  schedule slept through, and fills the tickers a partial day is missing, so a laptop that sleeps
+  doesn't silently cost you irreplaceable history.
 - **Honest cost modelling** — the backtest charges commission, slippage, and an annualized
   short-borrow fee against *measured* position churn, and `quantpulse sensitivity` sweeps both to
   report a *range* of outcomes plus the breakeven trading cost, rather than a single flattering
