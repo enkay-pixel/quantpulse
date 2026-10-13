@@ -20,8 +20,8 @@ Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Dock
 
 ## Data flow
 
-1. `raw_prices` (partitioned by **`(date, exchange)`**) pulls OHLCV bars from yfinance (Stooq
-   fallback), repairs vendor unit glitches, and upserts into `market.prices`. A
+1. `raw_prices` (partitioned by **`(date, exchange)`**) pulls OHLCV bars from yfinance (its only
+   source), repairs vendor unit glitches, and upserts into `market.prices`. A
    `MultiPartitionsDefinition` because a JSE holiday is not an NYSE holiday and each market has its
    own post-close schedule.
 2. `features` computes technical + cross-sectional features into `market.features`, ranking

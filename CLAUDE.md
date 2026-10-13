@@ -154,7 +154,9 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `scripts/check-shadow-forward.sh` saves the first readable verdict per market to
   `~/quantpulse-experiments/shadow-run/` and never scores that market again: **that file is the
   reading**. Don't delete it to refresh the result — re-reading after more data is the forking path
-  the rule exists to close.
+  the rule exists to close. Until the verdict is read, nothing may change what a past retrain
+  trained on — not features, not training code, not a re-fetch of a session it already used —
+  because each week's refit must reproduce exactly or the week is lost.
 - **Every database URL names its driver** (`postgresql+psycopg2://`, never bare
   `postgresql://`). SQLAlchemy resolves a bare scheme to its *default* driver, and 2.1 changed that
   default from psycopg2 to psycopg 3 — so the SQLAlchemy 2.1 bump silently moved Dagster's storage

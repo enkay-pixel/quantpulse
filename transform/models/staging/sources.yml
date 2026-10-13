@@ -7,7 +7,7 @@ sources:
     schema: public
     tables:
       - name: prices
-        description: Daily OHLCV bars per ticker (yfinance with Stooq fallback), idempotent upserts.
+        description: Daily OHLCV bars per ticker from yfinance, idempotent upserts.
         meta:
           dagster:
             asset_key: raw_prices

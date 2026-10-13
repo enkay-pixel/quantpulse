@@ -129,27 +129,6 @@ $(psql_q "
 EOF
 done
 
-# 2c. The fallback source. Bars yfinance does not return are asked of Stooq, and a failure there
-#     is only logged, so a fallback that cannot be reached looks like a working one until a gap
-#     needs it. Probed with a US symbol, the kind the fallback is built to fetch.
-FALLBACK=$(docker compose exec -T dagster-daemon python -c "
-import datetime as dt
-import httpx
-from quantpulse.data.ingest import _STOOQ_URL, _stooq_symbol
-start = (dt.date.today() - dt.timedelta(days=10)).strftime('%Y%m%d')
-try:
-    r = httpx.get(_STOOQ_URL, params={'s': _stooq_symbol('SPY'), 'd1': start, 'i': 'd'},
-                  timeout=10, follow_redirects=True)
-    lines = r.text.splitlines()
-    print('ok' if r.status_code == 200 and lines and 'Close' in lines[0] else f'HTTP {r.status_code}')
-except Exception as exc:
-    print(type(exc).__name__)" 2>/dev/null | tr -d '\r' | tail -1)
-if [ "$FALLBACK" = "ok" ]; then
-    notes+=("Stooq fallback reachable")
-else
-    problems+=("Stooq fallback unreachable (${FALLBACK:-no answer}) — a bar yfinance misses has no second source")
-fi
-
 # 3. Anything the pipeline itself reported today.
 ALERTS=$(psql_q "SELECT count(*) FROM pipeline_alerts WHERE created_at::date = current_date;")
 [ "${ALERTS:-0}" -gt 0 ] && problems+=("$ALERTS pipeline alert(s) today")

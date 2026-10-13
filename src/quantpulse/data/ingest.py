@@ -1,15 +1,13 @@
-"""Daily-bar ingestion: yfinance primary, Stooq fallback, idempotent Postgres upserts.
+"""Daily-bar ingestion from yfinance, with idempotent Postgres upserts.
 
 All fetchers return a normalized long DataFrame with columns:
 ticker, date, open, high, low, close, volume, source
 """
 
 import datetime as dt
-import io
 import logging
 from typing import cast
 
-import httpx
 import pandas as pd
 import yfinance as yf
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -23,7 +21,6 @@ from quantpulse.utils import chunked
 logger = logging.getLogger(__name__)
 
 BAR_COLUMNS = ["ticker", "date", "open", "high", "low", "close", "volume", "source"]
-_STOOQ_URL = "https://stooq.com/q/d/l/"
 
 
 class IngestionError(RuntimeError):
@@ -73,43 +70,6 @@ def normalize_yfinance(raw: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
-def _stooq_symbol(ticker: str) -> str:
-    return f"{ticker.lower().replace('.', '-')}.us"
-
-
-def parse_stooq_csv(text: str, ticker: str) -> pd.DataFrame:
-    """Parse Stooq's daily CSV export into the long bar format."""
-    if not text or text.strip().lower().startswith(("no data", "<html")):
-        return pd.DataFrame(columns=BAR_COLUMNS)
-    frame = pd.read_csv(io.StringIO(text))
-    if "Close" not in frame.columns or frame.empty:
-        return pd.DataFrame(columns=BAR_COLUMNS)
-    frame = frame.rename(columns=str.lower)[["date", "open", "high", "low", "close", "volume"]]
-    frame = frame.dropna(subset=["close"])
-    frame["date"] = pd.to_datetime(frame["date"]).dt.date
-    frame["ticker"] = ticker
-    frame["source"] = "stooq"
-    return frame[BAR_COLUMNS]
-
-
-@retry(
-    retry=retry_if_exception_type(httpx.HTTPError),
-    wait=wait_exponential(multiplier=2, min=2, max=30),
-    stop=stop_after_attempt(3),
-    reraise=True,
-)
-def fetch_stooq(ticker: str, start: dt.date, end: dt.date) -> pd.DataFrame:
-    params = {
-        "s": _stooq_symbol(ticker),
-        "d1": start.strftime("%Y%m%d"),
-        "d2": end.strftime("%Y%m%d"),
-        "i": "d",
-    }
-    response = httpx.get(_STOOQ_URL, params=params, timeout=30, follow_redirects=True)
-    response.raise_for_status()
-    return parse_stooq_csv(response.text, ticker)
-
-
 def clean_bars(df: pd.DataFrame) -> pd.DataFrame:
     """Drop rows that would violate DB constraints; enforce dtypes and key uniqueness."""
     if df.empty:
@@ -123,28 +83,33 @@ def clean_bars(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def fetch_daily_bars(tickers: list[str], start: dt.date, end: dt.date) -> pd.DataFrame:
-    """Fetch bars for all tickers: yfinance in one batch, Stooq for whatever it misses."""
+    """Fetch bars for all tickers from yfinance, in one batch.
+
+    There is no second source, deliberately. A ticker the batch does not return is left absent
+    rather than filled from another vendor: bars from two vendors can differ in units and in
+    how they are adjusted, and a missing bar is usually a late one, which a later re-fetch from
+    the same vendor recovers. The absence is logged here by name and reported by the post-close
+    check. A batch that fails outright, or returns nothing usable, raises, so the run fails
+    loudly and the catch-up sensor retries it.
+    """
     try:
         raw = _download_yfinance(tickers, start, end)
         bars = normalize_yfinance(raw, tickers)
-    except Exception:
-        logger.warning("yfinance batch download failed after retries; falling back to Stooq")
-        bars = pd.DataFrame(columns=BAR_COLUMNS)
+    except Exception as exc:
+        raise IngestionError(
+            f"yfinance batch failed after retries for {len(tickers)} tickers {start}..{end}"
+        ) from exc
 
     missing = sorted(set(tickers) - set(bars["ticker"].unique()))
-    for ticker in missing:
-        try:
-            fallback = fetch_stooq(ticker, start, end)
-        except httpx.HTTPError:
-            logger.warning("Stooq fallback failed for %s", ticker)
-            continue
-        if fallback.empty:
-            logger.warning("No data for %s from any source", ticker)
-        else:
-            # Assign rather than concat when the batch failed wholesale: concatenating
-            # onto an all-empty frame is deprecated in pandas and will stop preserving
-            # dtypes, which would silently change what a total-outage day ingests.
-            bars = fallback if bars.empty else pd.concat([bars, fallback], ignore_index=True)
+    if missing:
+        logger.warning(
+            "yfinance returned no bars for %d of %d tickers %s..%s: %s",
+            len(missing),
+            len(tickers),
+            start,
+            end,
+            ", ".join(missing),
+        )
 
     cleaned = clean_bars(bars)
     if cleaned.empty:

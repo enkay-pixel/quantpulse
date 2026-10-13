@@ -16,9 +16,9 @@ dependencies = [
     "psycopg[binary]>=3.3.4",
     # Ingestion
     "pyyaml>=6.0",
-    # Capped: fetch_daily_bars falls back to Stooq on any exception, so a breaking
-    # yfinance change surfaces as a silent source switch, not an error. An open floor
-    # let the venv sit a full major behind the lock (0.2.66 vs 1.5.1) unnoticed.
+    # Capped: yfinance is the only price source, so a breaking release stops every ingest;
+    # take a major deliberately. An open floor let the venv sit a full major behind the
+    # lock (0.2.66 vs 1.5.1) unnoticed.
     "yfinance>=1.5.2,<2",
     "exchange-calendars>=4.5",
     "tenacity>=8.3",

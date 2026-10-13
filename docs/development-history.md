@@ -467,6 +467,27 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     in the server log is not a count of anything until it is split by what was refused: the first
     two figures given for this incident (35, then 6) came from lumping deliberate negative tests in
     with real writes, and from a listing truncated by `head`; the sequence is what settled it.
+37. **A partial session was never retried, and the fallback that should have filled it never
+    could (2026-10-12/13)**: yfinance returned 24 of 29 JSE tickers (no AGL, CLS, MRP, NPN, OMU)
+    and 47 of 50 NYSE ones (no IWM, QQQ, UNH). The catch-up sensor counts a session done at 80%
+    coverage and the scheduled ingest fetches only its own day, so neither was retried. The
+    post-close check reported the JSE session once, at 23 of 29; a late bar then lifted it over
+    the floor and it went quiet. Nothing reported the NYSE one. The Stooq fallback in between had
+    never written a bar — no `prices` row has ever carried `source = 'stooq'` — and could not
+    have: it built a `.us` symbol for every ticker, so no JSE ticker was ever asked for correctly;
+    stooq.com refused connections from this machine outright; and its CSV endpoint now reportedly
+    wants an API key issued behind a CAPTCHA. It still cost time. `raw_prices` takes 3–9 s on a
+    normal day and took 1m15s, 42m53s and 9m46s on Monday's partial sessions, the fallback's
+    three 30-second attempts per missing ticker being the only path that runs differently then.
+    The NYSE bars were at yfinance by the next afternoon: the gap was late, not missing, which
+    is a case for re-fetching rather than for a second vendor whose units and adjustments
+    differ. The post-close check now reports every partial session and whether anything will
+    retry it, and the fallback is removed. A fallback is a recovery path like any other here,
+    and one that has never produced a row has never been tested. Testing the replacement
+    surfaced a quieter bug: Alembic's `env.py` called `fileConfig` with its default, which
+    disables every logger that already exists, so any process migrating in-process — the test
+    fixtures, `quantpulse init-db` — silenced every module imported before it. The warning
+    naming the missing tickers read as empty in the full suite and passed alone.
 
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
