@@ -476,6 +476,63 @@ def _champion_forward(exchange: str, version: str, data_end: str, as_of: str) ->
             )
 
 
+def _forward_vrp(exchange: str, first: str, as_of: str) -> None:
+    """Report implied volatility against the volatility that then arrived."""
+    import datetime as dt
+
+    from quantpulse.db import get_engine
+    from quantpulse.options.forward_vrp import forward_vrp
+
+    _, r = forward_vrp(
+        get_engine(), dt.date.fromisoformat(as_of), dt.date.fromisoformat(first), exchange
+    )
+    logger.info(
+        "%s forward variance risk premium: snapshots %s to %s (%d rows, %d tickers), pinned at %s",
+        exchange,
+        r["first"],
+        r["last"],
+        r["rows"],
+        r["tickers"],
+        as_of,
+    )
+    logger.info(
+        "  mean implied %.4f, forward realized %.4f, trailing realized %.4f",
+        r["mean_atm_iv"],
+        r["mean_forward_vol"],
+        r["mean_trailing_vol"],
+    )
+    if not r["units_ok"]:
+        logger.error(
+            "  units check FAILED: forward realized vol is not an annual figure — stopping"
+        )
+        sys.exit(1)
+    h = r["headline"]
+    if h["state"] == "too_few_days":
+        logger.info("  %d snapshot day(s) — too few to read", h["days"])
+        return
+    logger.info(
+        "  day level, %d days: premium %+.4f ± %.4f (95%% one-sided %+.4f to %+.4f) — %s",
+        h["days"],
+        h["mean"],
+        h["std_error"],
+        h["lower_bound"],
+        h["upper_bound"],
+        h["state"],
+    )
+    if h["days_needed"]:
+        logger.info(
+            "  unresolved: the same mean would need about %.0f days in all", h["days_needed"]
+        )
+    logger.info(
+        "  alongside: ticker-day mean %+.4f; trailing premium on the same rows %+.4f; "
+        "mean absolute error against what arrived — implied %.4f, trailing %.4f",
+        r["ticker_day_mean"],
+        r["trailing_premium_same_rows"],
+        r["mae_implied"],
+        r["mae_trailing"],
+    )
+
+
 def _fixed_defaults(exchange: str | None, n_origins: int, as_of: str | None) -> None:
     """Report whether a fixed configuration is non-inferior to the tuned candidate."""
     from quantpulse.data.calendar import EXCHANGES
@@ -953,6 +1010,17 @@ def main(argv: list[str] | None = None) -> None:
         help="Report the shadow run's forward evidence (results hidden until the window closes)",
     )
     fwd.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    fvrp = sub.add_parser(
+        "forward-vrp",
+        help="Report implied volatility against the volatility that then arrived",
+    )
+    fvrp.add_argument("--exchange", default="XNYS", help="Market with option data (XNYS)")
+    fvrp.add_argument("--first", required=True, help="First snapshot date (YYYY-MM-DD)")
+    fvrp.add_argument(
+        "--as-of",
+        required=True,
+        help="Score only windows closed by this session (YYYY-MM-DD), so a rerun reproduces it",
+    )
     champ = sub.add_parser(
         "champion-forward",
         help="Score one model version against the standing competitor on sessions it never saw",
@@ -1034,6 +1102,8 @@ def main(argv: list[str] | None = None) -> None:
         _tuning_budget(args.exchange, args.origins, args.as_of)
     elif args.command == "shadow-forward":
         _shadow_forward(args.exchange)
+    elif args.command == "forward-vrp":
+        _forward_vrp(args.exchange, args.first, args.as_of)
     elif args.command == "champion-forward":
         _champion_forward(args.exchange, args.version, args.data_end, args.as_of)
     elif args.command == "fixed-defaults":

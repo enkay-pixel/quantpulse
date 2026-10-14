@@ -359,8 +359,9 @@ resolve one. Three related pieces are deliberately not built: IV rank/percentile
 over 27 observations a percentile is a min-max scaler; IV-change against next-day returns,
 because 27 observations is the sample size that produced three reversed findings in the week
 of 2026-08-23; and forward-looking implied-versus-realised, which needs the realisation window
-to close. *Reopen the first two at ~250 snapshot days (about a year, so mid-2027). The third is
-usable now, and is being pre-registered (2026-10-14).*
+to close. *Reopen the first two at ~250 snapshot days (about a year, so mid-2027).* The third was
+[measured on 2026-10-14](findings/forward-variance-risk-premium.md): options were priced above the
+volatility that arrived, +0.049 — over one calm stretch, so not yet a standing premium.
 
 **Offline/online correlation stays open by construction.** It cannot be closed by work, only
 by time — 60 NYSE and 56 JSE live sessions (2026-10-12) is far too short to correlate against
@@ -427,11 +428,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    reflows and a height taken at a narrower width leaves a page of empty black below the
    content. Current values — overview 1257, evidence 1277, options 1149, model-book 686.
 
-5. **Forward implied versus realized volatility** — the options question the capture exists for,
-   usable now that the earliest snapshots' realization windows have closed. Pre-register it, then
-   build the mart and measure; at about two independent windows it will probably not resolve
-   yet, and it grows on its own. IV rank and IV-change signals wait for ~250 snapshot days
-   (mid-2027), as the standing decision says.
+5. **Re-run the forward variance risk premium as windows from other regimes accrue.** Measured
+   2026-10-14 at +0.049 over one calm stretch ([finding](findings/forward-variance-risk-premium.md));
+   the same command with a later `--as-of` separates a standing premium from volatility that
+   happened to fall. IV rank and IV-change signals wait for ~250 snapshot days (mid-2027), as the
+   standing decision says.
 6. **January 2027, after the shadow verdict:** act on it per market, then build features and
    labels on the session calendar instead of by row. A missing ticker-day currently stretches
    that ticker's returns and labels across the gap; fixing it changes past training data, which

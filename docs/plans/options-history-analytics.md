@@ -49,7 +49,7 @@ Not "later" — these have counts attached so they resurface on their own.
 |---|---|---|
 | IV rank / percentile | Over 27 observations a "percentile" is a min-max scaler wearing a better name | ~250 snapshot days (≈1 year) |
 | IV-change → next-day return | 27 observations. Three findings reversed at this sample size in the week of 2026-08-23 | ~250 days, and the paired method in [measurement.md](../measurement.md) |
-| Forward implied vs realized | The realization window must close; only the earliest snapshots qualify today | Accrues on its own; usable from ~2026-10 |
+| ~~Forward implied vs realized~~ | **Measured 2026-10-14**: +0.049, options priced above what arrived ([finding](../findings/forward-variance-risk-premium.md)) | Re-run as other regimes accrue |
 
 ## Design
 

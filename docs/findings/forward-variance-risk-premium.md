@@ -1,8 +1,10 @@
 # Did options price more volatility than then arrived? (pre-registered 2026-10-14)
 
-**Status: pre-registered, not yet measured.** This page reaches `main` before the measurement is
-built or run, under the rule in
+**Status: measured 2026-10-14. Options were priced above what then arrived — by the pre-registered
+rule, against the pre-registration's own expectation.** The sections down to the results are the
+pre-registration, pushed to `main` on its own before any code or run existed, under the rule in
 [How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
+They are unchanged.
 
 ## Why
 
@@ -75,9 +77,50 @@ market on this panel, not a strategy.
 - **The window is one regime.** It runs from late July to mid-September 2026, and a premium
   measured over one stretch of one market is a description of that stretch.
 
-## Results
+## Results (measured 2026-10-14, pinned at 2026-10-13)
 
-Not yet measured.
+The units check passed: forward realized volatility averaged **0.267**, an annual figure.
+
+| NYSE, snapshots 2026-07-20 to 2026-09-14 | value |
+|---|---|
+| Rows / tickers / snapshot days | 1,752 / 50 / 37 |
+| Implied volatility (mean) | 0.317 |
+| Realized over the next 21 sessions (mean) | 0.267 |
+| **Forward premium, day level** | **+0.0489 ± 0.0047** (Newey-West, lag 20) |
+| One-sided 95% bound | lower **+0.0412** |
+| **Reading** | **options priced above what arrived** |
+
+Alongside, deciding nothing: the ticker-day mean is +0.0499; the *trailing* premium on the same
+rows is +0.0121, close to the earlier study's unresolved +0.0044; and implied volatility was the
+better forecast of what arrived, missing by 0.074 on average against 0.082 for trailing realized.
+
+### The pre-registration expected otherwise, and said why
+
+It predicted no resolution, reasoning that the window holds fewer than two independent windows
+and that only a premium of about 0.04 or more could clear the bound. The second half held: the
+premium came in at 0.049, the size it said could resolve. What it got wrong was expecting a smaller
+premium.
+
+The error is likely understated, and the result survives that. The daily means have a lag-1
+autocorrelation of 0.74, so the 37 days are worth about five independent ones, and an error built
+that way is about 0.0095 rather than 0.0047 — a lower bound of +0.033, still above zero. The reading
+would fail only with an error above 0.030. It is also consistent throughout: 36 of 37 day means are
+positive, the two non-overlapping 21-day blocks give +0.054 and +0.042, and 46 of 50 tickers have a
+positive average premium.
+
+### What it does not say
+
+- **That this is a standing premium.** Implied volatility tracked the trailing level (0.317 against
+  0.305) and the market then calmed to 0.267. Over one stretch, "options carry a premium" and
+  "volatility fell after being priced from the recent past" produce the same numbers; separating
+  them needs windows from other regimes, which the snapshot history will accrue.
+- **Anything tradeable.** A premium measured gross of spreads, on 50 names, over seven weeks, is a
+  description of that stretch of this panel.
+
+Evidence: `~/quantpulse-experiments/forward-vrp-asof-2026-10-13/` — every row, the daily means,
+the summary, the log, `run.py` and the commit that ran it. To regenerate:
+`quantpulse forward-vrp --first 2026-07-20 --as-of 2026-10-13`, after
+`dbt run --select fct_iv_vs_forward_realized`.
 
 ## Related
 

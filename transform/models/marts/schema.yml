@@ -185,6 +185,29 @@ models:
           with n_days 0 rather than being dropped, since omitting it leaves the table
           showing only withdrawn models with nothing marking the one running.
 
+  - name: fct_iv_vs_forward_realized
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, snapshot_date]
+    description: >
+      Implied volatility beside the volatility that then arrived over the next 21 sessions,
+      per (ticker, snapshot), and their difference — the forward variance risk premium.
+      Only snapshots whose realization window has closed have a row. Descriptive: measured
+      in docs/findings/forward-variance-risk-premium.md, not a signal.
+    columns:
+      - name: forward_realized_vol_21d
+        description: >
+          Annualised, like atm_iv: the sample standard deviation of the next 21 daily simple
+          returns, scaled by sqrt(252). Bounded both ways below, because a series left in
+          daily units reads as a premium of 0.30 at t 80 rather than as an error.
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "between 0 and 5"
+      - name: forward_premium
+        description: atm_iv minus annualised forward realised vol; positive means options cost
+          more than the movement that followed.
   - name: fct_iv_vs_realized
     tests:
       - dbt_utils.unique_combination_of_columns:
