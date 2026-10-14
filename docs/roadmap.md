@@ -42,130 +42,102 @@ Read that with the caveat the log earns: every serious bug found so far shipped 
 fully green. The tests catch regressions in what has already gone wrong; the bugs that
 matter have been found by reading the data and asking whether it makes sense.
 
-## Current state (2026-08-24)
+## Current state (2026-10-14)
 
 ### The live record — the only numbers worth judging
 
-Both markets are past the 20-session floor, so both publish ratios. Data runs through
-2026-08-21; the NYSE champion is v9, promoted 2026-08-23 after v1 was demoted.
+Data runs through 2026-10-12. Both books have traded about three months live, across several
+champions on the NYSE (v1, then v9, then v10 since 2026-08-29) and one on the JSE (v3, since
+2026-07-25).
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
-| Live sessions | 24 (from 2026-07-20) | 20 (from 2026-07-23) |
-| Total return | **−1.15%** | **+1.70%** |
-| Sharpe | **−1.27** | **+2.68** |
-| Annualized vol | 9.2% | 8.1% |
-| Win rate | 45.8% | 50.0% |
-| Beta / R² | 0.07 / 0.011 | −0.09 / 0.033 |
-| Alpha (annualized) | −17.5% ± 30.6% | +24.7% ± 30.3% |
-| Alpha t-statistic | **−0.57** | **+0.81** |
-| Information ratio | −2.60 | −3.17 |
+| Live sessions | 60 (from 2026-07-20) | 56 (from 2026-07-23) |
+| Total return | **+5.08%** | **+1.38%** |
+| Sharpe | **+1.90** | **+0.82** |
+| Annualized vol | 11.3% | 7.9% |
+| Max drawdown | −3.2% | −2.2% |
+| Win rate | 55.0% | 50.0% |
+| Beta / R² | −0.08 / 0.006 | −0.04 / 0.006 |
+| Alpha (annualized) | +18.7% ± 23.3% | +2.5% ± 16.9% |
+| Alpha t-statistic | **+0.80** | **+0.15** |
+| Information ratio | +0.10 | +0.03 |
 
-The two markets point opposite ways and neither one resolves. Each alpha carries a standard
-error larger than the estimate itself, so both t-statistics sit well inside the ~2 that would
-make either distinguishable from zero. After roughly a month live, the record does not
-separate skill from noise on either market — in either direction.
+Neither market resolves. Each alpha is smaller than its own standard error, so both
+t-statistics sit far inside the ~2 that would distinguish either from zero. The NYSE table read
+−1.15% and Sharpe −1.27 at 24 sessions; the same book reads +5.08% and +1.90 at 60. That swing
+is the noise, and it is the reason nothing here is read as a result yet.
 
-This is a weaker claim than this table used to make. It previously read "the sign is
-meaningful; the magnitude is not yet", quoting a −22.6% alpha. A sign is only meaningful once
-it clears its own error bar, and neither of these does. The annualized figures are a total
-return of about a percent scaled up by 252, not a rate anything has sustained.
-
-The replay comparison still stands as the useful part — NYSE Sharpe **+0.74**, JSE **+1.94**
-in-sample against a live record that resolves to nothing — because the point was never the
-live sign but the size of the gap between a fit and a forecast. Keeping the phases apart is
-why that is visible at all rather than blended into one flattering number.
-
-Beta 0.07 and −0.09 with R² near zero confirm the book is market-neutral as designed, so
-whatever these returns are, they are not hidden market exposure. The information ratio is
-negative on both markets including the one that made money: it is benchmark-relative rather
-than beta-adjusted, so a market-neutral book that sits out a rising index scores badly on it
-by construction. It and alpha answer different questions and are expected to disagree here.
+Beta near zero and R² near 0.006 confirm the books are market-neutral as designed. The replay
+gap still stands as the useful contrast: in-sample Sharpe **+0.74** (NYSE) and **+1.94** (JSE)
+against a live record that resolves to nothing either way.
 
 Books trail prices by one session by construction.
 
-### The replay — in-sample throughout
+### Champions and the promotion stall
 
-Everything below describes a fit, not a forecast.
+| | NYSE (XNYS) | JSE (XJSE) |
+|---|---|---|
+| Champion | v10, promoted 2026-08-29 · holdout IC 0.064 · Sharpe 1.53 | v3, promoted 2026-07-25 · holdout IC 0.063 · Sharpe 1.51 |
+| Rejections since | 6 (v11–v16) | 12 (v4–v15) |
+| What binds | the champion: no candidate has beaten 0.064 | 63-day momentum, which every candidate since the check arrived (2026-08-15) has lost to |
+
+The JSE verdict tracks momentum rather than the model ([why](findings/jse-momentum-regime.md)).
+Momentum's forward IC then collapsed to −0.24 over the 53 sessions after v3's holdout, while the
+gate's trailing holdout still scored it +0.05 to +0.12 ([v3 against
+momentum](findings/champion-vs-momentum.md)) — the check was measuring a regime that had
+turned. v3 itself shows no forward skill: about zero, and −0.125 on the sessions it served. The
+gate stays as it is by decision (2026-10-10): removing it would admit candidates with no
+measured skill, and the collapse entering the trailing holdout is already lowering the bar.
+
+### Measured since the last update
+
+- **The tuner is largely decorative** ([tuning budget](findings/tuning-budget.md)): two thirds
+  of its trials are a fixed warm-up grid, and a single fit's holdout IC is mostly fit noise.
+- **Fixed defaults are non-inferior to tuning** on both markets, narrowly on the JSE
+  ([fixed defaults](findings/fixed-defaults.md)) — on heavily read holdouts, so not acted on.
+- **The live check is running** ([shadow run](findings/shadow-run.md)): a fixed-defaults shadow
+  beside every weekly candidate since 2026-10-10, scored forward, pre-registered. The verdict
+  reads once the last window matures, around the end of December; the first readable run is the
+  reading.
+- **Retraining is not shown to help**, with or without the gate
+  ([retrain value](findings/retrain-value.md)), and models do not measurably go stale
+  ([staleness](findings/model-staleness.md), corrected 2026-09-01).
+
+### Data and operations
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
 | Universe | 50 tickers | 29 (Top 40 with usable history) |
-| Price bars (from 2018) | 108,240 | 60,334 |
-| Champion | v1 · IC 0.026 · **holdout Sharpe 0.21** | v3 · IC 0.063 · **holdout Sharpe 1.51** |
-| Quantile width | 20% (≈10/side) | 35% (≈10/side, set from breadth) |
-| Options | 566,646 quotes, 19 snapshot days | none (no free JSE chain data) |
+| Price bars (from 2018) | 110,333 | 61,550 |
+| Options | 1,794,218 quotes, 57 snapshot days | none (no free JSE chain data) |
 
-A connectivity outage cost **three consecutive option snapshot days (08-11 to 08-13)**, and
-those are gone for good — chains are live-only, so a missed day is a permanent hole. Every
-price session was recoverable and has been recovered, including a full XNYS day that failed
-20 ingest attempts overnight and landed first try once the connection returned.
+Four option snapshot days are permanent holes, because chains are live-only: 2026-08-11 to
+08-13 (a connectivity outage) and 2026-10-08 (the stack was down that evening). Every price
+gap has been recovered.
 
-Both benchmark gaps have since closed. STX40.JO's 08-12 bar arrived two days late and was
-backfilled by hand; its 08-13 bar arrived a day later still and was recovered **by the
-catch-up sensor's benchmark trigger without intervention** — the first time that mechanism
-closed a gap unaided. `benchmark_freshness` passes on both markets.
+yfinance is now the only price source, and price data follows
+[ADR 0006](adr/0006-price-data-is-filled-not-rewritten.md): a partial session is filled, never
+rewritten, and fixed once a model has trained on it. The catch-up sensor fills the tickers a
+session is missing. The 2026-10-12 session's three-ticker NYSE gap was filled minutes after the
+next day's close, and its five-ticker JSE gap the night after, both unaided
+([incident 37](development-history.md)).
 
-Those champion Sharpes are the numbers each model was *promoted* on, and they are not
-comparable across models — see the retrain log below for why. Both were measured under the
-pre-fix evaluation (early stopping on the promotion holdout), so neither is a clean
-out-of-sample estimate.
+### The replay — in-sample throughout
 
-### Retrain log
-
-| Date | XNYS | XJSE |
-|---|---|---|
-| 2026-07-25 | candidate promoted on a mismatched exam, **demoted same day** (incident 24) | v3 promoted, like-for-like vs v2 |
-| 2026-08-01 | v3 rejected — 1.595 vs incumbent **2.570** | v4 rejected — 1.326 vs incumbent **1.786** |
-| 2026-08-08 | v4 rejected | v5 rejected |
-| 2026-08-15 | v5 rejected — IC 0.0698 vs incumbent **0.1884** | v6 rejected — IC 0.0679 vs **momentum baseline 0.1159** |
-
-The 2026-08-01 run is the first under the corrected gate, and it is worth reading closely
-because it demonstrates the failure it was built to prevent. Those incumbent figures appear
-nowhere in the database: they were computed at decision time by re-scoring each champion on
-its challenger's exact 311-day holdout. XNYS v1's **stored** Sharpe is 0.205, from a
-131-day window; re-examined on the longer window it scores **2.570**. Same model, same
-code, different exam, a 12× difference in apparent skill.
-
-So the old gate would have compared the challenger's 1.595 against a stored 0.205, declared
-a landslide, and promoted a model that is in fact substantially worse — repeating the
-previous week's error exactly. The new gate rejected both challengers without drama. One
-retrain is not a trend, and rejection may or may not turn out to be the normal outcome, but
-the mechanism is now demonstrated in production rather than only in tests.
-
-### Promotion has stalled on both markets
-
-Three consecutive retrains have promoted nothing, and the two markets are stalled for
-different reasons — which the weekly check now separates rather than reporting as one count:
-
-- **XNYS** — nothing has beaten the champion (best challenger IC 0.0852 against 0.1000). The
-  gate is right and the model is stuck.
-- **XJSE** — a challenger *did* beat its champion (0.0684 against 0.0625) and was rejected
-  anyway, because it lost to the momentum baseline. The JSE lineage is improving on itself
-  while still failing to justify itself.
-
-The 2026-08-15 run was the first under the standing competitor, and it is the first
-promotion in the project's history blocked by something other than the incumbent.
-
-**Replay book performance** (daily / horizon / long-only), in-sample:
+Everything here describes a fit, not a forecast.
 
 | book | XNYS ann · Sharpe | XJSE ann · Sharpe |
 |---|---|---|
-| `daily` | 7.7% · 0.73 | 21.8% · 1.94 |
-| `horizon` (21d) | 14.3% · 1.30 | 34.8% · 2.94 |
-| `long_only` | 34.6% · 1.16 | 41.9% · 1.41 |
+| `daily` | 8.3% · 0.77 | 21.4% · 1.91 |
+| `horizon` (21d) | 14.9% · 1.35 | 33.5% · 2.86 |
+| `long_only` | 35.6% · 1.20 | 41.4% · 1.41 |
 
-**Read these carefully.** The horizon book's edge over daily is ~85% trading cost, not
-signal (see the resolved horizon-mismatch finding below). The long-only book's higher
-return is market beta it carries by construction — that is what the CAPM decomposition
-strips out. And every number carries survivorship and in-sample bias. NYSE's holdout
-Sharpe is 0.21, JSE's 1.51 (pre-fix evaluation; see above); on 29 JSE names with ~8
-years the JSE number has wide error bars and only live days will settle it. A related
-regime finding from incident 24: raw 63-day momentum IC ran **+0.039 over Mar–Dec 2025
-and −0.004 since** — replay windows that include that stretch flatter any momentum model.
-
-- **Signal quality:** NYSE quintile forward returns are monotonic across the replay window
-  (real ranking skill, modest in magnitude). JSE IC (0.055) is roughly double NYSE's.
+These span the whole history, replay and live together, and the replay's ~2,080 sessions
+dominate the 56–60 live ones. The horizon book's edge over daily is ~85% trading cost, not
+signal (see the resolved horizon-mismatch finding below). The long-only book's higher return is
+market beta it carries by construction, which the CAPM decomposition strips out. Every number
+carries survivorship and in-sample bias.
 
 ## Resolved: the horizon mismatch was a cost problem, not a signal problem
 
@@ -338,7 +310,7 @@ plain 63-day momentum beats the champion on every metric** (IC 0.117 vs 0.068, S
 (IC 0.191 vs momentum's 0.016). Read the JSE replay numbers accordingly: they may be
 measuring momentum rather than the model. Detail in [ml-test-score.md](ml-test-score.md).
 
-## Decisions standing, and what would change them (2026-08-24)
+## Decisions standing, and what would change them (2026-10-14)
 
 Each of these is measured and settled as far as measurement can settle it. None is acted on,
 and each names the evidence that would reopen it. Write-ups in [findings/](findings/README.md).
@@ -359,9 +331,12 @@ That case rests entirely on a backtest metric this project has
 just shown does not predict live behaviour: the NYSE incumbent scored 0.1777 on its holdout
 while the live book lost money. Demoting on that basis would repeat the error documented in
 [the incumbent finding](findings/unbeatable-incumbent.md). The JSE live record is positive
-(+1.70%, Sharpe 2.68) but unresolved at 20 sessions, alpha t +0.81. *Reopen at 60 live
-sessions, or sooner if live Sharpe turns negative or alpha resolves either way.* Withdrawing
-it is one command (`quantpulse demote`) whenever that call is made.
+but unresolved: +1.70% and Sharpe 2.68 at 20 sessions, and +1.38%, Sharpe 0.82, alpha t +0.15 at
+56 (2026-10-12). Since then [v3 has been scored forward against
+momentum](findings/champion-vs-momentum.md): its own forward IC is about zero, and −0.125 on the
+sessions it served. *Reopen at 60 live sessions — reached around 2026-10-20 — or sooner if live
+Sharpe turns negative or alpha resolves either way.* Withdrawing it is one command
+(`quantpulse demote`) whenever that call is made.
 
 **Do not prune the NYSE feature set**, though pruning to `vol_21` resolves at t +3.00 across
 sixteen tuned seeds. `vol_21` was selected on this panel, so the result supports "pruning
@@ -377,18 +352,34 @@ round at random. *Reopen only on a measurement that rolls the origin, not on a f
 window.*
 
 **Options history analytics are descriptive only, for now.** The snapshot capture reached 27
-days on 2026-08-30, which was enough to answer one question — [is there a variance risk
-premium](findings/variance-risk-premium.md) — and the answer is that this panel cannot
+days on 2026-08-30 (57 by 2026-10-13), which was enough to answer one question —
+[is there a variance risk premium](findings/variance-risk-premium.md) — and the answer is that
+this panel cannot
 resolve one. Three related pieces are deliberately not built: IV rank/percentile, because
 over 27 observations a percentile is a min-max scaler; IV-change against next-day returns,
 because 27 observations is the sample size that produced three reversed findings in the week
 of 2026-08-23; and forward-looking implied-versus-realised, which needs the realisation window
-to close. *Reopen the first two at ~250 snapshot days (about a year, so mid-2027); the third
-accrues on its own and is usable from around 2026-10.*
+to close. *Reopen the first two at ~250 snapshot days (about a year, so mid-2027). The third is
+usable now, and is being pre-registered (2026-10-14).*
 
 **Offline/online correlation stays open by construction.** It cannot be closed by work, only
-by time — 24 NYSE and 20 JSE live sessions is far too short to correlate against anything.
+by time — 60 NYSE and 56 JSE live sessions (2026-10-12) is far too short to correlate against
+anything.
 *Revisit near 250 sessions.*
+
+**Leave the JSE momentum check in the gate** (decided 2026-10-10). It was scoring a regime that
+had turned ([v3 against momentum](findings/champion-vs-momentum.md)), but removing it would admit
+candidates with no measured forward skill. *When a JSE candidate next passes, read it as
+momentum weakening, not the model improving.*
+
+**Fixed defaults versus the tuner is decided by the shadow run**, not by the study that
+motivated it. *Read once its last window matures, around the end of December 2026; the first
+readable run is the reading.*
+
+**Dependabot alert #24 (`nltk`, via `evidently`) is dismissed as tolerable risk** (2026-10-14).
+No fixed version exists; quantpulse computes numeric drift only and never calls the affected
+model-artifact APIs. *Reopen when a fix ships — the daily security check watches the dismissed
+alert for one.*
 
 **Keep recharts on 2.x.** The 2.x branch is end-of-life upstream and `npm ci` says so on every
 install, but 3.x changes the chart API across six components, `npm audit` reports no
@@ -397,19 +388,17 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
 
 ## Next
 
-1. **Let it run.** The live track record and the options history only accrue with time;
-   no code substitutes for weeks of scheduled runs. Highest value, zero effort. **XNYS is
-   3 sessions from the 20-day floor** (17 live days), at which point the marts start
-   publishing its Sharpe, information ratio, beta and win rate instead of nulling them —
-   the first ratios this platform will have earned rather than replayed. XJSE follows about
-   a week later. Read them as a first reading on a small sample, not a verdict.
-2. **Let the JSE live phase judge the champion (now v3).** Its live record accrues since
-   the first JSE promotion (2026-07-23). A holdout Sharpe of 1.5 on 29 names is either
-   signal or a favourable draw — the momentum-rich 2025 stretch (incident 24) leans
-   toward the latter — and only accumulated live days distinguish them. Candidates now tune
-   under a 0.02 [learning-rate ceiling](findings/learning-rate-ceiling.md), which stopped the
-   tuner overshooting on this market but averages 0.052 holdout IC against a momentum bar of
-   0.084–0.101 — better candidates, not yet ones that clear the gate.
+1. **Let it run — the shadow run above all.** A fixed-defaults shadow is fitted beside every
+   weekly candidate and scored forward each Monday; [its verdict](findings/shadow-run.md) reads
+   once the last window matures, around the end of December 2026. Until then nothing may change
+   what a past retrain trained on — features, training code, or a re-fetch of a session a
+   retrain has used — because each week's refit must reproduce exactly
+   ([ADR 0006](adr/0006-price-data-is-filled-not-rewritten.md)). The live record (60 and 56
+   sessions) and the options history (57 snapshot days) accrue alongside, at zero effort.
+2. **Review the JSE champion at 60 live sessions, around 2026-10-20**, as the standing decision
+   below sets out. The evidence now includes [v3 scored forward against
+   momentum](findings/champion-vs-momentum.md): no forward skill of its own, ahead of momentum
+   only because momentum collapsed.
 3. **The gate does not rescue the cadence — measured 2026-09-01.** `quantpulse retrain-value`
    showed a freshly fitted model is not better than an older one, but measured retraining
    *unconditionally*; production promotes only through the gate. Replaying the policy — promote
@@ -425,8 +414,9 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    helps. Reopen with tuning in the loop and a true weekly stride, the two things this
    simplified.* See [Does retraining buy anything?](findings/retrain-value.md#crediting-the-gate-2026-09-01).
 4. **Screenshots** carry data through 21 Aug 2026 and show the live decomposition on both
-   markets, including alpha with its standard error. Regenerate when the dashboard changes
-   shape or the live record reaches a milestone worth showing. Recipe, per market and tab:
+   markets, including alpha with its standard error. The live record has since nearly tripled,
+   so they are due. Regenerate when the dashboard changes shape or the live record reaches a
+   milestone worth showing. Recipe, per market and tab:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
    --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,HEIGHT
    --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000
@@ -437,15 +427,21 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    reflows and a height taken at a narrower width leaves a page of empty black below the
    content. Current values — overview 1257, evidence 1277, options 1149, model-book 686.
 
-5. **Options history analytics** — once ~20+ snapshots exist: IV rank/percentile,
-   realized-vs-implied volatility, IV-change signals. This is the payoff for the
-   snapshot-forward design, and it needs no new data source.
-6. **Model improvements** — only once live evidence justifies them: richer features
+5. **Forward implied versus realized volatility** — the options question the capture exists for,
+   usable now that the earliest snapshots' realization windows have closed. Pre-register it, then
+   build the mart and measure; at about two independent windows it will probably not resolve
+   yet, and it grows on its own. IV rank and IV-change signals wait for ~250 snapshot days
+   (mid-2027), as the standing decision says.
+6. **January 2027, after the shadow verdict:** act on it per market, then build features and
+   labels on the session calendar instead of by row. A missing ticker-day currently stretches
+   that ticker's returns and labels across the gap; fixing it changes past training data, which
+   is why it waits for the verdict.
+7. **Model improvements** — only once live evidence justifies them: richer features
    (fundamentals, cross-asset), alternative targets, or an ensemble. Measure first.
-7. **Deferred dependency majors** — typescript / eslint / recharts carry documented
+8. **Deferred dependency majors** — typescript / eslint / recharts carry documented
    Dependabot ignore rules; python-3.14 base image declined (dbt-common/PEP 649); dbt
    `tests:` → `data_tests:` rename when the tooling requires it.
-8. **Databricks Free Edition companion repo** — the same pipeline expressed in
+9. **Databricks Free Edition companion repo** — the same pipeline expressed in
    PySpark/Delta as a separate portfolio piece. Spark was deliberately *not* used here:
    the data is far too small to justify it, and being able to say so is the stronger
    engineering signal.

@@ -479,6 +479,11 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     wants an API key issued behind a CAPTCHA. It still cost time. `raw_prices` takes 3–9 s on a
     normal day and took 1m15s, 42m53s and 9m46s on Monday's partial sessions, the fallback's
     three 30-second attempts per missing ticker being the only path that runs differently then.
+    The 9m46s was only the NYSE run's second attempt. Its first, when yfinance returned nothing
+    for all 50 tickers, asked Stooq for each of them and ran **1h52m** before failing, which held
+    that night's scoring until 02:33. Dagster reports a retried step's duration from its last
+    attempt, so this first read as a process paused for two hours, and was briefly reported
+    that way.
     The NYSE bars were at yfinance by the next afternoon: the gap was late, not missing, which
     is a case for re-fetching rather than for a second vendor whose units and adjustments
     differ. The post-close check now reports every partial session and whether anything will
