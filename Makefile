@@ -25,7 +25,7 @@ VENV_BIN ?= $(VENV_ROOT)/.venv/bin
 # ruff takes file paths and mypy resolves via mypy_path, so neither needs it.
 VENV_PYTHON_SRC := PYTHONPATH=$(CURDIR)/src $(VENV_PYTHON)
 
-.PHONY: install lock fmt lint type test test-all hooks build up up-build down ps logs clean bootstrap dbt-build dbt-docs
+.PHONY: install lock fmt lint type test test-all hooks build up up-build down ps status logs clean bootstrap dbt-build dbt-docs
 
 dbt-build:  ## Run dbt models + tests against local Postgres
 	set -a && . ./.env && set +a && $(VENV_BIN)/dbt build --project-dir transform --profiles-dir transform
@@ -79,6 +79,9 @@ up-build:  ## Rebuild images then start the stack
 
 down:  ## Stop the local stack (data volumes are kept)
 	docker compose down
+
+status:  ## Everything a check-in asks: stack, scheduled jobs, GitHub, data, decisions, dates ahead
+	@scripts/status.sh
 
 ps:  ## Show stack status
 	docker compose ps

@@ -476,6 +476,107 @@ def _champion_forward(exchange: str, version: str, data_end: str, as_of: str) ->
             )
 
 
+def _verdict_dir(arg: str | None) -> Path:
+    """Where the weekly shadow job saves the verdict; the same default the job uses."""
+    import os
+
+    if arg:
+        return Path(arg)
+    default = Path.home() / "quantpulse-experiments" / "shadow-run"
+    return Path(os.environ.get("SHADOW_FORWARD_DIR", str(default)))
+
+
+def _decisions(verdict_dir: str | None) -> None:
+    """Report each standing decision's reopen conditions, and whether any has fired."""
+    from quantpulse.config import get_settings
+    from quantpulse.db import get_engine
+    from quantpulse.monitoring.decisions import collect, evaluate, load
+
+    decisions = load(get_settings().quantpulse_decisions_file)
+    outcomes = evaluate(decisions, collect(get_engine(), _verdict_dir(verdict_dir)))
+    for o in outcomes:
+        logger.info("%-7s %s: %s — %s", o.state.upper(), o.decision.id, o.decision.title, o.detail)
+    fired = [o for o in outcomes if o.state == "fired"]
+    logger.info(
+        "%d decision(s), %d condition(s) fired%s",
+        len(decisions),
+        len(fired),
+        "" if not fired else " — revisit them and update configs/decisions.yaml and the roadmap",
+    )
+
+
+def _status(verdict_dir: str | None) -> None:
+    """Freshness, coverage, champions, the shadow run, decisions and the dates ahead."""
+    from quantpulse.config import get_settings
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine
+    from quantpulse.monitoring.decisions import collect, evaluate, load
+    from quantpulse.monitoring.status import (
+        market_status,
+        next_retrain,
+        sessions_ahead,
+        shadow_verdict_eta,
+    )
+
+    engine = get_engine()
+    for code in sorted(EXCHANGES):
+        m = market_status(engine, code)
+        behind = [
+            name
+            for name, day in (
+                ("prices", m.prices),
+                ("features", m.features),
+                ("predictions", m.predictions),
+            )
+            if day is None or day < m.expected
+        ]
+        print(
+            f"{code}: expected {m.expected} | prices {m.prices} | features {m.features} | "
+            f"predictions {m.predictions} (v{m.predictions_version})"
+            + (f" — BEHIND: {', '.join(behind)}" if behind else "")
+        )
+        print(
+            "  last sessions: "
+            + ", ".join(f"{s.day:%m-%d} {s.covered}/{s.universe}" for s in m.recent)
+        )
+        for s in m.recent:
+            if not s.missing:
+                continue
+            if m.trained_through is None or s.day > m.trained_through:
+                fate = "the sensor fills it until the next retrain"
+            else:
+                fate = "a retrain has used it, so nothing will fill it"
+            print(f"  {s.day} missing {len(s.missing)}: {', '.join(s.missing)} — {fate}")
+        print(
+            f"  champion v{m.champion} since {m.champion_since} · "
+            f"{m.rejections} rejection(s) since · shadow weeks recorded "
+            f"{m.shadow_recorded} of {m.shadow_due} due ({m.shadow_in_window} in window)"
+        )
+
+    snapshot = collect(engine, _verdict_dir(verdict_dir))
+    outcomes = evaluate(load(get_settings().quantpulse_decisions_file), snapshot)
+    fired = [o for o in outcomes if o.state == "fired"]
+    unknown = [o for o in outcomes if o.state == "unknown"]
+    print("decisions: " + (f"{len(fired)} reopened" if fired else "none reopened"))
+    for o in fired + unknown:
+        print(f"  {o.state.upper()} {o.decision.id}: {o.detail}")
+
+    ahead = [(next_retrain(), "weekly retrain, with its shadow")]
+    for o in outcomes:
+        if o.state == "armed" and o.condition.type == "live_sessions_at_least":
+            ex = o.condition.params["exchange"]
+            live = snapshot.live.get(ex)
+            need = int(o.condition.params["sessions"])
+            # Only the near ones: a date a year out from a few weeks' pace is not a schedule.
+            if live and live.end_date and need - live.sessions <= 60:
+                eta = sessions_ahead(live.end_date, need - live.sessions, ex)
+                ahead.append((eta, f"{o.decision.id} reopens at {need} {ex} live sessions"))
+    ahead.append((shadow_verdict_eta(), "shadow run verdict readable, about"))
+    print("ahead:")
+    for day, what in sorted(ahead):
+        print(f"  {day} {what}")
+
+
 def _forward_vrp(exchange: str, first: str, as_of: str) -> None:
     """Report implied volatility against the volatility that then arrived."""
     import datetime as dt
@@ -1010,6 +1111,12 @@ def main(argv: list[str] | None = None) -> None:
         help="Report the shadow run's forward evidence (results hidden until the window closes)",
     )
     fwd.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
+    stat = sub.add_parser(
+        "status", help="Freshness, coverage, champions, the shadow run and the dates ahead"
+    )
+    stat.add_argument("--verdict-dir", default=None, help="Shadow verdict directory")
+    dec = sub.add_parser("decisions", help="Report whether any standing decision has reopened")
+    dec.add_argument("--verdict-dir", default=None, help="Shadow verdict directory")
     fvrp = sub.add_parser(
         "forward-vrp",
         help="Report implied volatility against the volatility that then arrived",
@@ -1102,6 +1209,10 @@ def main(argv: list[str] | None = None) -> None:
         _tuning_budget(args.exchange, args.origins, args.as_of)
     elif args.command == "shadow-forward":
         _shadow_forward(args.exchange)
+    elif args.command == "status":
+        _status(args.verdict_dir)
+    elif args.command == "decisions":
+        _decisions(args.verdict_dir)
     elif args.command == "forward-vrp":
         _forward_vrp(args.exchange, args.first, args.as_of)
     elif args.command == "champion-forward":
