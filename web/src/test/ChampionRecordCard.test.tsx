@@ -115,4 +115,12 @@ describe("ChampionRecordCard", () => {
       screen.getByText(/Appears once a champion has scored/),
     ).toBeInTheDocument();
   });
+
+  it("states how many returns the error rests on, not a fixed month", () => {
+    // The sentence once said "a month of daily returns" whatever the count, which read wrong at
+    // 55 sessions and would read worse at 200.
+    const current = { ...CURRENT_ONE_DAY, model_version: "3", n_days: 55, sharpe: 0.83, win_rate: 0.51 };
+    render(<ChampionRecordCard data={{ champions: [current] }} />);
+    expect(screen.getByText(/55 daily returns still leave a wide error/)).toBeInTheDocument();
+  });
 });

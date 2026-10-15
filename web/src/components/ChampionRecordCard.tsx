@@ -50,7 +50,7 @@ function verdict(rows: ChampionRecord[]): string {
   }
   return (
     `v${current.model_version} has ${current.n_days} live sessions, enough for ratios but not ` +
-    `for confidence: a month of daily returns still leaves a wide error on anything annualized.`
+    `for confidence: ${current.n_days} daily returns still leave a wide error on anything annualized.`
   );
 }
 

@@ -17,6 +17,9 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-install-proj
 
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+# The standing decisions and the findings index, which the dashboard's Research tab reads.
+COPY configs ./configs
+COPY docs/findings/README.md ./docs/findings/README.md
 
 EXPOSE 8000
 CMD ["uvicorn", "quantpulse.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

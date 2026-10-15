@@ -60,7 +60,7 @@ the incident log, and the ADRs.
 ![QuantPulse dashboard](docs/assets/dashboard.png)
 
 <details>
-<summary><b>More screenshots</b> — Evidence, Options, and Model &amp; Book tabs</summary>
+<summary><b>More screenshots</b> — Evidence, Options, Model &amp; Book, and Research tabs</summary>
 
 ## Evidence — does the model actually have skill?
 
@@ -68,10 +68,10 @@ the incident log, and the ADRs.
 
 The CAPM decomposition is what makes the record readable: **a low beta and near-zero R²
 confirm the book is genuinely market-neutral**, so comparing its raw return to SPY was never
-the right test. The screenshot predates the live phase and shows the in-sample replay, where
-alpha is positive and the information ratio is already negative. The live decomposition —
-now published for both markets, and resolving on neither — is in the table at the top of
-this page.
+the right test. The screenshots (taken 2026-10-15) show the live phase — 61 sessions out of
+sample on the NYSE — where alpha's error band still spans zero, and the panel says so rather
+than leaving the headline number to speak. The same decomposition for both markets is in the
+table at the top of this page.
 
 Below it, the two-book panel shows what rebalancing frequency actually costs, then signal
 quintiles slope the right way (Q1 highest → Q5 lowest: real ranking skill, modest in size)
@@ -85,10 +85,23 @@ The volatility smile is built from **out-of-the-money contracts with open intere
 deep in-the-money options barely trade, so their quoted IV is stale noise that would
 otherwise spike both wings past 150%. The right-hand card translates the model's
 directional view into a defined-risk spread, clearly labelled as illustration, never advice.
+At the bottom, implied volatility runs beside the volatility that then arrived over the next 21
+sessions — the [forward variance risk premium](docs/findings/forward-variance-risk-premium.md),
+which a day joins only once its window has closed.
 
 ## Model &amp; Book — every champion/challenger decision, and the current paper positions
 
 ![Model and book tab](docs/assets/model-book-tab.png)
+
+## Research — what has been measured, and what would change a decision
+
+![Research tab](docs/assets/research-tab.png)
+
+Every investigation's question and outcome, read from the [findings index](docs/findings/README.md)
+itself, withdrawn claims included. Beside them, each **standing decision** with the conditions
+named in advance that would reopen it — so many live sessions, a Sharpe turning negative, a
+promotion — evaluated on the current record by the same code as the weekday job that notifies
+when one fires.
 
 ## The JSE — the same evidence layer, a different market
 
@@ -97,14 +110,15 @@ directional view into a defined-risk spread, clearly labelled as illustration, n
 Switching to XJSE re-scopes everything: **beta is measured against STX40.JO** (not SPY —
 comparing a JSE book to the S&P would measure the rand, not the strategy), the Options tab
 is gone (no free JSE chain data), and the numbers are the JSE champion's. Its in-sample
-replay looks strong — alpha +16%, IR 0.42, all three books positive — and the panel says
-plainly that these are in-sample. Its live phase is 17 sessions and flat (+0.01%), with
-every ratio still withheld below the 20-session floor.
+replay looked strong — alpha +16%, IR 0.42, all three books positive — but live, over 57
+sessions to 2026-10-13, its alpha is +1.45% ± 16.6% a year (the current champion is up 1.4%
+over its 55): nothing it could claim in either direction.
 
 There is a sharper caveat than that. `quantpulse baseline` scores every champion against
 simple rules on the same holdout, and on the JSE **a plain 63-day momentum rule beats the
 champion on every metric** — higher IC, higher Sharpe, half the drawdown, with no parameters
-and no fitting. So these JSE figures may be measuring momentum rather than the model. On the
+and no fitting. So these JSE figures may be measuring momentum rather than the model, and
+[scored forward](docs/findings/champion-vs-momentum.md) the champion shows no skill of its own. On the
 NYSE the champion wins decisively against the same baselines. That comparison is now a gate:
 no model is promoted on either market without beating the rule first.
 

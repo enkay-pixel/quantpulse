@@ -256,6 +256,55 @@ class AlphaBetaOut(BaseModel):
     phases: list[AlphaBetaStats]
 
 
+class DecisionConditionOut(BaseModel):
+    type: str
+    #: fired | armed | unknown | manual
+    state: str
+    detail: str
+
+
+class DecisionOut(BaseModel):
+    """A standing decision and whether anything has reopened it."""
+
+    id: str
+    title: str
+    decided: dt.date
+    note: str | None
+    #: reopened (a condition fired) | unknown (one cannot be checked here) | standing | manual
+    state: str
+    conditions: list[DecisionConditionOut]
+
+
+class DecisionsOut(BaseModel):
+    decisions: list[DecisionOut]
+
+
+class FindingOut(BaseModel):
+    title: str
+    url: str
+    question: str
+    outcome: str
+
+
+class FindingsOut(BaseModel):
+    findings: list[FindingOut]
+
+
+class ForwardVrpDay(BaseModel):
+    """One snapshot day: implied volatility against what then arrived, averaged over tickers."""
+
+    snapshot_date: dt.date
+    tickers: int
+    implied: float
+    realized: float
+    premium: float
+
+
+class ForwardVrpOut(BaseModel):
+    exchange: str
+    days: list[ForwardVrpDay]
+
+
 class QuintileStat(BaseModel):
     signal_quintile: int
     n_days: int
