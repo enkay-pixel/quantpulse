@@ -99,11 +99,13 @@ about repeatedly.
 ### Fix the decision rule before the run, where the merge cannot erase it
 
 Writing a decision rule down before measuring is what stops it being chosen after the numbers are
-seen — but only if the order can still be checked afterwards. **Push the pre-registration to `main`
-before the run starts**, as its own commit. A pre-registration committed to a feature branch is
-folded into the results commit by the squash merge this repository uses, and the evidence that it
-came first then survives only in the pull request. That happened twice in the tuning-budget work
-before the pattern was noticed.
+seen — but only if the order can still be checked afterwards. **Merge the pre-registration to
+`main` before the run starts**, as its own pull request, and wait for it to land. A pre-registration
+committed to the results branch is folded into the results commit by the squash merge this
+repository uses, and the evidence that it came first then survives only in the pull request. That
+happened twice in the tuning-budget work before the pattern was noticed. (It used to be pushed to
+`main` directly; since 2026-10-15 `main` accepts nothing that has not passed CI, so it goes through
+its own PR instead, which still lands as its own commit ahead of the results.)
 
 The same applies to anything seen before the run. A smoke test that shows directional numbers is a
 peek: record what it showed, in the same pre-registered document and before the full run, rather
