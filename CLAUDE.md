@@ -134,6 +134,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   since the branch commits are `chore(deps):` and the merges are retitled `build(deps):`.
   Two pairs on `main` predate this rule and stay as they are: rewording a pushed commit needs
   a force-push, and the `Protect` ruleset blocks `non_fast_forward` on the default branch.
+- **`main` requires all five CI checks** (ruleset `Require CI`, no bypass), so nothing reaches it
+  except through a PR — pre-registrations and docs included; a direct push is rejected. To merge
+  once green, `gh pr merge N --auto --squash --match-head-commit <sha>`: GitHub merges when every
+  check passes, never on a red one, and deletes the branch. Until 2026-10-15 CI did not gate
+  merges, which is how a PR whose `python` job had failed reached `main` on 2026-09-19.
 - CI (GitHub Actions): python (ruff/mypy/pytest + Postgres service) · dbt build ·
   web · compose validation. Keep it green; Dependabot weekly with documented major
   ignores (typescript/eslint/recharts) — don't take Docker base-image majors untested.
