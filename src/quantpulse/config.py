@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     quantpulse_universe_file: Path = Path("configs/universe.yaml")
+    quantpulse_decisions_file: Path = Path("configs/decisions.yaml")
     quantpulse_history_start: str = "2018-01-01"
 
     # Options snapshot bounds (keep yfinance calls + row volume sane)

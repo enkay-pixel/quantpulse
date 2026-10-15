@@ -74,6 +74,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - QA loop: `make fmt lint type test` · `make test-all` (integration; needs stack up) ·
   `cd web && npm run lint && npm run test && npm run build` · `make dbt-build`.
 - Stack: `make up` / `make down` (docker compose; Docker Desktop must be running).
+- Check-in: `make status` — stack, flagged jobs, PRs and alerts, then `quantpulse status`
+  (freshness, gaps and whether they will be filled, champions, shadow run, decisions, dates ahead).
+  Use it instead of assembling the same queries by hand. Standing decisions and their reopen
+  conditions live in `configs/decisions.yaml`; when one is revisited, update it with the roadmap.
 - First-run seed on empty DB: `make bootstrap`.
 - Analysis: `quantpulse sensitivity` sweeps backtest cost x short-borrow and reports the
   breakeven round-trip cost (`inf` = still profitable at the harshest cost tested, i.e.

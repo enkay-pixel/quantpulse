@@ -218,7 +218,7 @@ docker compose exec -T api grep -c "some_new_symbol" /app/src/quantpulse/api/rou
 
 ## Host agents (launchd)
 
-Eight scheduled jobs on the dev machine. Each keeps only its *schedule* in
+Nine scheduled jobs on the dev machine. Each keeps only its *schedule* in
 `~/Library/LaunchAgents/com.quantpulse.*.plist`; the logic lives in `scripts/` or the
 Makefile, so changing behaviour is a code change with a diff. All log to
 `~/Library/Logs/quantpulse-*.log`.
@@ -234,6 +234,7 @@ separate agent fleet, not this repo. The ones below are the ones a fresh clone c
 | `daily-pipeline` | 08:00 Tue–Sat | Reports whether last night's run reached predictions on **both** markets, and which champion scored. Tue–Sat rather than Mon–Fri because the 19:00 New York process job lands at 01:00 local the next day |
 | `retrain-check` | Sat 17:37 | Reports the weekly retrain's outcome per market — decision, candidate IC, and the incumbent and baseline it had to beat |
 | `shadow-forward` | Mon 20:37 | Scores the [shadow run](findings/shadow-run.md) forward and notifies when its verdict becomes readable, a week is lost, or the scorer fails |
+| `decisions` | 08:20 Tue–Sat | Evaluates the standing decisions' reopen conditions in `configs/decisions.yaml` and notifies when one fires, reminding weekly until the decision is revisited |
 | `readiness` | 21:45 weekdays | Warns if the stack is down or on battery, 15 min before the option window |
 | `power` | every 2h | Warns only when sleep is disabled **and** on battery — the combination that runs the machine flat |
 | `prune-cache` | Sun 03:00 | Reclaims Docker build cache, keeps the uv wheel cache |
@@ -272,6 +273,13 @@ has to be fixed while the window is still open. The fits run in a throwaway cont
 daemon's service definition — about half a minute per market per week, at most a few minutes
 for the whole window — and never inside the live daemon. Once every market's verdict is saved
 the job has nothing left to do and can be unloaded.
+
+`make status` answers a check-in in one place: the stack, any scheduled job whose latest run
+reports a problem, open PRs and alerts, and then `quantpulse status` — each market's freshness,
+its last five sessions with any missing tickers and whether anything will fill them, the champion
+and its streak, the shadow run's progress, the standing decisions, and the dates ahead. Read-only,
+a few seconds. The `decisions` job runs the same evaluation every weekday morning; revisiting a
+decision means updating its entry in `configs/decisions.yaml` as well as the roadmap.
 
 The checks notify but never act: bringing the stack up automatically would override a
 deliberate `make down` before travel. Disable any of them with

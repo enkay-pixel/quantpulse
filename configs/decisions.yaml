@@ -1,0 +1,74 @@
+# Standing decisions, and what reopens each.
+#
+# Mirrors "Decisions standing" in docs/roadmap.md, where the reasoning lives. This file holds only
+# what can be checked: each decision names the conditions that reopen it, and `quantpulse
+# decisions` evaluates them against the live record, the model runs and the option history. A
+# scheduled check notifies when one fires, then reminds weekly until the decision is revisited —
+# which means updating its entry here (new `decided` date, new conditions) as well as the roadmap.
+#
+# Condition types:
+#   live_sessions_at_least  {exchange, sessions}  live record has at least this many sessions
+#   live_sharpe_below       {exchange, value}     live Sharpe has fallen below this
+#   live_alpha_resolves     {exchange}            live alpha's |t| has reached 2, either way
+#   promotion_after         {exchange}            a candidate was promoted after `decided`
+#   shadow_verdict_saved    {}                    the shadow run's reading has been saved
+#   option_snapshot_days_at_least {days}          the options history holds this many days
+#   manual                  {watch}               nothing checks it here; `watch` says what does
+
+- id: keep-jse-model
+  title: Keep running the JSE model (champion v3), despite it losing to momentum
+  decided: 2026-08-24
+  reopen_when:
+    - {type: live_sessions_at_least, exchange: XJSE, sessions: 60}
+    - {type: live_sharpe_below, exchange: XJSE, value: 0}
+    - {type: live_alpha_resolves, exchange: XJSE}
+
+- id: jse-momentum-check-stays
+  title: Leave the JSE momentum check in the gate
+  decided: 2026-10-10
+  reopen_when:
+    - {type: promotion_after, exchange: XJSE}
+  note: Read a JSE promotion as momentum weakening, not the model improving.
+
+- id: fixed-defaults-by-shadow
+  title: Fixed defaults versus the tuner is decided by the shadow run
+  decided: 2026-10-04
+  reopen_when:
+    - {type: shadow_verdict_saved}
+
+- id: options-descriptive-only
+  title: IV rank and IV-change signals are not built
+  decided: 2026-08-30
+  reopen_when:
+    - {type: option_snapshot_days_at_least, days: 250}
+
+- id: offline-online-correlation
+  title: Offline/online correlation stays open by construction
+  decided: 2026-08-24
+  reopen_when:
+    - {type: live_sessions_at_least, exchange: XNYS, sessions: 250}
+    - {type: live_sessions_at_least, exchange: XJSE, sessions: 250}
+
+- id: no-nyse-pruning
+  title: Do not prune the NYSE feature set
+  decided: 2026-09-01
+  reopen_when:
+    - {type: manual, watch: a confirmation from a fresh panel period}
+
+- id: no-per-market-round-count
+  title: Do not set a per-market round count
+  decided: 2026-09-01
+  reopen_when:
+    - {type: manual, watch: a measurement that rolls the origin}
+
+- id: recharts-2x
+  title: Keep recharts on 2.x
+  decided: 2026-08-24
+  reopen_when:
+    - {type: manual, watch: a security advisory (the daily security check) or a needed 3.x feature}
+
+- id: nltk-alert-dismissed
+  title: "Dependabot alert #24 (nltk) dismissed as tolerable risk"
+  decided: 2026-10-14
+  reopen_when:
+    - {type: manual, watch: "the daily security check, which reports a fix the day one ships"}
