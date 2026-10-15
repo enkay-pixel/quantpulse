@@ -17,6 +17,14 @@ class Settings(BaseSettings):
 
     quantpulse_universe_file: Path = Path("configs/universe.yaml")
     quantpulse_decisions_file: Path = Path("configs/decisions.yaml")
+    quantpulse_findings_index: Path = Path("docs/findings/README.md")
+    #: Where the weekly shadow job saves its verdict, when the process can see it. The API reads
+    #: it through a read-only mount; unset, the shadow condition reads as unknown.
+    quantpulse_shadow_verdict_dir: Path | None = None
+    #: Where the dashboard links each finding: the repository is public, so readers can follow.
+    quantpulse_findings_url: str = (
+        "https://github.com/enkay-pixel/quantpulse/blob/main/docs/findings"
+    )
     quantpulse_history_start: str = "2018-01-01"
 
     # Options snapshot bounds (keep yfinance calls + row volume sane)

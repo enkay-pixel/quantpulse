@@ -634,6 +634,90 @@ def alpha_beta(session: SessionDep, exchange: ExchangeDep) -> schemas.AlphaBetaO
     return schemas.AlphaBetaOut(phases=[schemas.AlphaBetaStats(**dict(r)) for r in rows or []])
 
 
+@router.get("/decisions", response_model=schemas.DecisionsOut)
+def decisions(engine: EngineDep) -> schemas.DecisionsOut:
+    """The standing decisions, and whether anything has reopened one.
+
+    Judged on the stored record by the same code the weekday decisions job runs, so the
+    dashboard and the notification cannot disagree about a condition.
+    """
+    from quantpulse.config import get_settings
+    from quantpulse.monitoring.decisions import collect, evaluate, load
+
+    settings = get_settings()
+    if not settings.quantpulse_decisions_file.exists():
+        return schemas.DecisionsOut(decisions=[])
+    standing = load(settings.quantpulse_decisions_file)
+    try:
+        outcomes = evaluate(standing, collect(engine, settings.quantpulse_shadow_verdict_dir))
+    except ProgrammingError:  # the marts have not been built yet
+        return schemas.DecisionsOut(decisions=[])
+    out = []
+    for d in standing:
+        mine = [o for o in outcomes if o.decision.id == d.id]
+        states = {o.state for o in mine}
+        if "fired" in states:
+            state = "reopened"
+        elif "unknown" in states:
+            state = "unknown"
+        elif states == {"manual"}:
+            state = "manual"
+        else:
+            state = "standing"
+        out.append(
+            schemas.DecisionOut(
+                id=d.id,
+                title=d.title,
+                decided=d.decided,
+                note=d.note,
+                state=state,
+                conditions=[
+                    schemas.DecisionConditionOut(
+                        type=o.condition.type, state=o.state, detail=o.detail
+                    )
+                    for o in mine
+                ],
+            )
+        )
+    return schemas.DecisionsOut(decisions=out)
+
+
+@router.get("/findings", response_model=schemas.FindingsOut)
+def findings() -> schemas.FindingsOut:
+    """Every investigation's question and outcome, read from the findings index itself."""
+    from quantpulse.config import get_settings
+    from quantpulse.monitoring.findings import load
+
+    settings = get_settings()
+    rows = load(settings.quantpulse_findings_index, settings.quantpulse_findings_url)
+    return schemas.FindingsOut(
+        findings=[
+            schemas.FindingOut(title=f.title, url=f.url, question=f.question, outcome=f.outcome)
+            for f in rows
+        ]
+    )
+
+
+@router.get("/options/forward-vrp", response_model=schemas.ForwardVrpOut)
+def forward_vrp(session: SessionDep, exchange: ExchangeDep) -> schemas.ForwardVrpOut:
+    """Implied volatility against the volatility that then arrived, per snapshot day.
+
+    Only days whose 21-session realization window has closed have a row, so the newest month of
+    snapshots is absent by construction.
+    """
+    rows = _mart_rows(
+        session,
+        "SELECT snapshot_date, count(*) AS tickers, avg(atm_iv) AS implied, "
+        "avg(forward_realized_vol_21d) AS realized, avg(forward_premium) AS premium "
+        "FROM analytics.fct_iv_vs_forward_realized WHERE exchange = :ex "
+        "GROUP BY snapshot_date ORDER BY snapshot_date",
+        {"ex": exchange},
+    )
+    return schemas.ForwardVrpOut(
+        exchange=exchange, days=[schemas.ForwardVrpDay(**dict(r)) for r in rows or []]
+    )
+
+
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
 def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.QuintilesOut:
     overall = _mart_rows(

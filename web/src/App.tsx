@@ -2,9 +2,12 @@ import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
 import { ChampionRecordCard } from "./components/ChampionRecordCard";
+import { DecisionsCard } from "./components/DecisionsCard";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
 import { BookComparisonCard } from "./components/BookComparisonCard";
 import { DriftPanel } from "./components/DriftPanel";
+import { FindingsList } from "./components/FindingsList";
+import { ForwardVrpChart } from "./components/ForwardVrpChart";
 import { FreshnessStrip } from "./components/FreshnessStrip";
 import { IvSkewChart } from "./components/IvSkewChart";
 import { IvSurfaceChart } from "./components/IvSurfaceChart";
@@ -25,8 +28,11 @@ import {
   useChampions,
   useBooks,
   useCurrentModel,
+  useDecisions,
   useDrift,
   useEquityCurve,
+  useFindings,
+  useForwardVrp,
   useFreshness,
   useExchanges,
   useHealth,
@@ -47,7 +53,7 @@ import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { formatDate, formatNumber, formatPercent } from "./lib/format";
 
-const TABS = ["Overview", "Evidence", "Options", "Model & Book"];
+const TABS = ["Overview", "Evidence", "Options", "Model & Book", "Research"];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -234,6 +240,7 @@ function OptionsTab({ exchange }: { exchange: string }) {
   const chain = useOptionChain(ticker);
   const surface = useIvSurface(ticker);
   const idea = useOptionIdea(ticker);
+  const forwardVrp = useForwardVrp(exchange);
 
   return (
     <>
@@ -342,7 +349,42 @@ function OptionsTab({ exchange }: { exchange: string }) {
           )}
         </Section>
       </div>
+
+      <div className="mt-4">
+        <Section title="Did options price more volatility than then arrived?">
+          {forwardVrp.data ? (
+            <ForwardVrpChart data={forwardVrp.data} />
+          ) : (
+            <Placeholder height="h-56" />
+          )}
+        </Section>
+      </div>
     </>
+  );
+}
+
+// Project-wide rather than per market: the findings and decisions span both, so this tab
+// ignores the market picker.
+function ResearchTab() {
+  const decisions = useDecisions();
+  const findings = useFindings();
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Section title="What would change a standing decision?">
+        {decisions.data ? (
+          <DecisionsCard data={decisions.data} />
+        ) : (
+          <Placeholder height="h-56" />
+        )}
+      </Section>
+      <Section title="What has been measured, and what came back">
+        {findings.data ? (
+          <FindingsList data={findings.data} />
+        ) : (
+          <Placeholder height="h-56" />
+        )}
+      </Section>
+    </div>
   );
 }
 
@@ -431,6 +473,7 @@ export default function App() {
         <OptionsTab exchange={exchange} />
       ) : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
+      {tab === "Research" ? <ResearchTab /> : null}
     </div>
   );
 }

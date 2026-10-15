@@ -89,7 +89,7 @@ export function IvSurfaceChart({ data }: { data: IvSurface }) {
             />
             <Tooltip
               contentStyle={{
-                background: "var(--surface)",
+                background: "var(--surface-1)",
                 border: "1px solid var(--grid)",
               }}
               formatter={(v: number) => [formatPercent(v, 1), "ATM IV"]}
@@ -98,9 +98,10 @@ export function IvSurfaceChart({ data }: { data: IvSurface }) {
             <Line
               type="monotone"
               dataKey="avg_iv"
-              stroke="var(--accent)"
+              stroke="var(--series-1)"
               dot={false}
               strokeWidth={2}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -137,7 +138,7 @@ export function IvSurfaceChart({ data }: { data: IvSurface }) {
             />
             <Tooltip
               contentStyle={{
-                background: "var(--surface)",
+                background: "var(--surface-1)",
                 border: "1px solid var(--grid)",
               }}
               formatter={(v: number) => [formatPercent(v, 1), "ATM IV"]}
@@ -146,9 +147,10 @@ export function IvSurfaceChart({ data }: { data: IvSurface }) {
             <Line
               type="monotone"
               dataKey="avg_iv"
-              stroke="var(--accent)"
+              stroke="var(--series-1)"
               dot={false}
               strokeWidth={2}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>

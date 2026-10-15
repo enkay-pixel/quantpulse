@@ -414,20 +414,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    *The schedule stays as it is: nothing shows weekly is harmful, and nothing now shows it
    helps. Reopen with tuning in the loop and a true weekly stride, the two things this
    simplified.* See [Does retraining buy anything?](findings/retrain-value.md#crediting-the-gate-2026-09-01).
-4. **Screenshots** carry data through 21 Aug 2026 and show the live decomposition on both
-   markets, including alpha with its standard error. The live record has since nearly tripled,
-   so they are due. Regenerate when the dashboard changes shape or the live record reaches a
-   milestone worth showing. Recipe, per market and tab:
-   `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu
-   --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,HEIGHT
-   --screenshot=docs/assets/dashboard.png --virtual-time-budget=9000
-   "http://localhost:8080/?market=XNYS#overview"` (tab slugs
-   `overview`/`evidence`/`options`/`model-book`, `?market=XNYS|XJSE`).
-   **Measure HEIGHT at 1440 width**, not at whatever the browser happens to be: read
-   `document.body.scrollHeight` with the viewport already at 1440, because the layout
-   reflows and a height taken at a narrower width leaves a page of empty black below the
-   content. Current values — overview 1257, evidence 1277, options 1149, model-book 686.
-
+4. **Screenshots** — `make screenshots` regenerates all six README images from the running stack
+   (headless Chrome at 1440 px and 2x, then trims the empty background below each tab, so no
+   height has to be measured by hand). Last regenerated 2026-10-15. Rerun when the dashboard
+   changes shape or the live record reaches a milestone worth showing, and review the images
+   before committing them: they show whatever the dashboard shows at that moment.
 5. **Re-run the forward variance risk premium as windows from other regimes accrue.** Measured
    2026-10-14 at +0.049 over one calm stretch ([finding](findings/forward-variance-risk-premium.md));
    the same command with a later `--as-of` separates a standing premium from volatility that

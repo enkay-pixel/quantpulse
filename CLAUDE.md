@@ -4,7 +4,7 @@ Local-first MLOps platform for a self-adapting ML investing model. Dagster orche
 daily ingest (yfinance→Postgres) → features → champion scoring → paper portfolio → drift
 checks, weekly + drift-triggered retraining with champion/challenger promotion via
 MLflow registry aliases, dbt transforms into an `analytics` schema, FastAPI serving,
-React dashboard (tabs: Overview / Evidence / Model & Book). Public repo:
+React dashboard (tabs: Overview / Evidence / Options / Model & Book / Research). Public repo:
 github.com/enkay-pixel/quantpulse. Zero-cost constraint: everything runs free and
 local; 16 GB MacBook — stack must idle ≤ ~2.5 GB.
 
@@ -423,10 +423,9 @@ can't attribute its own results. Measured: daily 7.8%/0.73 Sharpe vs horizon
 - Backlog: rename dbt `tests:`→`data_tests:` when tooling nags; Databricks Free Edition
   companion project (same pipeline as PySpark/Delta); richer features/models only after
   live evidence accumulates; options history analytics once ~20+ snapshots exist.
-  Screenshots carry data through 2026-08-21 and show the live decomposition on both
-  markets; regenerate when the dashboard changes shape — recipe in docs/roadmap.md "Next",
-  and measure the capture height at 1440 width or the page reflows and the shot gains a
-  tail of empty black.
+  README screenshots come from `make screenshots` (headless Chrome against the running
+  dashboard, trimmed to the content); regenerate when the dashboard changes shape and
+  update the dated captions in README.md by hand.
 - **Declined, don't re-propose**: a local LLM Q&A layer over the data
   ([ADR 0004](docs/adr/0004-no-llm-question-answering-layer.md)). The `verdict()` functions
   in the React cards ARE the summarization layer — deterministic, unit-tested, cannot

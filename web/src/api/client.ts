@@ -21,6 +21,9 @@ import type {
   SignalSeries,
   TrackRecord,
   UniverseMember,
+  DecisionsOut,
+  FindingsOut,
+  ForwardVrpOut,
 } from "./types";
 
 export const API_BASE =
@@ -79,6 +82,10 @@ export const api = {
     getJson<OptionChain>(
       `/options/${encodeURIComponent(ticker)}/chain${expiry ? `?expiry=${expiry}` : ""}`,
     ),
+  decisions: () => getJson<DecisionsOut>("/decisions"),
+  findings: () => getJson<FindingsOut>("/findings"),
+  forwardVrp: (ex: string) =>
+    getJson<ForwardVrpOut>(`/options/forward-vrp?exchange=${ex}`),
   optionIdea: (ticker: string) =>
     getJson<OptionIdea>(`/options/${encodeURIComponent(ticker)}/idea`),
 };

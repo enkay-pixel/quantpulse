@@ -299,3 +299,48 @@ export interface Freshness {
   latest_prediction_date: string | null;
   latest_snapshot_date: string | null;
 }
+
+export interface DecisionCondition {
+  type: string;
+  /** fired | armed | unknown | manual */
+  state: string;
+  detail: string;
+}
+
+export interface Decision {
+  id: string;
+  title: string;
+  decided: string;
+  note: string | null;
+  /** reopened | unknown | standing | manual */
+  state: string;
+  conditions: DecisionCondition[];
+}
+
+export interface DecisionsOut {
+  decisions: Decision[];
+}
+
+export interface Finding {
+  title: string;
+  url: string;
+  question: string;
+  outcome: string;
+}
+
+export interface FindingsOut {
+  findings: Finding[];
+}
+
+export interface ForwardVrpDay {
+  snapshot_date: string;
+  tickers: number;
+  implied: number;
+  realized: number;
+  premium: number;
+}
+
+export interface ForwardVrpOut {
+  exchange: string;
+  days: ForwardVrpDay[];
+}

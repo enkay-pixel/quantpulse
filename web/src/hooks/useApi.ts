@@ -149,3 +149,26 @@ export const useSignalHistory = (ticker: string | null) =>
     queryFn: () => api.signalHistory(ticker as string),
     enabled: ticker !== null,
   });
+
+// The research record changes when a finding is written or a decision revisited, not by the
+// minute, so these refresh slowly.
+export const useDecisions = () =>
+  useQuery({
+    queryKey: ["decisions"],
+    queryFn: api.decisions,
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
+export const useFindings = () =>
+  useQuery({
+    queryKey: ["findings"],
+    queryFn: api.findings,
+    staleTime: Infinity,
+  });
+
+export const useForwardVrp = (exchange: string) =>
+  useQuery({
+    queryKey: ["forward-vrp", exchange],
+    queryFn: () => api.forwardVrp(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });
