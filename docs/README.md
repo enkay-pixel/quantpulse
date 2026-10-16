@@ -44,10 +44,10 @@ settings are committed so the rules hold for anyone who opens the vault.
 - Link generously between documents. Backlinks are most of the value of the vault.
 - Numbers age. State when a figure was measured, and what it was measured on.
 
-## Publishing, if it's ever wanted
+## Publishing
 
-GitHub already renders all of this, which is the zero-cost answer and the current one.
-
-For an actual site, [Quartz](https://quartz.jzhao.xyz/) builds an Obsidian vault into a
-static site and deploys to GitHub Pages for free. Obsidian Publish would also work and costs
-$8/month, so it is declined — see the zero-cost constraint in [roadmap.md](roadmap.md).
+GitHub already renders all of this publicly, with working links, and that is the public copy.
+A separate site was considered and declined on 2026-10-16: [Quartz](https://quartz.jzhao.xyz/)
+on GitHub Pages would be free, but it adds only search and a graph view, at the price of a
+second published copy to keep correct and a build to maintain. Obsidian Publish would also
+cost $8/month, against the zero-cost constraint in [roadmap.md](roadmap.md).
