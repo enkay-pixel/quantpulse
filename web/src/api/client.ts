@@ -30,9 +30,10 @@ import type {
   PositioningOut,
 } from "./types";
 
-export const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  "http://localhost:8000";
+/** Same-origin by default: nginx (container) and Vite (dev) both forward /api to the API, so the
+ * page works under any hostname it is opened with. An absolute URL here would need the API to
+ * grant CORS to that exact origin, which it does not. */
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
