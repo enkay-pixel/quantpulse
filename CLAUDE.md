@@ -124,8 +124,8 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   **markdown links, never `[[wikilinks]]`** — they render as literal brackets on GitHub,
   which is where this is actually read. `scripts/check_doc_links.py` fails CI on a wikilink
   or a relative link that points nowhere, so the rule does not rely on being remembered.
-  Publishing a site later means Quartz on GitHub Pages, which is free; Obsidian Publish is
-  $8/month and declined.
+  A published docs site is declined (see the list at the end): GitHub's rendering is the public
+  copy, and Obsidian is the local editor.
 - Commits: imperative subject, body explains why, trailer
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Pre-commit hooks installed —
   incl. gitleaks (222 rules) over every staged diff, since this repo is public and a
@@ -432,3 +432,8 @@ can't attribute its own results. Measured: daily 7.8%/0.73 Sharpe vs horizon
   fabricate a statistic; any safe LLM design just restates them. Ad-hoc questions go to
   DBeaver. Write new explanations as verdict functions, not model calls. Same call as
   declining Spark.
+- **Declined, don't re-propose**: a published docs site — Quartz on GitHub Pages, or Obsidian
+  Publish ($8/month) (decided 2026-10-16). GitHub already renders every doc publicly with working
+  links, and the owner reads them in Obsidian; a site would add search and a graph view at the
+  price of a second published copy to keep correct and a build to maintain. It would also expose
+  nothing new: the repo is public under MIT.
