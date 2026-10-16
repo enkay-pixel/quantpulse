@@ -186,6 +186,36 @@ def _options_snapshot(force: bool = False) -> None:
     logger.info("Wrote %d option quotes", n)
 
 
+def _short_interest() -> None:
+    """Fetch and store short interest by hand — what `research_job` does each weekday morning."""
+    from quantpulse.data.universe import options_tickers
+    from quantpulse.db import get_session
+    from quantpulse.research.short_interest import (
+        NoShortInterestReturned,
+        fetch_short_interest,
+        insert_short_interest,
+    )
+
+    with get_session() as session:
+        tickers = options_tickers(session)
+    if not tickers:
+        logger.error("No tickers — run `quantpulse sync-universe` first")
+        sys.exit(1)
+    try:
+        rows = fetch_short_interest(tickers)
+    except NoShortInterestReturned as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
+    with get_session() as session:
+        new = insert_short_interest(session, rows)
+    logger.info(
+        "Short interest for %d of %d tickers; %d new settlement row(s)",
+        len(rows),
+        len(tickers),
+        new,
+    )
+
+
 def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> None:
     """Withdraw a promotion and fall back to whatever stands behind it.
 
@@ -1078,6 +1108,9 @@ def main(argv: list[str] | None = None) -> None:
     quality.add_argument("--end", type=dt.date.fromisoformat, required=True)
 
     sub.add_parser("features", help="Compute and store features from ingested bars")
+    sub.add_parser(
+        "short-interest", help="Fetch short interest for the options-bearing names (research)"
+    )
     options_snapshot = sub.add_parser(
         "options-snapshot", help="Snapshot live option chains for the universe"
     )
@@ -1195,6 +1228,8 @@ def main(argv: list[str] | None = None) -> None:
         _features()
     elif args.command == "options-snapshot":
         _options_snapshot(args.force)
+    elif args.command == "short-interest":
+        _short_interest()
     elif args.command == "sensitivity":
         _sensitivity()
     elif args.command == "baseline":

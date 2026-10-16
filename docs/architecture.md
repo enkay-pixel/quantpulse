@@ -70,6 +70,21 @@ catches stale/pre-market feeds — traded contracts present, and Greeks non-null
 profit/loss and breakeven. It is an illustration of the model's directional view — never
 a recommendation, and the UI says so prominently.
 
+## Research branch
+
+A second use of the same data, kept apart from the model
+([ADR 0007](adr/0007-research-branch-evidence-not-instructions.md)): evidence for forming a view
+of an investment, never an instruction to act on one. It lives in `quantpulse.research`, has its
+own tables and its own Dagster job (`research_job`, weekday mornings New York time), and nothing
+in it is a model input — it cannot change the live record, the books or the shadow run.
+
+The first page is **Positioning**: where the mechanics of a short squeeze or a gamma squeeze
+would have fuel across the names with option chains. `short_interest` stores the vendor's
+monthly short-interest figures insert-only; `fct_gamma_by_strike` computes the stock a hedger
+would trade per 1% move from the captured chains; `fct_positioning` sets both against average
+dollar volume. Calls and puts are never netted, because who holds which side is not public, and
+short interest is dated by when it became known rather than when it settled.
+
 ## Paper books: variations from a baseline
 
 A *book* is one way of turning the signal into a portfolio. `ml/portfolio.py` runs **three**
@@ -173,8 +188,9 @@ that starts at each market's first champion promotion (`fct_portfolio_daily.phas
 (`fct_signal_performance`). Every endpoint takes `?exchange=` (defaulting to XNYS) and
 404s on an unknown code rather than returning an empty result that reads as "no data yet".
 The API serves these plus the current paper book and the full `model_runs` audit trail;
-the React app renders them across three tabs
-(Overview / Evidence / Model & Book). All endpoints degrade to empty payloads on a
+the React app renders them across six tabs
+(Overview / Evidence / Options / Positioning / Model & Book / Research); the two that read
+option chains are hidden on markets without them. All endpoints degrade to empty payloads on a
 fresh database before the first dbt build.
 
 ## The adaptation loop

@@ -4,9 +4,9 @@ Local-first MLOps platform for a self-adapting ML investing model. Dagster orche
 daily ingest (yfinance→Postgres) → features → champion scoring → paper portfolio → drift
 checks, weekly + drift-triggered retraining with champion/challenger promotion via
 MLflow registry aliases, dbt transforms into an `analytics` schema, FastAPI serving,
-React dashboard (tabs: Overview / Evidence / Options / Model & Book / Research). Public repo:
-github.com/enkay-pixel/quantpulse. Zero-cost constraint: everything runs free and
-local; 16 GB MacBook — stack must idle ≤ ~2.5 GB.
+React dashboard (tabs: Overview / Evidence / Options / Positioning / Model & Book /
+Research). Public repo: github.com/enkay-pixel/quantpulse. Zero-cost constraint: everything
+runs free and local; 16 GB MacBook — stack must idle ≤ ~2.5 GB.
 
 **Start with [docs/roadmap.md](docs/roadmap.md)** for current state, honest performance
 numbers, operating notes, and what's next.
@@ -26,6 +26,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   (cv, training, backtest, metrics, registry, promotion, portfolio, sensitivity,
   pipeline) ·
   `monitoring/drift.py` · `orchestration/` (Dagster defs + dagster-dbt) · `api/` · `cli.py`
+- `src/quantpulse/research/` ([ADR 0007](docs/adr/0007-research-branch-evidence-not-instructions.md)):
+  evidence for forming a view, kept apart from the model — own tables (`short_interest`, no FK to
+  `universe`), own job (`research_job`), never a model input. Pages assess; they never say what to
+  buy or sell. `fct_gamma_by_strike` / `fct_positioning` feed the Positioning tab.
 - `src/quantpulse/options/`: `pricing.py` (Black-Scholes + Greeks, market IV) ·
   `ingest.py` (daily live chain snapshots — no free history exists, so this table only
   grows forward) · `strategy.py` (Tier 2 hypothetical spread from the equity signal —

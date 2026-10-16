@@ -33,11 +33,13 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 | `drift_metrics` | (date, **exchange**, metric) | KS/PSI feature drift, measured **per market** — pooling halved the signal and hid its size (incident 28). Rows written before 2026-08-11 carry `exchange = 'POOLED'`: they measured both markets mixed and belong to neither, so queries filtering by a real market code correctly skip them |
 | `portfolio_snapshots` | **(date, exchange, variant)** | Simulated paper-book equity, exposure, turnover. Several *books* (`daily` / `horizon` / `long_only`) run per market — see [architecture.md](architecture.md) |
 | `option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Daily live option-chain snapshots + Black-Scholes Greeks. NYSE only (no free JSE chain data). Accumulates forward — no free history exists to backfill |
+| `short_interest` | (ticker, settlement_date) | Shares sold short, days to cover and share of float per settlement, from yfinance — the research branch's first table ([ADR 0007](adr/0007-research-branch-evidence-not-instructions.md)). Insert-only, so `ingested_at` is when a figure first became known; history is joined on that date, never on settlement, because figures arrive a week or two late. The vendor shows only the latest two settlements, so this too accumulates forward |
 | `pipeline_alerts` | alert id | Pipeline failures recorded by the Dagster run-failure sensor, served at `GET /alerts`. Operational tail, not an audit trail: trimmed to the newest 200. In the database because the daemon writes it and the API (a different container) reads it |
 
 Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign
 key to `universe.ticker` (`ON DELETE RESTRICT`), so no derived row can point at a ticker the
-platform doesn't know.
+platform doesn't know. `short_interest` is the deliberate exception: research tickers must be
+addable without entering the model's training universe (ADR 0007).
 
 ## `analytics` schema (dbt-managed — see `transform/`)
 
@@ -59,6 +61,8 @@ any sample size.
 | `fct_alpha_beta` | (exchange, phase) | CAPM decomposition vs the market's benchmark: beta, annualized alpha, R², tracking error, information ratio (Postgres regression aggregates over excess returns) |
 | `fct_option_summary` | (ticker, snapshot_date) | ATM implied volatility and put/call open-interest ratio (NYSE) |
 | `fct_iv_surface` | (ticker, snapshot_date, expiry, option_type, moneyness_bucket) | Mean IV — the volatility smile/skew and term structure (NYSE) |
+| `fct_gamma_by_strike` | (snapshot_date, ticker, strike) | Option dollar gamma per 1% move (gamma × OI × 100 × spot² × 0.01), calls and puts apart, over live contracts with a sane IV — the stock a hedger would trade if a dealer were on the other side of every contract. The one definition the positioning mart and the strike chart read (NYSE) |
+| `fct_positioning` | (ticker, snapshot_date) | Research branch: call and put gamma against 20-session average dollar volume, the near-term share of call gamma, and short interest joined as of the day it became known. Fuel for a squeeze, not timing (NYSE) |
 
 ### Why two marts can disagree about the live day count
 

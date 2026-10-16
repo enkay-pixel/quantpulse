@@ -344,3 +344,47 @@ export interface ForwardVrpOut {
   exchange: string;
   days: ForwardVrpDay[];
 }
+
+/** One ticker on the latest chain snapshot (ADR 0007). Gamma figures are the stock a hedger
+ * would trade per 1% move if a dealer were on the other side of every live contract — an upper
+ * bound, with calls and puts never netted. Short interest is the latest figure known now. */
+export interface PositioningRow {
+  ticker: string;
+  asset_type: string;
+  spot: number;
+  call_oi: number;
+  put_oi: number;
+  call_gamma_usd_1pct: number;
+  put_gamma_usd_1pct: number;
+  call_gamma_near_share: number | null;
+  adv_usd_20d: number | null;
+  call_gamma_share_of_adv: number | null;
+  put_gamma_share_of_adv: number | null;
+  short_settlement_date: string | null;
+  short_known_from: string | null;
+  shares_short: number | null;
+  short_pct_float: number | null;
+  days_to_cover: number | null;
+  short_change: number | null;
+}
+
+export interface PositioningOut {
+  exchange: string;
+  snapshot_date: string | null;
+  rows: PositioningRow[];
+}
+
+export interface GammaStrike {
+  strike: number;
+  call_oi: number;
+  put_oi: number;
+  call_gamma_usd_1pct: number;
+  put_gamma_usd_1pct: number;
+}
+
+export interface GammaProfileOut {
+  ticker: string;
+  snapshot_date: string | null;
+  spot: number | null;
+  strikes: GammaStrike[];
+}

@@ -172,3 +172,18 @@ export const useForwardVrp = (exchange: string) =>
     queryFn: () => api.forwardVrp(exchange),
     refetchInterval: 10 * REFRESH_MS,
   });
+
+export const usePositioning = (exchange: string) =>
+  useQuery({
+    queryKey: ["positioning", exchange],
+    queryFn: () => api.positioning(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
+export const useGammaProfile = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["gamma-profile", ticker],
+    queryFn: () => api.gammaProfile(ticker as string),
+    enabled: ticker !== null,
+    refetchInterval: 10 * REFRESH_MS,
+  });

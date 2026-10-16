@@ -60,7 +60,7 @@ the incident log, and the ADRs.
 ![QuantPulse dashboard](docs/assets/dashboard.png)
 
 <details>
-<summary><b>More screenshots</b> — Evidence, Options, Model &amp; Book, and Research tabs</summary>
+<summary><b>More screenshots</b> — Evidence, Options, Positioning, Model &amp; Book, and Research tabs</summary>
 
 ## Evidence — does the model actually have skill?
 
@@ -88,6 +88,18 @@ directional view into a defined-risk spread, clearly labelled as illustration, n
 At the bottom, implied volatility runs beside the volatility that then arrived over the next 21
 sessions — the [forward variance risk premium](docs/findings/forward-variance-risk-premium.md),
 which a day joins only once its window has closed.
+
+## Positioning — where a squeeze would have fuel
+
+![Positioning tab](docs/assets/positioning-tab.png)
+
+The research branch's first page ([ADR 0007](docs/adr/0007-research-branch-evidence-not-instructions.md)),
+built on the two mechanics behind GameStop in January 2021. For each name with option chains it
+shows the short interest, meaning shares sold short and not yet bought back. Beside that is the
+stock dealers would have to buy per 1% rise if they had sold every listed call. On 2026-10-16 the
+most-shorted of the 40 stocks was ADBE, at 5.1% of its float; GameStop's was above 100% then. The
+strike chart shows where a name's hedging exposure sits against its price. The page measures fuel,
+not timing, and it assesses the evidence rather than advising on it.
 
 ## Model &amp; Book — every champion/challenger decision, and the current paper positions
 

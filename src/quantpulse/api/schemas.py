@@ -305,6 +305,54 @@ class ForwardVrpOut(BaseModel):
     days: list[ForwardVrpDay]
 
 
+class PositioningRow(BaseModel):
+    """One ticker's positioning on the latest chain snapshot (ADR 0007).
+
+    Gamma figures are the stock a hedger would trade per 1% move if a dealer were on the other
+    side of every live contract — an upper bound, calls and puts never netted. Short interest is
+    the latest figure known now, with its settlement date and the date it became known.
+    """
+
+    ticker: str
+    asset_type: str
+    spot: float
+    call_oi: int
+    put_oi: int
+    call_gamma_usd_1pct: float
+    put_gamma_usd_1pct: float
+    call_gamma_near_share: float | None
+    adv_usd_20d: float | None
+    call_gamma_share_of_adv: float | None
+    put_gamma_share_of_adv: float | None
+    short_settlement_date: dt.date | None
+    short_known_from: dt.date | None
+    shares_short: int | None
+    short_pct_float: float | None
+    days_to_cover: float | None
+    short_change: float | None
+
+
+class PositioningOut(BaseModel):
+    exchange: str
+    snapshot_date: dt.date | None
+    rows: list[PositioningRow]
+
+
+class GammaStrike(BaseModel):
+    strike: float
+    call_oi: int
+    put_oi: int
+    call_gamma_usd_1pct: float
+    put_gamma_usd_1pct: float
+
+
+class GammaProfileOut(BaseModel):
+    ticker: str
+    snapshot_date: dt.date | None
+    spot: float | None
+    strikes: list[GammaStrike]
+
+
 class QuintileStat(BaseModel):
     signal_quintile: int
     n_days: int
