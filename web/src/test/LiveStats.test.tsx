@@ -40,4 +40,17 @@ describe("LiveStats", () => {
     expect(screen.getAllByText("—")).toHaveLength(3);
     expect(screen.getAllByText("no live record yet")).toHaveLength(3);
   });
+
+  it("says the API is unreachable instead of claiming there is no live record", () => {
+    // A failed request must not read as a fact about the record: there may be a long live
+    // phase that simply could not be fetched.
+    render(<LiveStats live={undefined} state="error" />);
+    expect(screen.getAllByText("couldn't load: API unreachable")).toHaveLength(3);
+    expect(screen.queryByText("no live record yet")).not.toBeInTheDocument();
+  });
+
+  it("says it is loading rather than empty while the request is in flight", () => {
+    render(<LiveStats live={undefined} state="loading" />);
+    expect(screen.getAllByText("loading…")).toHaveLength(3);
+  });
 });
