@@ -2,8 +2,15 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # The two fixers rewrite files, so they skip the tracked files a tool writes: the tool
+      # puts its own format back on its next save and the file goes dirty after every one.
+      # Obsidian saves its settings without a final newline, and these two kept adding it.
+      # Only the rewriting is skipped — check-json, check-yaml and gitleaks still read them.
+      # When a tool starts writing another tracked file, add it here, once.
       - id: trailing-whitespace
+        exclude: &tool-written '^(\.obsidian/.*\.json|uv\.lock|web/package-lock\.json|transform/package-lock\.yml)$'
       - id: end-of-file-fixer
+        exclude: *tool-written
       - id: check-yaml
       - id: check-toml
       - id: check-json
