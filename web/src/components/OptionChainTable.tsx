@@ -1,5 +1,6 @@
 import type { OptionChain } from "../api/types";
 import { formatNumber, formatPercent } from "../lib/format";
+import { Term } from "./Term";
 
 export function OptionChainTable({ chain }: { chain: OptionChain }) {
   if (chain.contracts.length === 0) {
@@ -27,14 +28,14 @@ export function OptionChainTable({ chain }: { chain: OptionChain }) {
       <table className="w-full text-sm">
         <thead className="sticky top-0" style={{ background: "var(--surface-1)" }}>
           <tr className="text-left text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            <th className="px-2 py-2 font-medium">Type</th>
-            <th className="px-2 py-2 text-right font-medium">Strike</th>
-            <th className="px-2 py-2 text-right font-medium">Mid</th>
-            <th className="px-2 py-2 text-right font-medium">IV</th>
-            <th className="px-2 py-2 text-right font-medium">Δ</th>
-            <th className="px-2 py-2 text-right font-medium">Γ</th>
-            <th className="px-2 py-2 text-right font-medium">Θ</th>
-            <th className="px-2 py-2 text-right font-medium">OI</th>
+            <th className="px-2 py-2 font-medium"><Term id="option_type" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="strike" align="right" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="mid" align="right" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="implied_volatility" align="right" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="delta" align="right" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="gamma" align="right" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="theta" align="right" /></th>
+            <th className="px-2 py-2 text-right font-medium"><Term id="open_interest" align="right" /></th>
           </tr>
         </thead>
         <tbody>

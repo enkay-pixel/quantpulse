@@ -62,17 +62,28 @@ import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { formatDate, formatNumber, formatPercent } from "./lib/format";
 import { TABS, visibleTabs } from "./lib/tabs";
+import { Term } from "./components/Term";
 
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/** A dashboard panel. Every panel says, in one plain sentence under its title, what it shows and
+ * how to read it — so the page can be read without a guide. A test holds every panel to that. */
+function Section({
+  title,
+  explain,
+  children,
+}: {
+  title: string;
+  explain: string;
+  children: ReactNode;
+}) {
   return (
     <section className="card p-4">
-      <h2
-        className="mb-3 text-sm font-semibold"
-        style={{ color: "var(--text-primary)" }}
-      >
+      <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
         {title}
       </h2>
+      <p className="mb-3 mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+        {explain}
+      </p>
       {children}
     </section>
   );
@@ -87,7 +98,7 @@ function Placeholder({ height = "h-64" }: { height?: string }) {
   );
 }
 
-function OverviewTab({ exchange }: { exchange: string }) {
+function OverviewTab({ exchange, benchmark }: { exchange: string; benchmark?: string }) {
   const model = useCurrentModel(exchange);
   const equity = useEquityCurve(exchange);
   const predictions = usePredictions(exchange);
@@ -111,7 +122,7 @@ function OverviewTab({ exchange }: { exchange: string }) {
           state={trackRecord.isError ? "error" : trackRecord.data ? "ready" : "loading"}
         />
         <StatCard
-          label="Champion model"
+          label={<Term id="model_version" label="Champion model" />}
           value={
             model.data?.model_version ? `v${model.data.model_version}` : "—"
           }
@@ -136,14 +147,20 @@ function OverviewTab({ exchange }: { exchange: string }) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <Section title="Paper equity vs benchmark buy & hold">
+          <Section
+            title="How the paper book has done, against simply holding the index"
+            explain="What 1.0 put into the model's paper book became over time, beside buying the market's index fund and holding it. The dashed stretch is a replay from before the model went live; judge only the live part."
+          >
             {equity.data ? (
-              <BenchmarkEquityChart curve={equity.data} />
+              <BenchmarkEquityChart curve={equity.data} benchmark={benchmark} />
             ) : (
               <Placeholder />
             )}
           </Section>
-          <Section title={activeTicker ? `Price — ${activeTicker}` : "Price"}>
+          <Section
+            title={activeTicker ? `Price — ${activeTicker}` : "Price"}
+            explain="The stock's closing price, with the model's daily forecast for it underneath."
+          >
             {activeTicker ? (
               <>
                 <p
@@ -152,7 +169,7 @@ function OverviewTab({ exchange }: { exchange: string }) {
                 >
                   {rotation.isPinned
                     ? "Pinned — rotation resumes in a few minutes."
-                    : "Auto-rotating through today's signals · click a ticker to pin it."}
+                    : "Cycling through today's strongest forecasts — select a stock in the list to keep it here."}
                 </p>
                 <PriceChart ticker={activeTicker} />
               </>
@@ -168,7 +185,8 @@ function OverviewTab({ exchange }: { exchange: string }) {
         </div>
         <div className="space-y-4">
           <Section
-            title={`Latest signals${predictions.data?.date ? ` — ${formatDate(predictions.data.date)}` : ""}`}
+            title={`The model's forecasts${predictions.data?.date ? ` — ${formatDate(predictions.data.date)}` : ""}`}
+            explain="Each stock's predicted return over the next 21 trading days (about a month), strongest first. The paper book buys the strongest group and sells the weakest short. Research output, not advice — select a row to see its price."
           >
             {predictions.data ? (
               <PredictionsTable
@@ -180,7 +198,10 @@ function OverviewTab({ exchange }: { exchange: string }) {
               <Placeholder height="h-40" />
             )}
           </Section>
-          <Section title="Feature drift">
+          <Section
+            title="Has the market changed since the model was trained?"
+            explain="Each input the model reads, by how far its recent values have shifted from the values it learned on."
+          >
             {drift.data ? (
               <DriftPanel drift={drift.data} />
             ) : (
@@ -209,7 +230,10 @@ function EvidenceTab({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="lg:col-span-2">
-        <Section title="How much of this is the market, and how much is the signal?">
+        <Section
+          title="How much of this is the market, and how much is the signal?"
+          explain="Splits the book's return into the part that came from the market moving and the part left over, which is what the model's forecasts earned."
+        >
           {champions.data ? <ChampionRecordCard data={champions.data} /> : null}
           {alphaBeta.data ? (
             <AlphaBetaCard data={alphaBeta.data} benchmark={benchmark} />
@@ -219,7 +243,10 @@ function EvidenceTab({
         </Section>
       </div>
       <div className="lg:col-span-2">
-        <Section title="What does trading more often cost?">
+        <Section
+          title="What does trading more often cost?"
+          explain="The same forecasts traded several ways. Each version changes one thing from the daily book, so the gap between them is the cost or benefit of that one change."
+        >
           {books.data ? (
             <BookComparisonCard data={books.data} />
           ) : (
@@ -227,14 +254,20 @@ function EvidenceTab({
           )}
         </Section>
       </div>
-      <Section title="Does the ranking work? Signal quintiles vs next-day returns">
+      <Section
+        title="Does the ranking work?"
+        explain="Each day the stocks are split into five groups by forecast. If the ranking works, group 1 (the strongest forecasts) does best the next day and group 5 worst."
+      >
         {quintiles.data ? (
           <QuintileChart quintiles={quintiles.data} />
         ) : (
           <Placeholder height="h-56" />
         )}
       </Section>
-      <Section title="Risk">
+      <Section
+        title="How bumpy has it been?"
+        explain="How far the book fell from its highs, and its return per unit of risk over rolling three-month windows."
+      >
         {risk.data ? (
           <RiskCharts risk={risk.data} />
         ) : (
@@ -288,14 +321,14 @@ function OptionsTab({ exchange }: { exchange: string }) {
               dataset builds forward from the first run).
             </>
           ) : (
-            "Signals load momentarily…"
+            "Forecasts load in a moment…"
           )}
         </p>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
-          label="ATM implied vol"
+          label={<Term id="atm_iv" />}
           value={formatPercent(summary.data?.atm_iv)}
           sub={
             summary.data?.atm_days !== null &&
@@ -305,12 +338,12 @@ function OptionsTab({ exchange }: { exchange: string }) {
           }
         />
         <StatCard
-          label="Put/call ratio"
+          label={<Term id="put_call_ratio" />}
           value={formatNumber(summary.data?.put_call_ratio)}
           sub=">1 = more put open interest"
         />
         <StatCard
-          label="Contracts captured"
+          label={<Term id="n_contracts" />}
           value={
             summary.data?.n_contracts ? String(summary.data.n_contracts) : "—"
           }
@@ -321,7 +354,7 @@ function OptionsTab({ exchange }: { exchange: string }) {
           }
         />
         <StatCard
-          label="Underlying"
+          label={<Term id="spot" />}
           value={
             summary.data?.underlying_close
               ? `$${formatNumber(summary.data.underlying_close)}`
@@ -331,7 +364,10 @@ function OptionsTab({ exchange }: { exchange: string }) {
         />
       </div>
 
-      <Section title="Term structure and IV history">
+      <Section
+        title="How much movement do options expect?"
+        explain="Implied volatility — the movement option prices assume — by how far away the expiry is, and how it has changed day to day."
+      >
         {surface.data ? (
           <IvSurfaceChart data={surface.data} />
         ) : (
@@ -340,14 +376,20 @@ function OptionsTab({ exchange }: { exchange: string }) {
       </Section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Volatility smile / skew">
+        <Section
+          title="Does the expected movement differ by strike?"
+          explain="Implied volatility at each strike price for one expiry. A smile or a tilt shows where the market prices bigger moves — usually falls more than rises."
+        >
           {chain.data ? (
             <IvSkewChart chain={chain.data} />
           ) : (
             <Placeholder height="h-56" />
           )}
         </Section>
-        <Section title="If the model's view were expressed in options">
+        <Section
+          title="If the model's view were expressed in options"
+          explain="An illustration of how the model's forecast for this stock could be held as a limited-risk option spread. Not a recommendation."
+        >
           {idea.data ? (
             <OptionIdeaCard idea={idea.data} />
           ) : (
@@ -355,7 +397,8 @@ function OptionsTab({ exchange }: { exchange: string }) {
           )}
         </Section>
         <Section
-          title={`Chain with Greeks${chain.data?.expiry ? ` — ${chain.data.expiry}` : ""}`}
+          title={`The option contracts${chain.data?.expiry ? ` — expiring ${chain.data.expiry}` : ""}`}
+          explain="Every captured contract for one expiry: its price, the movement it assumes, and how its price responds to the stock. Hover a column name for what it means."
         >
           {chain.data ? (
             <OptionChainTable chain={chain.data} />
@@ -366,7 +409,10 @@ function OptionsTab({ exchange }: { exchange: string }) {
       </div>
 
       <div className="mt-4">
-        <Section title="Did options price more volatility than then arrived?">
+        <Section
+          title="Did options price more movement than then arrived?"
+          explain="What options assumed about the next month's movement, beside the movement that then happened. A day appears once its month has passed."
+        >
           {forwardVrp.data ? (
             <ForwardVrpChart data={forwardVrp.data} />
           ) : (
@@ -394,7 +440,10 @@ function SqueezeSections({ exchange }: { exchange: string }) {
   const profile = useGammaProfile(selected);
   return (
     <>
-      <Section title="Where would a squeeze have fuel?">
+      <Section
+        title="Where would a squeeze have fuel?"
+        explain="Two things that can force buying when a price rises: short sellers buying back, and dealers hedging the calls they sold. Bigger numbers mean more fuel, not that a squeeze is coming."
+      >
         {positioning.data ? (
           <PositioningTable data={positioning.data} selected={selected} onSelect={setPicked} />
         ) : (
@@ -402,10 +451,16 @@ function SqueezeSections({ exchange }: { exchange: string }) {
         )}
       </Section>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title={selected ? `Where the hedging sits — ${selected}` : "Where the hedging sits"}>
+        <Section
+          title={selected ? `Where the hedging sits — ${selected}` : "Where the hedging sits"}
+          explain="How much stock a dealer would trade per 1% move at each strike, calls above the axis and puts below. Exposure piled just above the price is the shape that fed GameStop's squeeze."
+        >
           {profile.data ? <GammaProfileChart data={profile.data} /> : <Placeholder height="h-64" />}
         </Section>
-        <Section title="How to read this">
+        <Section
+          title="How to read this"
+          explain="What each measure on this page means, and what it cannot tell you."
+        >
           <div className="space-y-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             <p>
               <strong>Short interest</strong> is shares sold short and not yet bought back. Short
@@ -445,14 +500,20 @@ function AttentionSections({ exchange }: { exchange: string }) {
   const history = useAttentionHistory(selected);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Section title="Who is drawing attention?">
+      <Section
+        title="Who is drawing attention?"
+        explain="How often each company's Wikipedia article was read this past week, against its usual level — a free measure of public attention."
+      >
         {attention.data ? (
           <AttentionTable data={attention.data} selected={selected} onSelect={setPicked} />
         ) : (
           <Placeholder height="h-80" />
         )}
       </Section>
-      <Section title={selected ? `Attention over the past year — ${selected}` : "Attention over the past year"}>
+      <Section
+        title={selected ? `Attention over the past year — ${selected}` : "Attention over the past year"}
+        explain="Daily readers of the company's Wikipedia article, averaged over a week, against its usual level."
+      >
         {history.data ? <AttentionChart data={history.data} /> : <Placeholder height="h-64" />}
       </Section>
     </div>
@@ -465,7 +526,10 @@ function PositioningTab({ exchange, hasOptions }: { exchange: string; hasOptions
       {hasOptions ? (
         <SqueezeSections exchange={exchange} />
       ) : (
-        <Section title="Where would a squeeze have fuel?">
+        <Section
+          title="Where would a squeeze have fuel?"
+          explain="On the NYSE page this measures short sellers and option hedging; this market publishes neither free."
+        >
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Short interest and option chains are not published free for this market, so the
             squeeze measures the NYSE page shows cannot be computed here. Attention can, below. It
@@ -485,14 +549,20 @@ function ResearchTab() {
   const findings = useFindings();
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Section title="What would change a standing decision?">
+      <Section
+        title="What would change a standing decision?"
+        explain="Decisions already taken about the model, each with the conditions named in advance that would reopen it, checked against the current record."
+      >
         {decisions.data ? (
           <DecisionsCard data={decisions.data} />
         ) : (
           <Placeholder height="h-56" />
         )}
       </Section>
-      <Section title="What has been measured, and what came back">
+      <Section
+        title="What has been measured, and what came back"
+        explain="Every investigation this project has run: the question it asked and what the evidence showed, including results later withdrawn."
+      >
         {findings.data ? (
           <FindingsList data={findings.data} />
         ) : (
@@ -509,14 +579,20 @@ function ModelTab({ exchange }: { exchange: string }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Section title="Training history — every challenger, promoted or not">
+      <Section
+        title="Every model trained, promoted or not"
+        explain="Each weekly retraining produces a candidate. A gate compares it with the current champion on recent data neither was trained on, and promotes it only if it is clearly better."
+      >
         {history.data ? (
           <ModelHistoryTable runs={history.data} />
         ) : (
           <Placeholder height="h-40" />
         )}
       </Section>
-      <Section title="Current paper book">
+      <Section
+        title="What the paper book holds now"
+        explain="Today's positions: the stocks bought (long) and sold short, each one's share of the book, and the forecast behind it."
+      >
         {positions.data ? (
           <PositionsTable positions={positions.data} />
         ) : (
@@ -577,7 +653,9 @@ export default function App() {
         <Tabs tabs={tabs} active={tab} onSelect={setTab} />
       </div>
 
-      {tab === "Overview" ? <OverviewTab exchange={exchange} /> : null}
+      {tab === "Overview" ? (
+        <OverviewTab exchange={exchange} benchmark={market?.benchmark} />
+      ) : null}
       {tab === "Evidence" ? (
         <EvidenceTab exchange={exchange} benchmark={market?.benchmark} />
       ) : null}

@@ -1,8 +1,10 @@
 import type { TrackRecord } from "../api/types";
 import { formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
 import { MIN_DAYS_FOR_RATIOS } from "../lib/thresholds";
+import type { ReactNode } from "react";
+import { Term } from "./Term";
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+function Stat({ label, value, color }: { label: ReactNode; value: string; color?: string }) {
   return (
     <div>
       <div className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -35,10 +37,10 @@ export function TrackRecordCard({ record }: { record: TrackRecord }) {
           {/* Return, Sharpe and max drawdown are the headline cards above; repeating them
               here would put the same three numbers twice within a screen of each other. */}
           <div className="grid grid-cols-3 gap-3">
-            <Stat label="Days" value={String(live.n_days)} />
-            <Stat label="Window" value={`${formatDate(live.start_date)} – ${formatDate(live.end_date)}`} />
+            <Stat label={<Term id="n_days" />} value={String(live.n_days)} />
+            <Stat label={<Term id="live_window" />} value={`${formatDate(live.start_date)} – ${formatDate(live.end_date)}`} />
             <Stat
-              label="Win rate"
+              label={<Term id="win_rate" />}
               value={live.n_days >= MIN_DAYS_FOR_RATIOS ? formatPercent(live.win_rate, 0) : "—"}
             />
           </div>

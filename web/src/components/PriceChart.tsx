@@ -78,7 +78,7 @@ export function PriceChart({ ticker }: { ticker: string }) {
       </div>
 
       <p className="mt-2 mb-0.5 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-        Model signal (21d forward-return forecast)
+        The model's forecast for the next month (21 trading days), day by day
       </p>
       {hasSignal ? (
         <div className="h-24" role="img" aria-label={`Model signal history for ${ticker}`}>
@@ -110,7 +110,7 @@ export function PriceChart({ ticker }: { ticker: string }) {
                   color: "var(--text-primary)",
                 }}
                 labelFormatter={(d) => formatDate(String(d))}
-                formatter={(value) => [formatSignedPercent(Number(value)), "signal"]}
+                formatter={(value) => [formatSignedPercent(Number(value)), "forecast"]}
               />
               <ReferenceLine y={0} stroke="var(--baseline)" />
               <Bar dataKey="score" isAnimationActive={false}>

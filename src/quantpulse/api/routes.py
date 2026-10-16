@@ -90,6 +90,7 @@ def _mart_rows(
 
 @router.get("/health", response_model=schemas.Health)
 def health(engine: EngineDep) -> schemas.Health:
+    """Whether the API and its database are up, how fresh the prices are, and the memory it uses."""
     from quantpulse.monitoring.resources import cgroup_memory_limit_bytes, process_rss_bytes
 
     # Self-reported so the container's own footprint is observable without granting anything
@@ -108,6 +109,7 @@ def health(engine: EngineDep) -> schemas.Health:
 
 @router.get("/universe", response_model=list[schemas.UniverseMemberOut])
 def universe(session: SessionDep) -> list[schemas.UniverseMemberOut]:
+    """Every ticker the platform tracks, with its market and whether it is a stock or a fund."""
     members = session.scalars(select(UniverseMember).order_by(UniverseMember.ticker)).all()
     return [
         schemas.UniverseMemberOut(ticker=m.ticker, asset_type=m.asset_type, active=m.active)
@@ -122,6 +124,7 @@ def prices(
     start: Annotated[dt.date | None, Query()] = None,
     end: Annotated[dt.date | None, Query()] = None,
 ) -> schemas.PriceSeries:
+    """One stock's daily prices: open, high, low, close and volume."""
     ticker = ticker.upper()
     stmt = select(Price).where(Price.ticker == ticker).order_by(Price.date)
     if start:
@@ -413,6 +416,8 @@ def signal_history(ticker: str, session: SessionDep) -> schemas.SignalSeries:
 
 @router.get("/predictions/latest", response_model=schemas.PredictionsOut)
 def latest_predictions(session: SessionDep, exchange: ExchangeDep) -> schemas.PredictionsOut:
+    """The model's newest forecasts for one market: each stock's predicted return over the next
+    21 trading days (about a month), ranked strongest first. Research output, not advice."""
     members = select(UniverseMember.ticker).where(UniverseMember.exchange == exchange)
     latest_date = session.scalar(
         select(func.max(Prediction.date)).where(Prediction.ticker.in_(members))
@@ -445,6 +450,8 @@ def latest_predictions(session: SessionDep, exchange: ExchangeDep) -> schemas.Pr
 
 @router.get("/portfolio/equity-curve", response_model=schemas.EquityCurve)
 def equity_curve(session: SessionDep, exchange: ExchangeDep) -> schemas.EquityCurve:
+    """How the paper book's value has moved day by day, beside the market's index fund and the
+    monthly-rebalanced book, with each day marked replay or live."""
     rows = session.scalars(
         select(PortfolioSnapshot)
         .where(
@@ -592,6 +599,8 @@ def champion_records(session: SessionDep, exchange: ExchangeDep) -> schemas.Cham
 
 @router.get("/track-record", response_model=schemas.TrackRecord)
 def track_record(session: SessionDep, exchange: ExchangeDep) -> schemas.TrackRecord:
+    """The paper book's results, split into the replay from before the model went live and the
+    live record since. Judge only the live part."""
     live_since = session.scalar(
         select(func.min(ModelRun.created_at)).where(
             ModelRun.decision == "promoted", ModelRun.exchange == exchange
@@ -837,6 +846,8 @@ def attention_history(ticker: str, session: SessionDep) -> schemas.AttentionHist
 
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
 def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.QuintilesOut:
+    """Whether the ranking works: the average next-day return of each fifth of the stocks, sorted
+    by forecast, over all days and over recent days."""
     overall = _mart_rows(
         session,
         "SELECT signal_quintile, count(*) AS n_days, avg(avg_next_day_return) AS "
@@ -862,6 +873,8 @@ def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.Quin
 
 @router.get("/portfolio/risk", response_model=schemas.RiskOut)
 def portfolio_risk(session: SessionDep, exchange: ExchangeDep) -> schemas.RiskOut:
+    """How far the book has fallen from its highs each day, and its return per unit of risk over
+    rolling three-month windows."""
     rows = _mart_rows(
         session,
         "SELECT date, drawdown, rolling_sharpe_63d "
@@ -873,6 +886,8 @@ def portfolio_risk(session: SessionDep, exchange: ExchangeDep) -> schemas.RiskOu
 
 @router.get("/portfolio/positions", response_model=schemas.PositionsOut)
 def portfolio_positions(session: SessionDep, exchange: ExchangeDep) -> schemas.PositionsOut:
+    """What the paper book holds on its newest day: each position's side, share of the book and
+    the forecast behind it."""
     snapshot = session.scalars(
         select(PortfolioSnapshot)
         .where(PortfolioSnapshot.variant == LIVE_BOOK, PortfolioSnapshot.exchange == exchange)
@@ -921,6 +936,8 @@ def portfolio_positions(session: SessionDep, exchange: ExchangeDep) -> schemas.P
 
 @router.get("/models/history", response_model=list[schemas.ModelRunOut])
 def model_history(session: SessionDep, exchange: ExchangeDep) -> list[schemas.ModelRunOut]:
+    """Every model trained for one market, promoted or not, with the scores the promotion gate
+    judged it on."""
     # Production's history only. A shadow is a configuration fitted beside the candidate for
     # comparison, never a model that ran or could have run, and listing it beside promotions and
     # rejections would read as a decision that was never made.
@@ -973,13 +990,20 @@ def current_model(session: SessionDep, exchange: ExchangeDep) -> schemas.ModelIn
 
 @router.get("/drift/latest", response_model=schemas.DriftStatus)
 def latest_drift(session: SessionDep, exchange: ExchangeDep) -> schemas.DriftStatus:
+    """Whether the market has moved away from what the model learned: each input's shift from
+    training, against the alarm levels."""
     # Scoped like every other endpoint. Legacy rows stamped POOLED are invisible here:
     # they measured both markets mixed together and belong to neither.
     latest_date = session.scalar(
         select(func.max(DriftMetric.date)).where(DriftMetric.exchange == exchange)
     )
+    from quantpulse.monitoring.drift import PSI_DRIFT_THRESHOLD, SHARE_DRIFT_THRESHOLD
+
+    limits = {"psi_threshold": PSI_DRIFT_THRESHOLD, "share_threshold": SHARE_DRIFT_THRESHOLD}
     if latest_date is None:
-        return schemas.DriftStatus(date=None, share_drifted=None, drifted=None, features=[])
+        return schemas.DriftStatus(
+            date=None, share_drifted=None, drifted=None, features=[], **limits
+        )
     rows = session.scalars(
         select(DriftMetric).where(DriftMetric.date == latest_date, DriftMetric.exchange == exchange)
     ).all()
@@ -996,11 +1020,14 @@ def latest_drift(session: SessionDep, exchange: ExchangeDep) -> schemas.DriftSta
         share_drifted=share.value if share else None,
         drifted=share.drifted if share else None,
         features=sorted(features, key=lambda f: f.psi, reverse=True),
+        **limits,
     )
 
 
 @router.get("/freshness", response_model=schemas.FreshnessOut)
 def freshness(session: SessionDep, exchange: ExchangeDep) -> schemas.FreshnessOut:
+    """How up to date each stage of the pipeline is for one market: prices, model inputs,
+    forecasts and the paper book."""
     from quantpulse.db import Feature
 
     # Each stage is scoped: an unscoped max() would show NYSE's dates while a JSE view is

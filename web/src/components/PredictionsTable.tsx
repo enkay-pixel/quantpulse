@@ -1,5 +1,6 @@
 import type { Predictions } from "../api/types";
 import { formatSignedPercent } from "../lib/format";
+import { Term } from "./Term";
 
 interface Props {
   predictions: Predictions;
@@ -20,9 +21,9 @@ export function PredictionsTable({ predictions, selectedTicker, onSelect }: Prop
       <table className="w-full text-sm">
         <thead className="sticky top-0" style={{ background: "var(--surface-1)" }}>
           <tr className="text-left text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            <th className="px-3 py-2 font-medium">#</th>
-            <th className="px-3 py-2 font-medium">Ticker</th>
-            <th className="px-3 py-2 text-right font-medium">21d signal</th>
+            <th className="px-3 py-2 font-medium"><Term id="rank" /></th>
+            <th className="px-3 py-2 font-medium"><Term id="ticker" /></th>
+            <th className="px-3 py-2 text-right font-medium"><Term id="score" align="right" /></th>
           </tr>
         </thead>
         <tbody>

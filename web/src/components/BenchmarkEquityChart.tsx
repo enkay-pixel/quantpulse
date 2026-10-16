@@ -67,7 +67,14 @@ function LegendChip({ color, label, dashed }: { color: string; label: string; da
   );
 }
 
-export function BenchmarkEquityChart({ curve }: { curve: EquityCurve }) {
+export function BenchmarkEquityChart({
+  curve,
+  benchmark = "the index",
+}: {
+  curve: EquityCurve;
+  /** The market's own index fund — SPY for the NYSE, STX40.JO for the JSE. */
+  benchmark?: string;
+}) {
   if (curve.points.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>
@@ -83,20 +90,20 @@ export function BenchmarkEquityChart({ curve }: { curve: EquityCurve }) {
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-4">
         {hasReplay ? (
-          <LegendChip color="var(--series-1)" label="Strategy — replay (in-sample)" dashed />
+          <LegendChip color="var(--series-1)" label="Paper book — replay, before going live" dashed />
         ) : null}
         {liveStart || !hasReplay ? (
-          <LegendChip color="var(--series-1)" label={hasReplay ? "Strategy — live" : "Strategy"} />
+          <LegendChip color="var(--series-1)" label={hasReplay ? "Paper book — live" : "Paper book"} />
         ) : null}
         {hasHorizon ? (
-          <LegendChip color="var(--series-3)" label="Same signal, held 21 days" />
+          <LegendChip color="var(--series-3)" label="Same forecasts, traded monthly" />
         ) : null}
-        {hasBenchmark ? <LegendChip color="var(--series-2)" label="SPY buy & hold" /> : null}
+        {hasBenchmark ? <LegendChip color="var(--series-2)" label={`Index fund (${benchmark}), bought and held`} /> : null}
       </div>
       <div
         className="h-64"
         role="img"
-        aria-label="Daily-rebalanced strategy equity versus the 21-day book and SPY buy-and-hold"
+        aria-label={`The paper book's value against the monthly book and ${benchmark} bought and held`}
       >
         <ResponsiveContainer>
           <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>

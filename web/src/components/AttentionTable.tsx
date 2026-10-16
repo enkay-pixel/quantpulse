@@ -1,5 +1,6 @@
 import type { AttentionOut, AttentionRow } from "../api/types";
 import { formatDate, formatNumber } from "../lib/format";
+import { Term } from "./Term";
 
 /** This page's convention for "unusual": three times the usual level. A convention, not a
  * statistical test — the page states it as one. */
@@ -84,10 +85,10 @@ export function AttentionTable({
         <table className="w-full text-sm">
           <thead className="sticky top-0" style={{ background: "var(--surface-1)" }}>
             <tr className="text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-              <th className="px-3 py-2 text-left font-medium">Ticker</th>
-              <th className="px-3 py-2 text-right font-medium">Views a day, past week</th>
-              <th className="px-3 py-2 text-right font-medium">Usual</th>
-              <th className="px-3 py-2 text-right font-medium">× usual</th>
+              <th className="px-3 py-2 text-left font-medium"><Term id="ticker" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="views_7d" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="baseline_90d" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="attention_ratio" align="right" /></th>
             </tr>
           </thead>
           <tbody>

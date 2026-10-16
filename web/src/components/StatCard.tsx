@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 interface StatCardProps {
-  label: string;
+  label: ReactNode;
   value: string;
   valueColor?: string;
   sub?: string;

@@ -1,8 +1,9 @@
 import type { BookComparison, BookStats } from "../api/types";
 import { formatNumber, formatPercent } from "../lib/format";
+import { Term } from "./Term";
 
 const LABELS: Record<string, { name: string; asks: string }> = {
-  daily: { name: "Daily", asks: "the baseline — trade the signal every day" },
+  daily: { name: "Daily", asks: "the baseline — trade the forecasts every day" },
   horizon: { name: "21-day", asks: "hold for the model's forecast horizon" },
   long_only: { name: "Long only", asks: "drop the short leg entirely" },
 };
@@ -49,12 +50,12 @@ export function BookComparisonCard({ data }: { data: BookComparison }) {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ color: "var(--text-muted)" }}>
-              <th className="py-1 pr-3 text-left font-normal">Book</th>
-              <th className="py-1 pr-3 text-right font-normal">Ann. return</th>
-              <th className="py-1 pr-3 text-right font-normal">Sharpe</th>
-              <th className="py-1 pr-3 text-right font-normal">Max DD</th>
-              <th className="py-1 pr-3 text-right font-normal">Turnover</th>
-              <th className="py-1 text-right font-normal">Cost drag</th>
+              <th className="py-1 pr-3 text-left font-normal"><Term id="variant" /></th>
+              <th className="py-1 pr-3 text-right font-normal"><Term id="annualized_return" align="right" /></th>
+              <th className="py-1 pr-3 text-right font-normal"><Term id="sharpe" align="right" /></th>
+              <th className="py-1 pr-3 text-right font-normal"><Term id="max_drawdown" align="right" /></th>
+              <th className="py-1 pr-3 text-right font-normal"><Term id="mean_turnover" align="right" /></th>
+              <th className="py-1 text-right font-normal"><Term id="annualized_cost_drag" align="right" /></th>
             </tr>
           </thead>
           <tbody>

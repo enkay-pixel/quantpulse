@@ -1,5 +1,6 @@
 import type { ModelRunEntry } from "../api/types";
 import { formatNumber, formatPercent } from "../lib/format";
+import { Term } from "./Term";
 
 export function ModelHistoryTable({ runs }: { runs: ModelRunEntry[] }) {
   if (runs.length === 0) {
@@ -14,12 +15,12 @@ export function ModelHistoryTable({ runs }: { runs: ModelRunEntry[] }) {
       <table className="w-full text-sm">
         <thead className="sticky top-0" style={{ background: "var(--surface-1)" }}>
           <tr className="text-left text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            <th className="px-3 py-2 font-medium">Version</th>
-            <th className="px-3 py-2 font-medium">Trained</th>
-            <th className="px-3 py-2 font-medium">Decision</th>
-            <th className="px-3 py-2 text-right font-medium">Holdout IC</th>
-            <th className="px-3 py-2 text-right font-medium">Sharpe</th>
-            <th className="px-3 py-2 text-right font-medium">Max DD</th>
+            <th className="px-3 py-2 font-medium"><Term id="model_version" /></th>
+            <th className="px-3 py-2 font-medium"><Term id="trained_at" /></th>
+            <th className="px-3 py-2 font-medium"><Term id="decision" /></th>
+            <th className="px-3 py-2 text-right font-medium"><Term id="holdout_ic" align="right" /></th>
+            <th className="px-3 py-2 text-right font-medium"><Term id="holdout_sharpe" align="right" /></th>
+            <th className="px-3 py-2 text-right font-medium"><Term id="holdout_max_drawdown" align="right" /></th>
           </tr>
         </thead>
         <tbody>

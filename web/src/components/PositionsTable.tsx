@@ -1,5 +1,6 @@
 import type { Positions } from "../api/types";
 import { formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
+import { Term } from "./Term";
 
 export function PositionsTable({ positions }: { positions: Positions }) {
   if (positions.rows.length === 0) {
@@ -18,11 +19,11 @@ export function PositionsTable({ positions }: { positions: Positions }) {
         <table className="w-full text-sm">
           <thead className="sticky top-0" style={{ background: "var(--surface-1)" }}>
             <tr className="text-left text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-              <th className="px-3 py-2 font-medium">Ticker</th>
-              <th className="px-3 py-2 font-medium">Side</th>
-              <th className="px-3 py-2 text-right font-medium">Weight</th>
-              <th className="px-3 py-2 text-right font-medium">Signal</th>
-              <th className="px-3 py-2 text-right font-medium">Close</th>
+              <th className="px-3 py-2 font-medium"><Term id="ticker" /></th>
+              <th className="px-3 py-2 font-medium"><Term id="side" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="weight" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="score" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="close" align="right" /></th>
             </tr>
           </thead>
           <tbody>

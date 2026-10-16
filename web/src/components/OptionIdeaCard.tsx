@@ -1,7 +1,9 @@
 import type { OptionIdea } from "../api/types";
 import { formatDate, formatNumber, formatSignedPercent } from "../lib/format";
+import type { ReactNode } from "react";
+import { Term } from "./Term";
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div>
       <div className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -30,7 +32,7 @@ export function OptionIdeaCard({ idea }: { idea: OptionIdea }) {
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           {idea.signal !== null
             ? `Signal ${formatSignedPercent(idea.signal)} is too weak to express — no structure shown.`
-            : "No structure available yet (needs both a live signal and an option snapshot)."}
+            : "No structure available yet (it needs a forecast for this stock and that evening's option prices)."}
         </p>
         {disclaimer}
       </div>
@@ -71,10 +73,10 @@ export function OptionIdeaCard({ idea }: { idea: OptionIdea }) {
       </ul>
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Net debit" value={`$${formatNumber(idea.net_debit)}`} />
-        <Metric label="Max profit" value={idea.max_profit !== null ? `$${formatNumber(idea.max_profit)}` : "—"} />
-        <Metric label="Max loss" value={`$${formatNumber(idea.max_loss)}`} />
-        <Metric label="Breakeven" value={`$${formatNumber(idea.breakeven)}`} />
+        <Metric label={<Term id="net_debit" />} value={`$${formatNumber(idea.net_debit)}`} />
+        <Metric label={<Term id="max_profit" />} value={idea.max_profit !== null ? `$${formatNumber(idea.max_profit)}` : "—"} />
+        <Metric label={<Term id="max_loss" />} value={`$${formatNumber(idea.max_loss)}`} />
+        <Metric label={<Term id="breakeven" />} value={`$${formatNumber(idea.breakeven)}`} />
       </div>
 
       {disclaimer}
