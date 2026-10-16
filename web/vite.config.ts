@@ -19,6 +19,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Same-origin in development too, mirroring nginx: /api goes to the API on its own port.
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
   },
   test: {
     environment: "jsdom",

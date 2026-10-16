@@ -4,7 +4,8 @@ WORKDIR /app
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
-ARG VITE_API_URL=http://localhost:8000
+# Relative: nginx forwards /api to the API container (see nginx.conf).
+ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
