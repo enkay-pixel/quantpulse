@@ -37,7 +37,9 @@ training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion
 
 # The research branch (ADR 0007) runs apart from the pipeline: nothing it fetches is a model
 # input, so a failure here must never hold up an ingest or a retrain.
-research_job = dg.define_asset_job("research_job", selection=[qp_assets.short_interest])
+research_job = dg.define_asset_job(
+    "research_job", selection=[qp_assets.short_interest, qp_assets.page_views]
+)
 
 # Catch-up bounds: how far back to look for skipped sessions, and how many to request
 # per sensor tick (so a long sleep doesn't stampede the queue).
@@ -379,6 +381,7 @@ defs = dg.Definitions(
         qp_assets.resource_report,
         qp_assets.champion_model,
         qp_assets.short_interest,
+        qp_assets.page_views,
         transform_dbt_assets,
     ],
     asset_checks=[

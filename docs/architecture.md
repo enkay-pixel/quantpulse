@@ -85,6 +85,12 @@ would trade per 1% move from the captured chains; `fct_positioning` sets both ag
 dollar volume. Calls and puts are never netted, because who holds which side is not public, and
 short interest is dated by when it became known rather than when it settled.
 
+The second measure, **attention**, covers both markets: the JSE publishes neither short interest
+nor option chains free, but each company has a Wikipedia article. `page_views` stores daily views
+per stock (titles in `configs/attention.yaml`, checked canonical on every run, because the API
+does not count redirects), and `fct_attention` sets the past week against the usual level. The
+Positioning tab shows on both markets, with the squeeze sections only where their data exists.
+
 ## Paper books: variations from a baseline
 
 A *book* is one way of turning the signal into a portfolio. `ml/portfolio.py` runs **three**

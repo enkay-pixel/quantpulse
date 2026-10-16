@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
+import { AttentionChart } from "./components/AttentionChart";
+import { AttentionTable } from "./components/AttentionTable";
 import { ChampionRecordCard } from "./components/ChampionRecordCard";
 import { DecisionsCard } from "./components/DecisionsCard";
 import { BenchmarkEquityChart } from "./components/BenchmarkEquityChart";
@@ -28,6 +30,8 @@ import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
 import {
   useAlphaBeta,
+  useAttention,
+  useAttentionHistory,
   useChampions,
   useBooks,
   useCurrentModel,
@@ -57,10 +61,8 @@ import { useExchange } from "./hooks/useExchange";
 import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { formatDate, formatNumber, formatPercent } from "./lib/format";
+import { TABS, visibleTabs } from "./lib/tabs";
 
-const TABS = ["Overview", "Evidence", "Options", "Positioning", "Model & Book", "Research"];
-// Both read option chains, which only some markets have.
-const OPTIONS_TABS = ["Options", "Positioning"];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -370,9 +372,10 @@ function OptionsTab({ exchange }: { exchange: string }) {
   );
 }
 
-// The research branch's first page (ADR 0007): where short-squeeze and gamma-squeeze fuel sits
-// across the names with option chains. It assesses; it does not advise.
-function PositioningTab({ exchange }: { exchange: string }) {
+// The research branch's positioning page (ADR 0007). Squeeze fuel needs short interest and
+// option chains, which only the NYSE has free; attention covers both markets. It assesses; it
+// does not advise.
+function SqueezeSections({ exchange }: { exchange: string }) {
   const positioning = usePositioning(exchange);
   const [picked, setPicked] = useState<string | null>(null);
   // Until a row is picked, show the stock with the largest call exposure against its volume.
@@ -384,7 +387,7 @@ function PositioningTab({ exchange }: { exchange: string }) {
   const selected = picked ?? top;
   const profile = useGammaProfile(selected);
   return (
-    <div className="grid gap-4">
+    <>
       <Section title="Where would a squeeze have fuel?">
         {positioning.data ? (
           <PositioningTable data={positioning.data} selected={selected} onSelect={setPicked} />
@@ -421,6 +424,50 @@ function PositioningTab({ exchange }: { exchange: string }) {
           </div>
         </Section>
       </div>
+    </>
+  );
+}
+
+function AttentionSections({ exchange }: { exchange: string }) {
+  const attention = useAttention(exchange);
+  const [picked, setPicked] = useState<string | null>(null);
+  const top =
+    attention.data?.rows
+      .filter((r) => r.attention_ratio !== null)
+      .sort((a, b) => (b.attention_ratio ?? 0) - (a.attention_ratio ?? 0))[0]?.ticker ?? null;
+  const selected = picked ?? top;
+  const history = useAttentionHistory(selected);
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Section title="Who is drawing attention?">
+        {attention.data ? (
+          <AttentionTable data={attention.data} selected={selected} onSelect={setPicked} />
+        ) : (
+          <Placeholder height="h-80" />
+        )}
+      </Section>
+      <Section title={selected ? `Attention over the past year — ${selected}` : "Attention over the past year"}>
+        {history.data ? <AttentionChart data={history.data} /> : <Placeholder height="h-64" />}
+      </Section>
+    </div>
+  );
+}
+
+function PositioningTab({ exchange, hasOptions }: { exchange: string; hasOptions: boolean }) {
+  return (
+    <div className="grid gap-4">
+      {hasOptions ? (
+        <SqueezeSections exchange={exchange} />
+      ) : (
+        <Section title="Where would a squeeze have fuel?">
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Short interest and option chains are not published free for this market, so the
+            squeeze measures the NYSE page shows cannot be computed here. Attention can, below. It
+            is an assessment of the evidence, not a recommendation to buy or sell anything.
+          </p>
+        </Section>
+      )}
+      <AttentionSections exchange={exchange} />
     </div>
   );
 }
@@ -483,10 +530,7 @@ export default function App() {
 
   const apiDown = health.isError;
   const market = exchanges.data?.find((e) => e.code === exchange);
-  // No free JSE chain data exists, so the Options tab is hidden rather than shown empty —
-  // an empty tab reads as a bug, a missing one reads as a deliberate limit.
-  const tabs =
-    market && !market.has_options ? TABS.filter((t) => !OPTIONS_TABS.includes(t)) : TABS;
+  const tabs = visibleTabs(market?.has_options);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -535,7 +579,7 @@ export default function App() {
         <OptionsTab exchange={exchange} />
       ) : null}
       {tab === "Positioning" && tabs.includes("Positioning") ? (
-        <PositioningTab exchange={exchange} />
+        <PositioningTab exchange={exchange} hasOptions={market?.has_options ?? true} />
       ) : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
       {tab === "Research" ? <ResearchTab /> : null}

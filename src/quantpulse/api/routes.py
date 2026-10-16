@@ -799,6 +799,42 @@ def gamma_profile(ticker: str, session: SessionDep) -> schemas.GammaProfileOut:
     )
 
 
+@router.get("/research/attention", response_model=schemas.AttentionOut)
+def attention(session: SessionDep, exchange: ExchangeDep) -> schemas.AttentionOut:
+    """Each stock's public attention on its newest day, for one market — the research branch's
+    measure that covers the JSE as well as the NYSE."""
+    rows = _mart_rows(
+        session,
+        "SELECT DISTINCT ON (ticker) ticker, article, date, views_7d, baseline_90d, "
+        "attention_ratio FROM analytics.fct_attention WHERE exchange = :ex "
+        "ORDER BY ticker, date DESC",
+        {"ex": exchange},
+    )
+    out = [schemas.AttentionRow(**dict(r)) for r in rows or []]
+    as_of = max((r.date for r in out), default=None)
+    return schemas.AttentionOut(exchange=exchange, as_of=as_of, rows=out)
+
+
+@router.get("/research/attention/{ticker}/history", response_model=schemas.AttentionHistoryOut)
+def attention_history(ticker: str, session: SessionDep) -> schemas.AttentionHistoryOut:
+    """A year of one stock's daily views, its weekly mean and its usual level."""
+    ticker = ticker.upper()
+    rows = _mart_rows(
+        session,
+        "SELECT date, article, views, views_7d, baseline_90d FROM analytics.fct_attention "
+        "WHERE ticker = :t AND date > (SELECT max(date) FROM analytics.fct_attention "
+        "WHERE ticker = :t) - 365 ORDER BY date",
+        {"t": ticker},
+    )
+    if not rows:
+        return schemas.AttentionHistoryOut(ticker=ticker, article=None, days=[])
+    return schemas.AttentionHistoryOut(
+        ticker=ticker,
+        article=rows[-1]["article"],
+        days=[schemas.AttentionDay(**{k: v for k, v in r.items() if k != "article"}) for r in rows],
+    )
+
+
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
 def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.QuintilesOut:
     overall = _mart_rows(

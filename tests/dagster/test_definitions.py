@@ -20,6 +20,7 @@ def test_expected_assets_present() -> None:
         "option_chains",
         "champion_model",
         "short_interest",
+        "page_views",
     }
     dbt_models = {
         "stg_prices",
@@ -33,6 +34,7 @@ def test_expected_assets_present() -> None:
         "dim_universe",
         "fct_gamma_by_strike",
         "fct_positioning",
+        "fct_attention",
     }
     assert core <= keys
     assert dbt_models <= keys
@@ -206,11 +208,10 @@ def test_the_research_branch_runs_apart_from_the_pipeline() -> None:
     """ADR 0007: research data is never a model input, so its fetch must not ride in a job the
     model depends on — a vendor hiccup there would otherwise hold up an ingest or a retrain."""
     research = defs.resolve_job_def("research_job")
-    assert {k.to_user_string() for k in research.asset_layer.selected_asset_keys} == {
-        "short_interest"
-    }
+    research_keys = {k.to_user_string() for k in research.asset_layer.selected_asset_keys}
+    assert research_keys == {"short_interest", "page_views"}
     for name in ("ingest_job", "process_job", "training_job"):
         keys = {
             k.to_user_string() for k in defs.resolve_job_def(name).asset_layer.selected_asset_keys
         }
-        assert "short_interest" not in keys, name
+        assert not research_keys & keys, name
