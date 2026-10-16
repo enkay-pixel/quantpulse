@@ -164,6 +164,17 @@ def sessions_ahead(start: dt.date, n: int, exchange: str) -> dt.date:
     return days[n - 1]
 
 
+def live_sessions_reached(end_date: dt.date, have: int, need: int, exchange: str) -> dt.date:
+    """The session whose close brings the live record to `need` sessions.
+
+    Not the date of the `need`-th session itself: a day's return is realized at the next close,
+    so the live record ends one session behind the prices, and a count of `need` is first
+    readable once the session after it has closed — that evening's ingest, and the decisions job
+    the next weekday morning. Dating the milestone by its own session put it a day or more early.
+    """
+    return sessions_ahead(end_date, need - have + 1, exchange)
+
+
 def next_retrain(today: dt.date | None = None) -> dt.date:
     """The next scheduled retrain: Saturdays, on the New York calendar — today, on a Saturday."""
     today = today or dt.datetime.now(NEW_YORK).date()

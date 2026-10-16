@@ -512,9 +512,9 @@ def _status(verdict_dir: str | None) -> None:
     from quantpulse.db import get_engine
     from quantpulse.monitoring.decisions import collect, evaluate, load
     from quantpulse.monitoring.status import (
+        live_sessions_reached,
         market_status,
         next_retrain,
-        sessions_ahead,
         shadow_verdict_eta,
     )
 
@@ -569,8 +569,10 @@ def _status(verdict_dir: str | None) -> None:
             need = int(o.condition.params["sessions"])
             # Only the near ones: a date a year out from a few weeks' pace is not a schedule.
             if live and live.end_date and need - live.sessions <= 60:
-                eta = sessions_ahead(live.end_date, need - live.sessions, ex)
-                ahead.append((eta, f"{o.decision.id} reopens at {need} {ex} live sessions"))
+                eta = live_sessions_reached(live.end_date, live.sessions, need, ex)
+                ahead.append(
+                    (eta, f"{o.decision.id} reaches {need} {ex} live sessions, with this close")
+                )
     ahead.append((shadow_verdict_eta(), "shadow run verdict readable, about"))
     print("ahead:")
     for day, what in sorted(ahead):
