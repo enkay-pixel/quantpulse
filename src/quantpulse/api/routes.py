@@ -718,6 +718,87 @@ def forward_vrp(session: SessionDep, exchange: ExchangeDep) -> schemas.ForwardVr
     )
 
 
+_POSITIONING_COLUMNS = (
+    "ticker, asset_type, spot, call_oi, put_oi, call_gamma_usd_1pct, put_gamma_usd_1pct, "
+    "call_gamma_near_share, adv_usd_20d, call_gamma_share_of_adv, put_gamma_share_of_adv"
+)
+
+
+@router.get("/research/positioning", response_model=schemas.PositioningOut)
+def positioning(session: SessionDep, exchange: ExchangeDep) -> schemas.PositioningOut:
+    """Option hedging exposure and short interest per ticker, on the market's latest snapshot.
+
+    The two sides run on different clocks: chains are captured each evening, short interest is
+    published monthly and arrives a week or two late. So this pairs the latest snapshot with the
+    latest short interest known now, each carrying its own date. The mart keeps the history with
+    short interest joined as of each day instead, so a past day never shows a later figure.
+    """
+    rows = _mart_rows(
+        session,
+        f"SELECT snapshot_date, {_POSITIONING_COLUMNS} FROM analytics.fct_positioning "
+        "WHERE exchange = :ex AND snapshot_date = (SELECT max(snapshot_date) "
+        "FROM analytics.fct_positioning WHERE exchange = :ex) ORDER BY ticker",
+        {"ex": exchange},
+    )
+    if not rows:
+        return schemas.PositioningOut(exchange=exchange, snapshot_date=None, rows=[])
+    short = _mart_rows(
+        session,
+        "SELECT DISTINCT ON (ticker) ticker, settlement_date, known_from, shares_short, "
+        "short_pct_float, days_to_cover, "
+        "shares_short::float / nullif(shares_short_prior, 0) - 1 AS short_change "
+        "FROM analytics.stg_short_interest WHERE ticker = ANY(:tickers) "
+        "ORDER BY ticker, settlement_date DESC",
+        {"tickers": [r["ticker"] for r in rows]},
+    )
+    latest_short = {s["ticker"]: s for s in short or []}
+    out = []
+    for row in rows:
+        s = latest_short.get(row["ticker"], {})
+        out.append(
+            schemas.PositioningRow(
+                **{k: v for k, v in row.items() if k != "snapshot_date"},
+                short_settlement_date=s.get("settlement_date"),
+                short_known_from=s.get("known_from"),
+                shares_short=s.get("shares_short"),
+                short_pct_float=s.get("short_pct_float"),
+                days_to_cover=s.get("days_to_cover"),
+                short_change=s.get("short_change"),
+            )
+        )
+    return schemas.PositioningOut(
+        exchange=exchange, snapshot_date=rows[0]["snapshot_date"], rows=out
+    )
+
+
+@router.get("/research/positioning/{ticker}/profile", response_model=schemas.GammaProfileOut)
+def gamma_profile(ticker: str, session: SessionDep) -> schemas.GammaProfileOut:
+    """Call and put dollar gamma by strike on the ticker's latest snapshot — where the hedging
+    exposure sits relative to the price."""
+    ticker = ticker.upper()
+    rows = _mart_rows(
+        session,
+        "SELECT snapshot_date, spot, strike, call_oi, put_oi, call_gamma_usd_1pct, "
+        "put_gamma_usd_1pct FROM analytics.fct_gamma_by_strike WHERE ticker = :t "
+        "AND snapshot_date = (SELECT max(snapshot_date) FROM analytics.fct_gamma_by_strike "
+        "WHERE ticker = :t) ORDER BY strike",
+        {"t": ticker},
+    )
+    if not rows:
+        return schemas.GammaProfileOut(ticker=ticker, snapshot_date=None, spot=None, strikes=[])
+    return schemas.GammaProfileOut(
+        ticker=ticker,
+        snapshot_date=rows[0]["snapshot_date"],
+        spot=rows[0]["spot"],
+        strikes=[
+            schemas.GammaStrike(
+                **{k: v for k, v in r.items() if k not in ("snapshot_date", "spot")}
+            )
+            for r in rows
+        ],
+    )
+
+
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
 def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.QuintilesOut:
     overall = _mart_rows(

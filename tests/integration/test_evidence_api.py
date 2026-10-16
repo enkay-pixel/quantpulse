@@ -6,14 +6,12 @@ exercised over genuine mart output.
 """
 
 import datetime as dt
-import os
-from collections.abc import Iterator
-from pathlib import Path
+from collections.abc import Callable, Iterator
 
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, make_url, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from quantpulse.api.app import create_app
@@ -23,9 +21,6 @@ from quantpulse.data.universe import UniverseEntry, sync_universe
 from quantpulse.db import ModelRun, PortfolioSnapshot, Prediction, UniverseMember
 
 pytestmark = pytest.mark.integration
-
-PROJECT_ROOT = Path(__file__).parents[2]
-TRANSFORM_DIR = PROJECT_ROOT / "transform"
 
 DATES = [d.date() for d in pd.bdate_range("2024-07-01", periods=10)]
 LIVE_CUTOVER = DATES[6]  # promotion timestamp -> last 4 days are 'live'
@@ -92,40 +87,8 @@ def _seed(engine) -> None:  # type: ignore[no-untyped-def]
         session.commit()
 
 
-def _dbt_build(db_url: str) -> None:
-    from dbt.cli.main import dbtRunner
-
-    url = make_url(db_url)
-    env = {
-        "DBT_HOST": url.host or "localhost",
-        "DBT_PORT": str(url.port or 5432),
-        "POSTGRES_USER": url.username or "quantpulse",
-        "POSTGRES_PASSWORD": url.password or "quantpulse",
-        "POSTGRES_DB": url.database or "market_test",
-    }
-    old = {k: os.environ.get(k) for k in env}
-    os.environ.update(env)
-    try:
-        result = dbtRunner().invoke(
-            [
-                "build",
-                "--project-dir",
-                str(TRANSFORM_DIR),
-                "--profiles-dir",
-                str(TRANSFORM_DIR),
-            ]
-        )
-        assert result.success, f"dbt build failed in test DB: {result.exception}"
-    finally:
-        for key, value in old.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-
-
 @pytest.fixture(scope="module")
-def evidence_client(test_db_url: str) -> Iterator[TestClient]:
+def evidence_client(test_db_url: str, dbt_build: Callable[..., None]) -> Iterator[TestClient]:
     engine = create_engine(test_db_url)
     with engine.begin() as conn:
         conn.execute(
@@ -135,7 +98,7 @@ def evidence_client(test_db_url: str) -> Iterator[TestClient]:
             )
         )
     _seed(engine)
-    _dbt_build(test_db_url)
+    dbt_build(test_db_url)
 
     app = create_app()
     app.dependency_overrides[engine_dep] = lambda: engine

@@ -3,13 +3,14 @@
 Skips cleanly when Postgres isn't reachable (e.g. `make up` not running).
 """
 
-from collections.abc import Iterator
+import os
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.exc import OperationalError
 
 from quantpulse.config import Settings
@@ -77,7 +78,7 @@ def db_engine(test_db_url: str) -> Iterator[Engine]:
         conn.execute(
             text(
                 "TRUNCATE prices, features, predictions, model_runs, drift_metrics, "
-                "portfolio_snapshots, option_quotes, pipeline_alerts, universe "
+                "portfolio_snapshots, option_quotes, pipeline_alerts, short_interest, universe "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -90,3 +91,38 @@ def db_engine(test_db_url: str) -> Iterator[Engine]:
     leaked = engine.pool.checkedout()  # type: ignore[attr-defined]
     engine.dispose()
     assert leaked == 0, f"{leaked} connection(s) still checked out when the test finished"
+
+
+def _run_dbt_build(db_url: str, select: str | None = None) -> None:
+    """`dbt build` against the test database, optionally narrowed with `--select`."""
+    from dbt.cli.main import dbtRunner
+
+    transform = PROJECT_ROOT / "transform"
+    url = make_url(db_url)
+    env = {
+        "DBT_HOST": url.host or "localhost",
+        "DBT_PORT": str(url.port or 5432),
+        "POSTGRES_USER": url.username or "quantpulse",
+        "POSTGRES_PASSWORD": url.password or "quantpulse",
+        "POSTGRES_DB": url.database or "market_test",
+    }
+    args = ["build", "--project-dir", str(transform), "--profiles-dir", str(transform)]
+    if select:
+        args += ["--select", select]
+    old = {k: os.environ.get(k) for k in env}
+    os.environ.update(env)
+    try:
+        result = dbtRunner().invoke(args)
+        assert result.success, f"dbt build failed in test DB: {result.exception}"
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+@pytest.fixture(scope="session")
+def dbt_build() -> Callable[..., None]:
+    """Build dbt models into the test database: `dbt_build(url)` or `dbt_build(url, "+model")`."""
+    return _run_dbt_build

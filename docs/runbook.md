@@ -413,6 +413,7 @@ Only one thing here is on a rolling window, and it is deliberate.
 |---|---|---|
 | Dagster sensor / schedule ticks | **14 / 90 days** (`docker/dagster.yaml`) | Pure operational exhaust. Sensors tick every 30s–30min; after a fortnight they answer no question anyone asks. |
 | `option_quotes` | **Never delete** | Irreplaceable. yfinance serves live chains only, and historical chains cost thousands a year. A day deleted is a day that cannot be bought back at any price. |
+| `short_interest` | **Never delete** | The vendor shows only the latest two settlements, so history accrues forward like the chains. Tiny: ~50 rows a month. |
 | `prices` | Never delete | Backfillable in principle, but it is the base every other table is derived from, and it grows ~50 rows/day. |
 | `features`, `predictions`, `portfolio_snapshots` | Never delete | Recomputable from prices, but they are what the replay curve is built from, and together they grow under 30 KB/day. Deleting them costs the dashboard its history to reclaim nothing. |
 | `model_runs`, MLflow registry | Never delete | The champion/challenger audit trail is the point of the self-adapting loop. Tiny. |

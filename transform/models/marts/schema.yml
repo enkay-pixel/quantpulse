@@ -270,3 +270,47 @@ models:
           - accepted_values:
               arguments:
                 values: ["stock", "etf"]
+
+  - name: fct_gamma_by_strike
+    description: >
+      Option dollar gamma per 1% move by (snapshot, ticker, strike), calls and puts apart — the
+      stock a hedger would trade if a dealer were on the other side of every live contract.
+      The one definition the positioning marts and the strike profile read (ADR 0007).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, ticker, strike]
+    columns:
+      - name: call_gamma_usd_1pct
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= 0"
+      - name: put_gamma_usd_1pct
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= 0"
+
+  - name: fct_positioning
+    description: >
+      Per (ticker, snapshot): dealer hedging exposure from listed options against average dollar
+      volume, and the short interest known that day — where the GameStop mechanics would be
+      loaded. Fuel, not timing (ADR 0007).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, snapshot_date]
+    columns:
+      - name: exchange
+        tests: [not_null]
+      - name: call_gamma_share_of_adv
+        description: Call dollar gamma per 1% move over 20-session average dollar volume.
+      - name: short_known_from
+        description: When the joined short interest became known; never after snapshot_date.
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "<= snapshot_date"

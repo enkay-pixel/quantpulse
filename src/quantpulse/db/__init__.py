@@ -10,6 +10,7 @@ from quantpulse.db.models import (
     PortfolioSnapshot,
     Prediction,
     Price,
+    ShortInterest,
     UniverseMember,
 )
 from quantpulse.db.session import get_engine, get_session
@@ -24,6 +25,7 @@ __all__ = [
     "PortfolioSnapshot",
     "Prediction",
     "Price",
+    "ShortInterest",
     "UniverseMember",
     "get_engine",
     "get_session",

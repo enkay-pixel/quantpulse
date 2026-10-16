@@ -65,3 +65,14 @@ sources:
         meta:
           dagster:
             asset_key: option_chains
+      - name: short_interest
+        description: >
+          Shares sold short per ticker and settlement date (research branch, ADR 0007).
+          Insert-only, so ingested_at is when each figure first became known.
+        meta:
+          dagster:
+            asset_key: short_interest
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [ticker, settlement_date]

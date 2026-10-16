@@ -35,6 +35,10 @@ process_job = dg.define_asset_job(
 
 training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion_model])
 
+# The research branch (ADR 0007) runs apart from the pipeline: nothing it fetches is a model
+# input, so a failure here must never hold up an ingest or a retrain.
+research_job = dg.define_asset_job("research_job", selection=[qp_assets.short_interest])
+
 # Catch-up bounds: how far back to look for skipped sessions, and how many to request
 # per sensor tick (so a long sleep doesn't stampede the queue).
 LOOKBACK_DAYS = 30
@@ -103,6 +107,17 @@ training_schedule = dg.ScheduleDefinition(
     cron_schedule="0 9 * * 6",
     execution_timezone="America/New_York",
     name="weekly_training_schedule",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
+)
+
+
+# Weekday mornings, New York time: short interest changes only when a settlement is published,
+# so the hour does not matter for freshness, only for staying out of the evening's queue.
+research_schedule = dg.ScheduleDefinition(
+    job=research_job,
+    cron_schedule="0 7 * * 1-5",
+    execution_timezone="America/New_York",
+    name="daily_research_schedule",
     default_status=dg.DefaultScheduleStatus.RUNNING,
 )
 
@@ -363,6 +378,7 @@ defs = dg.Definitions(
         qp_assets.option_chains,
         qp_assets.resource_report,
         qp_assets.champion_model,
+        qp_assets.short_interest,
         transform_dbt_assets,
     ],
     asset_checks=[
@@ -373,8 +389,8 @@ defs = dg.Definitions(
         qp_assets.champion_registry_agrees,
         qp_assets.resource_headroom,
     ],
-    jobs=[ingest_job, process_job, training_job],
-    schedules=[*ingest_schedules, process_schedule, training_schedule],
+    jobs=[ingest_job, process_job, training_job, research_job],
+    schedules=[*ingest_schedules, process_schedule, training_schedule, research_schedule],
     sensors=[
         drift_retrain_sensor,
         pipeline_failure_alert,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
@@ -9,11 +10,13 @@ import { DriftPanel } from "./components/DriftPanel";
 import { FindingsList } from "./components/FindingsList";
 import { ForwardVrpChart } from "./components/ForwardVrpChart";
 import { FreshnessStrip } from "./components/FreshnessStrip";
+import { GammaProfileChart } from "./components/GammaProfileChart";
 import { IvSkewChart } from "./components/IvSkewChart";
 import { IvSurfaceChart } from "./components/IvSurfaceChart";
 import { ModelHistoryTable } from "./components/ModelHistoryTable";
 import { OptionChainTable } from "./components/OptionChainTable";
 import { OptionIdeaCard } from "./components/OptionIdeaCard";
+import { PositioningTable } from "./components/PositioningTable";
 import { PositionsTable } from "./components/PositionsTable";
 import { PredictionsTable } from "./components/PredictionsTable";
 import { PriceChart } from "./components/PriceChart";
@@ -35,12 +38,14 @@ import {
   useForwardVrp,
   useFreshness,
   useExchanges,
+  useGammaProfile,
   useHealth,
   useModelHistory,
   useOptionChain,
   useIvSurface,
   useOptionIdea,
   useOptionSummary,
+  usePositioning,
   usePositions,
   usePredictions,
   useQuintiles,
@@ -53,7 +58,9 @@ import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
 import { formatDate, formatNumber, formatPercent } from "./lib/format";
 
-const TABS = ["Overview", "Evidence", "Options", "Model & Book", "Research"];
+const TABS = ["Overview", "Evidence", "Options", "Positioning", "Model & Book", "Research"];
+// Both read option chains, which only some markets have.
+const OPTIONS_TABS = ["Options", "Positioning"];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -363,6 +370,61 @@ function OptionsTab({ exchange }: { exchange: string }) {
   );
 }
 
+// The research branch's first page (ADR 0007): where short-squeeze and gamma-squeeze fuel sits
+// across the names with option chains. It assesses; it does not advise.
+function PositioningTab({ exchange }: { exchange: string }) {
+  const positioning = usePositioning(exchange);
+  const [picked, setPicked] = useState<string | null>(null);
+  // Until a row is picked, show the stock with the largest call exposure against its volume.
+  const top =
+    positioning.data?.rows
+      .filter((r) => r.asset_type === "stock" && r.call_gamma_share_of_adv !== null)
+      .sort((a, b) => (b.call_gamma_share_of_adv ?? 0) - (a.call_gamma_share_of_adv ?? 0))[0]
+      ?.ticker ?? null;
+  const selected = picked ?? top;
+  const profile = useGammaProfile(selected);
+  return (
+    <div className="grid gap-4">
+      <Section title="Where would a squeeze have fuel?">
+        {positioning.data ? (
+          <PositioningTable data={positioning.data} selected={selected} onSelect={setPicked} />
+        ) : (
+          <Placeholder height="h-96" />
+        )}
+      </Section>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Section title={selected ? `Where the hedging sits — ${selected}` : "Where the hedging sits"}>
+          {profile.data ? <GammaProfileChart data={profile.data} /> : <Placeholder height="h-64" />}
+        </Section>
+        <Section title="How to read this">
+          <div className="space-y-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+            <p>
+              <strong>Short interest</strong> is shares sold short and not yet bought back. Short
+              sellers lose as the price rises, and enough of them buying back at once pushes it
+              higher. Days to cover is how many days of normal volume that buying would take.
+              Exchanges publish it monthly, and it reaches this page a week or two after it
+              settles.
+            </p>
+            <p>
+              <strong>Option hedging.</strong> A dealer who sells a call buys some stock to
+              stay neutral, and buys more as the price rises toward the strike. The dollar figures
+              are what that would take per 1% move <em>if dealers had sold every listed contract</em>.
+              They are an upper bound, because many calls are sold by customers rather than
+              dealers, and public data does not show which side anyone holds. For puts, the same
+              mechanics sell into a fall.
+            </p>
+            <p>
+              This measures fuel, not timing: a loaded name can stay loaded for months. It is an
+              assessment of the evidence, not a recommendation to buy or sell anything. Take
+              anything you would act on to a licensed advisor who knows your circumstances.
+            </p>
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
 // Project-wide rather than per market: the findings and decisions span both, so this tab
 // ignores the market picker.
 function ResearchTab() {
@@ -424,7 +486,7 @@ export default function App() {
   // No free JSE chain data exists, so the Options tab is hidden rather than shown empty —
   // an empty tab reads as a bug, a missing one reads as a deliberate limit.
   const tabs =
-    market && !market.has_options ? TABS.filter((t) => t !== "Options") : TABS;
+    market && !market.has_options ? TABS.filter((t) => !OPTIONS_TABS.includes(t)) : TABS;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -471,6 +533,9 @@ export default function App() {
       ) : null}
       {tab === "Options" && tabs.includes("Options") ? (
         <OptionsTab exchange={exchange} />
+      ) : null}
+      {tab === "Positioning" && tabs.includes("Positioning") ? (
+        <PositioningTab exchange={exchange} />
       ) : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
       {tab === "Research" ? <ResearchTab /> : null}

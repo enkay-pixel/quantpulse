@@ -400,6 +400,28 @@ def option_chains() -> dg.MaterializeResult:
     return dg.MaterializeResult(metadata={"quotes": rows, "tickers": len(tickers)})
 
 
+@dg.asset(group_name="research", kinds={"python", "postgres"})
+def short_interest() -> dg.MaterializeResult:
+    """Short interest for the names with option chains (ADR 0007) — the research branch.
+
+    Nothing downstream of the model reads it: it feeds the positioning page, never a feature.
+    Insert-only, so a run that finds no new settlement date stores nothing and is not a failure.
+    """
+    from quantpulse.data.universe import options_tickers
+    from quantpulse.research.short_interest import fetch_short_interest, insert_short_interest
+
+    with get_session() as session:
+        tickers = options_tickers(session)
+    if not tickers:
+        return dg.MaterializeResult(metadata={"new_rows": 0, "note": "no options-bearing market"})
+    rows = fetch_short_interest(tickers)
+    with get_session() as session:
+        new = insert_short_interest(session, rows)
+    return dg.MaterializeResult(
+        metadata={"tickers": len(tickers), "with_short_interest": len(rows), "new_rows": new}
+    )
+
+
 @dg.asset_check(asset=option_chains, blocking=False)
 def option_snapshot_quality() -> dg.AssetCheckResult:
     """Guard the options dataset: coverage, plausible IV (catches stale/pre-market

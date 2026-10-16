@@ -34,6 +34,7 @@ SHOTS = [
     ("dashboard.png", "XNYS", "overview"),
     ("evidence-tab.png", "XNYS", "evidence"),
     ("options-tab.png", "XNYS", "options"),
+    ("positioning-tab.png", "XNYS", "positioning"),
     ("model-book-tab.png", "XNYS", "model-book"),
     ("research-tab.png", "XNYS", "research"),
     ("jse-evidence.png", "XJSE", "evidence"),

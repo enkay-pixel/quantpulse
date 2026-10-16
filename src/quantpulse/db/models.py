@@ -208,6 +208,40 @@ class OptionQuote(Base):
     )
 
 
+class ShortInterest(Base):
+    """Shares sold short per ticker and settlement date — the research branch's first table.
+
+    Insert-only: a settlement date already stored is never rewritten, so `ingested_at` is the
+    date the figure was first seen. Short interest reaches the vendor a week or two after its
+    settlement date, and readers key history by `ingested_at` for that reason — keyed by
+    settlement, a past day would show a figure that was not yet public.
+
+    No foreign key to `universe`, by design (ADR 0007): research tickers must be addable without
+    entering the model's training universe.
+    """
+
+    __tablename__ = "short_interest"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    settlement_date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    shares_short: Mapped[int] = mapped_column(BigInteger)
+    shares_short_prior: Mapped[int | None] = mapped_column(BigInteger)
+    prior_settlement_date: Mapped[dt.date | None] = mapped_column(Date)
+    short_pct_float: Mapped[float | None] = mapped_column(Float)
+    days_to_cover: Mapped[float | None] = mapped_column(Float)
+    float_shares: Mapped[int | None] = mapped_column(BigInteger)
+    shares_outstanding: Mapped[int | None] = mapped_column(BigInteger)
+    source: Mapped[str] = mapped_column(String(16), default="yfinance")
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("shares_short >= 0", name="shares_short_nonnegative"),
+        CheckConstraint("source IN ('yfinance')", name="short_interest_source_valid"),
+    )
+
+
 class PipelineAlert(Base):
     """Pipeline failures, recorded by the Dagster run-failure sensor.
 

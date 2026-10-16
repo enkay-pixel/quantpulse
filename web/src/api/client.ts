@@ -24,6 +24,8 @@ import type {
   DecisionsOut,
   FindingsOut,
   ForwardVrpOut,
+  GammaProfileOut,
+  PositioningOut,
 } from "./types";
 
 export const API_BASE =
@@ -86,6 +88,10 @@ export const api = {
   findings: () => getJson<FindingsOut>("/findings"),
   forwardVrp: (ex: string) =>
     getJson<ForwardVrpOut>(`/options/forward-vrp?exchange=${ex}`),
+  positioning: (ex: string) =>
+    getJson<PositioningOut>(`/research/positioning?exchange=${ex}`),
+  gammaProfile: (ticker: string) =>
+    getJson<GammaProfileOut>(`/research/positioning/${encodeURIComponent(ticker)}/profile`),
   optionIdea: (ticker: string) =>
     getJson<OptionIdea>(`/options/${encodeURIComponent(ticker)}/idea`),
 };

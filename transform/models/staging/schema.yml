@@ -54,3 +54,13 @@ models:
           - accepted_values:
               arguments:
                 values: ["call", "put"]
+
+  - name: stg_short_interest
+    description: >
+      Short interest per (ticker, settlement) with known_from, the US market date it first
+      became known. Join history on known_from, never on settlement_date.
+    columns:
+      - name: known_from
+        tests: [not_null]
+      - name: shares_short
+        tests: [not_null]
