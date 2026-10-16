@@ -363,11 +363,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   precedes them on PATH and a dangling symlink is not executable, so `which` skips it.
   Note what the surviving links point *into*: `Docker.app/Contents/Resources/bin/`. That is
   inside the app bundle, so a Docker Desktop upgrade that moves or renames that directory
-  breaks `docker`, `docker-credential-osxkeychain` and `hub-tool` for all 17 launchd jobs
+  breaks `docker`, `docker-credential-osxkeychain` and `hub-tool` for every launchd job
   at once — and silently, since nothing runs `which docker` after an upgrade. Re-check with
-  `readlink -f /opt/homebrew/bin/docker` after upgrading. Checked 2026-08-23 on 4.87.0:
-  `docker` and `docker-credential-osxkeychain` both still resolve, `hub-tool` has gone from
-  PATH and nothing uses it.
+  `readlink -f /opt/homebrew/bin/docker` after upgrading. Checked 2026-08-23 on 4.87.0 and
+  2026-10-16 on 4.95.0: `docker` and `docker-credential-osxkeychain` both still resolve,
+  `hub-tool` has gone from PATH and nothing uses it.
 - **BuildKit hangs resolving registry metadata while the network is fine.** Symptom is
   `failed to solve: DeadlineExceeded` on the `FROM` lines. Connectivity and the credential
   helper are both red herrings: `curl https://ghcr.io/v2/` returns 401 in under a second,
