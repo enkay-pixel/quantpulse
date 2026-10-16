@@ -24,7 +24,7 @@ import { PredictionsTable } from "./components/PredictionsTable";
 import { PriceChart } from "./components/PriceChart";
 import { QuintileChart } from "./components/QuintileChart";
 import { RiskCharts } from "./components/RiskCharts";
-import { LiveStats } from "./components/LiveStats";
+import { LiveStats, emptyReason } from "./components/LiveStats";
 import { StatCard } from "./components/StatCard";
 import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
@@ -106,7 +106,10 @@ function OverviewTab({ exchange }: { exchange: string }) {
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <LiveStats live={live} />
+        <LiveStats
+          live={live}
+          state={trackRecord.isError ? "error" : trackRecord.data ? "ready" : "loading"}
+        />
         <StatCard
           label="Champion model"
           value={
@@ -115,7 +118,10 @@ function OverviewTab({ exchange }: { exchange: string }) {
           sub={
             model.data?.metrics?.holdout_ic !== undefined
               ? `holdout IC ${formatNumber(model.data.metrics.holdout_ic, 3)}`
-              : "not trained yet"
+              : emptyReason(
+                  model.isError ? "error" : model.data ? "ready" : "loading",
+                  "not trained yet",
+                )
           }
         />
       </div>
