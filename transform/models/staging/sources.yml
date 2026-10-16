@@ -76,3 +76,14 @@ sources:
           - dbt_utils.unique_combination_of_columns:
               arguments:
                 combination_of_columns: [ticker, settlement_date]
+      - name: page_views
+        description: >
+          Daily Wikipedia views of each stock's article, both markets (research branch,
+          ADR 0007). Insert-only; article records the title the views were counted on.
+        meta:
+          dagster:
+            asset_key: page_views
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [ticker, date]

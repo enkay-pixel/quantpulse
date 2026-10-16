@@ -422,6 +422,29 @@ def short_interest() -> dg.MaterializeResult:
     )
 
 
+@dg.asset(group_name="research", kinds={"python", "postgres"})
+def page_views() -> dg.MaterializeResult:
+    """Daily Wikipedia views of each stock's article — public attention, both markets (ADR 0007).
+
+    The first run backfills from 2018, one ticker at a time; later runs fetch only the days since
+    the newest stored. A title that has become a redirect is skipped and named in the metadata,
+    because its count would be wrong rather than missing.
+    """
+    from quantpulse.config import get_settings
+    from quantpulse.research.attention import load_titles, refresh_page_views
+
+    report = refresh_page_views(get_session, load_titles(get_settings().quantpulse_attention_file))
+    return dg.MaterializeResult(
+        metadata={
+            "fetched": report.fetched,
+            "new_rows": report.new_rows,
+            "up_to_date": report.up_to_date,
+            "skipped_titles": ", ".join(f"{t} ({s})" for t, s in report.skipped.items()) or "none",
+            "failed": ", ".join(f"{t} ({r})" for t, r in report.failed.items()) or "none",
+        }
+    )
+
+
 @dg.asset_check(asset=option_chains, blocking=False)
 def option_snapshot_quality() -> dg.AssetCheckResult:
     """Guard the options dataset: coverage, plausible IV (catches stale/pre-market

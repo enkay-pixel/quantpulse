@@ -187,3 +187,18 @@ export const useGammaProfile = (ticker: string | null) =>
     enabled: ticker !== null,
     refetchInterval: 10 * REFRESH_MS,
   });
+
+export const useAttention = (exchange: string) =>
+  useQuery({
+    queryKey: ["attention", exchange],
+    queryFn: () => api.attention(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
+export const useAttentionHistory = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["attention-history", ticker],
+    queryFn: () => api.attentionHistory(ticker as string),
+    enabled: ticker !== null,
+    refetchInterval: 10 * REFRESH_MS,
+  });

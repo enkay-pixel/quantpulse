@@ -353,6 +353,37 @@ class GammaProfileOut(BaseModel):
     strikes: list[GammaStrike]
 
 
+class AttentionRow(BaseModel):
+    """One stock's public attention on its newest day (ADR 0007): the past week's mean Wikipedia
+    views against the median of the 90 days before it."""
+
+    ticker: str
+    article: str
+    date: dt.date
+    views_7d: float
+    baseline_90d: float | None
+    attention_ratio: float | None
+
+
+class AttentionOut(BaseModel):
+    exchange: str
+    as_of: dt.date | None
+    rows: list[AttentionRow]
+
+
+class AttentionDay(BaseModel):
+    date: dt.date
+    views: int
+    views_7d: float
+    baseline_90d: float | None
+
+
+class AttentionHistoryOut(BaseModel):
+    ticker: str
+    article: str | None
+    days: list[AttentionDay]
+
+
 class QuintileStat(BaseModel):
     signal_quintile: int
     n_days: int

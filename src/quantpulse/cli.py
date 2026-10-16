@@ -216,6 +216,34 @@ def _short_interest() -> None:
     )
 
 
+def _page_views() -> None:
+    """Fetch Wikipedia page views by hand — what `research_job` does each weekday morning, and
+    the way to run the first backfill outside the daemon."""
+    from quantpulse.config import get_settings
+    from quantpulse.db import get_session
+    from quantpulse.research.attention import (
+        NoPageViewsReturned,
+        load_titles,
+        refresh_page_views,
+    )
+
+    try:
+        report = refresh_page_views(
+            get_session, load_titles(get_settings().quantpulse_attention_file)
+        )
+    except NoPageViewsReturned as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
+    logger.info(
+        "Page views: %d fetched, %d new rows, %d up to date, skipped %s, failed %s",
+        report.fetched,
+        report.new_rows,
+        report.up_to_date,
+        report.skipped or "none",
+        report.failed or "none",
+    )
+
+
 def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> None:
     """Withdraw a promotion and fall back to whatever stands behind it.
 
@@ -1111,6 +1139,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser(
         "short-interest", help="Fetch short interest for the options-bearing names (research)"
     )
+    sub.add_parser("page-views", help="Fetch Wikipedia page views for both markets (research)")
     options_snapshot = sub.add_parser(
         "options-snapshot", help="Snapshot live option chains for the universe"
     )
@@ -1230,6 +1259,8 @@ def main(argv: list[str] | None = None) -> None:
         _options_snapshot(args.force)
     elif args.command == "short-interest":
         _short_interest()
+    elif args.command == "page-views":
+        _page_views()
     elif args.command == "sensitivity":
         _sensitivity()
     elif args.command == "baseline":

@@ -78,7 +78,8 @@ def db_engine(test_db_url: str) -> Iterator[Engine]:
         conn.execute(
             text(
                 "TRUNCATE prices, features, predictions, model_runs, drift_metrics, "
-                "portfolio_snapshots, option_quotes, pipeline_alerts, short_interest, universe "
+                "portfolio_snapshots, option_quotes, pipeline_alerts, short_interest, page_views, "
+                "universe "
                 "RESTART IDENTITY CASCADE"
             )
         )

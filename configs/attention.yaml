@@ -1,0 +1,83 @@
+# Research branch (ADR 0007): the English Wikipedia article whose daily page views stand for
+# each stock's public attention. Read by quantpulse.research.attention; not part of the model.
+#
+# Titles must be the CANONICAL article, exactly. The page-view API counts views of the title
+# given and nothing else — views that arrive through a redirect are not included — so a title
+# that is a redirect returns a small, plausible-looking number that is simply wrong. Each fetch
+# resolves the titles first and skips any that is a redirect, a disambiguation page or missing,
+# naming it in the run log.
+#
+# Stocks only. ETFs and the JSE benchmark are left out: a fund's page measures interest in the
+# fund, not in any company. Dual-listed companies (BHP, Anglo American, British American
+# Tobacco, Prosus) draw attention from every market they trade in, not from the JSE alone.
+titles:
+  # NYSE
+  AAPL: Apple Inc.
+  ADBE: Adobe Inc.
+  AMD: AMD
+  AMZN: Amazon (company)
+  AVGO: Broadcom
+  BA: Boeing
+  BAC: Bank of America
+  BRK-B: Berkshire Hathaway
+  CAT: Caterpillar Inc.
+  COST: Costco
+  CRM: Salesforce
+  CSCO: Cisco
+  CVX: Chevron Corporation
+  DIS: The Walt Disney Company
+  GE: GE Aerospace
+  GOOGL: Alphabet Inc.
+  GS: Goldman Sachs
+  HD: Home Depot
+  INTC: Intel
+  JNJ: Johnson & Johnson
+  JPM: JPMorgan Chase
+  KO: The Coca-Cola Company
+  MA: Mastercard
+  MCD: McDonald's
+  META: Meta Platforms
+  MSFT: Microsoft
+  NFLX: Netflix
+  NVDA: Nvidia
+  ORCL: Oracle Corporation
+  PEP: PepsiCo
+  PG: Procter & Gamble
+  T: AT&T
+  TSLA: Tesla, Inc.
+  UNH: UnitedHealth Group
+  UPS: United Parcel Service
+  V: Visa Inc.
+  VZ: Verizon
+  WFC: Wells Fargo
+  WMT: Walmart
+  XOM: ExxonMobil
+  # JSE
+  ABG.JO: Absa Group
+  AGL.JO: Anglo American plc
+  ANG.JO: AngloGold Ashanti
+  ARI.JO: African Rainbow Minerals
+  BHG.JO: BHP
+  BTI.JO: British American Tobacco
+  CLS.JO: Clicks (South Africa)
+  CPI.JO: Capitec Bank
+  DSY.JO: Discovery Limited
+  EXX.JO: Exxaro
+  FSR.JO: FirstRand
+  GFI.JO: Gold Fields
+  IMP.JO: Impala Platinum
+  KIO.JO: Kumba Iron Ore
+  MRP.JO: Mr Price Group
+  MTN.JO: MTN Group
+  NED.JO: Nedbank
+  NPN.JO: Naspers
+  OMU.JO: Old Mutual
+  PRX.JO: Prosus
+  SBK.JO: Standard Bank
+  SHP.JO: Shoprite Holdings
+  SLM.JO: Sanlam
+  SOL.JO: Sasol
+  SSW.JO: Sibanye-Stillwater
+  TFG.JO: TFG Limited
+  VOD.JO: Vodacom
+  WHL.JO: Woolworths (South Africa)

@@ -100,7 +100,10 @@ built on the two mechanics behind GameStop in January 2021. For each name with o
 shows the short interest, meaning shares sold short and not yet bought back. Beside that is the
 stock dealers would have to buy per 1% rise if they had sold every listed call. On 2026-10-16 the
 most-shorted of the 40 stocks was ADBE, at 5.1% of its float; GameStop's was above 100% then. The
-strike chart shows where a name's hedging exposure sits against its price. The page measures fuel,
+strike chart shows where a name's hedging exposure sits against its price. Below that, for both
+markets, is **attention**: each stock's daily Wikipedia views against its usual level. That is the
+one research measure the JSE has free. GameStop's reached 42× its usual on 28 January 2021, but
+only 2.1× on the 22nd, when its price had already tripled. The page measures fuel and attention,
 not timing, and it assesses the evidence rather than advising on it.
 
 ## Model &amp; Book — every champion/challenger decision, and the current paper positions

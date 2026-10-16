@@ -242,6 +242,28 @@ class ShortInterest(Base):
     )
 
 
+class PageView(Base):
+    """Daily Wikipedia page views of each stock's article — public attention (ADR 0007).
+
+    Covers both markets, unlike short interest and option chains, which the JSE does not publish
+    free. Insert-only like the rest of the research branch; `article` records which title the
+    views were counted on, so a later change of title in configs/attention.yaml is visible in the
+    history rather than silently joined to it. No foreign key to `universe`, by design.
+    """
+
+    __tablename__ = "page_views"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    article: Mapped[str] = mapped_column(String(256))
+    views: Mapped[int] = mapped_column(BigInteger)
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (CheckConstraint("views >= 0", name="views_nonnegative"),)
+
+
 class PipelineAlert(Base):
     """Pipeline failures, recorded by the Dagster run-failure sensor.
 

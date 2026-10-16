@@ -314,3 +314,21 @@ models:
           - dbt_utils.expression_is_true:
               arguments:
                 expression: "<= snapshot_date"
+
+  - name: fct_attention
+    description: >
+      Per (ticker, date), the newest 400 days: the past week's mean Wikipedia views against the
+      median of the 90 days before it — public attention, both markets (ADR 0007).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, date]
+    columns:
+      - name: views_7d
+        tests: [not_null]
+      - name: attention_ratio
+        description: Past week's mean views over the prior 90 days' median; null under 60 baseline days.
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= 0"

@@ -64,3 +64,9 @@ models:
         tests: [not_null]
       - name: shares_short
         tests: [not_null]
+
+  - name: stg_page_views
+    description: Daily Wikipedia views per stock article; an unpublished day is absent, not zero.
+    columns:
+      - name: views
+        tests: [not_null]

@@ -388,3 +388,33 @@ export interface GammaProfileOut {
   spot: number | null;
   strikes: GammaStrike[];
 }
+
+/** One stock's public attention on its newest day (ADR 0007): the past week's mean Wikipedia
+ * views against the median of the 90 days before it. Both markets. */
+export interface AttentionRow {
+  ticker: string;
+  article: string;
+  date: string;
+  views_7d: number;
+  baseline_90d: number | null;
+  attention_ratio: number | null;
+}
+
+export interface AttentionOut {
+  exchange: string;
+  as_of: string | null;
+  rows: AttentionRow[];
+}
+
+export interface AttentionDay {
+  date: string;
+  views: number;
+  views_7d: number;
+  baseline_90d: number | null;
+}
+
+export interface AttentionHistoryOut {
+  ticker: string;
+  article: string | null;
+  days: AttentionDay[];
+}

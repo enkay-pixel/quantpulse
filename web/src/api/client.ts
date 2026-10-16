@@ -23,6 +23,8 @@ import type {
   UniverseMember,
   DecisionsOut,
   FindingsOut,
+  AttentionHistoryOut,
+  AttentionOut,
   ForwardVrpOut,
   GammaProfileOut,
   PositioningOut,
@@ -90,6 +92,10 @@ export const api = {
     getJson<ForwardVrpOut>(`/options/forward-vrp?exchange=${ex}`),
   positioning: (ex: string) =>
     getJson<PositioningOut>(`/research/positioning?exchange=${ex}`),
+  attention: (ex: string) =>
+    getJson<AttentionOut>(`/research/attention?exchange=${ex}`),
+  attentionHistory: (ticker: string) =>
+    getJson<AttentionHistoryOut>(`/research/attention/${encodeURIComponent(ticker)}/history`),
   gammaProfile: (ticker: string) =>
     getJson<GammaProfileOut>(`/research/positioning/${encodeURIComponent(ticker)}/profile`),
   optionIdea: (ticker: string) =>
