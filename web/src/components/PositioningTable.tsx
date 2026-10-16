@@ -8,6 +8,7 @@ import {
   formatSignedPercent,
   formatUsdCompact,
 } from "../lib/format";
+import { Term } from "./Term";
 
 /** Commonly cited bands for short interest as a share of float. They describe how much fuel a
  * short squeeze would have, not whether one is coming; the page says so beside them. */
@@ -117,18 +118,10 @@ function Row({
       </Cell>
       <Cell>{formatNumber(row.days_to_cover, 1)}</Cell>
       <Cell muted>{formatSignedPercent(row.short_change, 0)}</Cell>
-      <Cell>
-        {formatUsdCompact(row.call_gamma_usd_1pct)}
-        <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>
-          {formatPercent(row.call_gamma_share_of_adv, 0)}
-        </span>
-      </Cell>
-      <Cell>
-        {formatUsdCompact(row.put_gamma_usd_1pct)}
-        <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>
-          {formatPercent(row.put_gamma_share_of_adv, 0)}
-        </span>
-      </Cell>
+      <Cell>{formatUsdCompact(row.call_gamma_usd_1pct)}</Cell>
+      <Cell muted>{formatPercent(row.call_gamma_share_of_adv, 0)}</Cell>
+      <Cell>{formatUsdCompact(row.put_gamma_usd_1pct)}</Cell>
+      <Cell muted>{formatPercent(row.put_gamma_share_of_adv, 0)}</Cell>
       <Cell muted>{formatPercent(row.call_gamma_near_share, 0)}</Cell>
     </tr>
   );
@@ -177,13 +170,15 @@ export function PositioningTable({
         <table className="w-full text-sm">
           <thead className="sticky top-0" style={{ background: "var(--surface-1)" }}>
             <tr className="text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-              <th className="px-3 py-2 text-left font-medium">Ticker</th>
-              <th className="px-3 py-2 text-right font-medium">Short % float</th>
-              <th className="px-3 py-2 text-right font-medium">Days to cover</th>
-              <th className="px-3 py-2 text-right font-medium">vs prior</th>
-              <th className="px-3 py-2 text-right font-medium">Calls: $ per 1% · of volume</th>
-              <th className="px-3 py-2 text-right font-medium">Puts: $ per 1% · of volume</th>
-              <th className="px-3 py-2 text-right font-medium">Calls ≤30d</th>
+              <th className="px-3 py-2 text-left font-medium"><Term id="ticker" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="short_pct_float" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="days_to_cover" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="short_change" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="call_gamma_usd_1pct" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="call_gamma_share_of_adv" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="put_gamma_usd_1pct" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="put_gamma_share_of_adv" align="right" /></th>
+              <th className="px-3 py-2 text-right font-medium"><Term id="call_gamma_near_share" align="right" /></th>
             </tr>
           </thead>
           <tbody>
@@ -193,7 +188,7 @@ export function PositioningTable({
             {etfs.length > 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={9}
                   className="px-3 pb-1 pt-4 text-xs"
                   style={{ color: "var(--text-muted)" }}
                 >

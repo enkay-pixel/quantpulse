@@ -6,6 +6,7 @@ import {
   formatSignedPercent,
 } from "../lib/format";
 import { MIN_DAYS_FOR_RATIOS } from "../lib/thresholds";
+import { Term } from "./Term";
 
 /**
  * What each deployed model earned, apart from what the market earned.
@@ -80,12 +81,12 @@ export function ChampionRecordCard({ data }: { data: ChampionRecordOut }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs" style={{ color: "var(--text-muted)" }}>
-              <th className="py-1 text-left font-normal">Model</th>
-              <th className="py-1 text-left font-normal">Window</th>
-              <th className="py-1 text-right font-normal">Days</th>
-              <th className="py-1 text-right font-normal">Return</th>
-              <th className="py-1 text-right font-normal">Sharpe</th>
-              <th className="py-1 text-right font-normal">Win rate</th>
+              <th className="py-1 text-left font-normal"><Term id="model_version" /></th>
+              <th className="py-1 text-left font-normal"><Term id="window" /></th>
+              <th className="py-1 text-right font-normal"><Term id="n_days" align="right" /></th>
+              <th className="py-1 text-right font-normal"><Term id="total_return" align="right" /></th>
+              <th className="py-1 text-right font-normal"><Term id="sharpe" align="right" /></th>
+              <th className="py-1 text-right font-normal"><Term id="win_rate" align="right" /></th>
             </tr>
           </thead>
           <tbody>

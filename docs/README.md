@@ -10,6 +10,7 @@ Start here. Everything below is plain markdown, readable on GitHub and in Obsidi
 | Current state, honest numbers, what's next | [roadmap.md](roadmap.md) |
 | How to run it, and what to do when it breaks | [runbook.md](runbook.md) |
 | Services, data flow, how the pieces fit | [architecture.md](architecture.md) |
+| What a term on the dashboard or in the API means | [glossary.md](glossary.md) |
 | What a column means and where it came from | [data-dictionary.md](data-dictionary.md) |
 | Why it was built this way — the incident log | [development-history.md](development-history.md) |
 | How the ML holds up against a published rubric | [ml-test-score.md](ml-test-score.md) |

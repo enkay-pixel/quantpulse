@@ -102,6 +102,8 @@ export interface DriftStatus {
   share_drifted: number | null;
   drifted: boolean | null;
   features: DriftFeature[];
+  psi_threshold: number;
+  share_threshold: number;
 }
 
 export interface OptionSummary {

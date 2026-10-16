@@ -82,6 +82,10 @@ class DriftStatus(BaseModel):
     share_drifted: float | None
     drifted: bool | None
     features: list[DriftFeatureOut]
+    # The thresholds the verdict is judged against, served so the page states the same numbers
+    # the monitor uses rather than a copy that can drift from them.
+    psi_threshold: float
+    share_threshold: float
 
 
 class OptionSummary(BaseModel):

@@ -6,6 +6,8 @@ import {
   formatSignedPercent,
 } from "../lib/format";
 import { MIN_DAYS_FOR_RATIOS, RESOLVES_AT_T } from "../lib/thresholds";
+import type { ReactNode } from "react";
+import { Term } from "./Term";
 
 function Metric({
   label,
@@ -13,7 +15,7 @@ function Metric({
   color,
   hint,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   color?: string;
   hint: string;
@@ -118,12 +120,12 @@ export function AlphaBetaCard({
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Metric
-          label={`Beta vs ${benchmark}`}
+          label={<Term id="beta" label={`Moves with ${benchmark}`} />}
           value={formatNumber(shown.beta)}
           hint="how much it moves with the market (0 = not at all)"
         />
         <Metric
-          label="Alpha (annualized)"
+          label={<Term id="alpha_annualized" />}
           value={
             shown.alpha_std_error_annualized === null
               ? formatSignedPercent(shown.alpha_annualized)
@@ -140,13 +142,13 @@ export function AlphaBetaCard({
           hint="what's left once market moves are removed, and how far that could be off"
         />
         <Metric
-          label="Information ratio"
+          label={<Term id="information_ratio" />}
           value={formatNumber(shown.information_ratio)}
           color={deltaColor(shown.information_ratio)}
           hint="return vs the benchmark, per unit of risk"
         />
         <Metric
-          label="R²"
+          label={<Term id="r_squared" />}
           value={formatNumber(shown.r_squared, 3)}
           hint="share of its ups and downs the market explains"
         />

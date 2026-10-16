@@ -2,6 +2,7 @@ import type { PhaseStats } from "../api/types";
 import { deltaColor, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
 import { MIN_DAYS_FOR_RATIOS } from "../lib/thresholds";
 import { StatCard } from "./StatCard";
+import { Term } from "./Term";
 
 /**
  * The overview's headline row, reporting the live phase only.
@@ -30,13 +31,13 @@ export function LiveStats({ live, state = "ready" }: { live?: PhaseStats; state?
   return (
     <>
       <StatCard
-        label="Live return"
+        label={<Term id="total_return" label="Live return" />}
         value={live ? formatSignedPercent(live.total_return) : "—"}
         valueColor={live ? deltaColor(live.total_return) : undefined}
         sub={live ? `out-of-sample · ${live.n_days} sessions` : none}
       />
       <StatCard
-        label="Live Sharpe"
+        label={<Term id="sharpe" label="Live return per unit of risk" />}
         value={live && ratiosPublished ? formatNumber(live.sharpe) : "—"}
         sub={
           !live
@@ -47,7 +48,7 @@ export function LiveStats({ live, state = "ready" }: { live?: PhaseStats; state?
         }
       />
       <StatCard
-        label="Live max drawdown"
+        label={<Term id="max_drawdown" label="Live worst fall" />}
         value={live ? formatPercent(live.max_drawdown) : "—"}
         sub={live ? "out-of-sample" : none}
       />
