@@ -20,37 +20,39 @@ promotion; everything before that is an in-sample replay, kept separate on purpo
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
-| Live sessions | 24 (from 2026-07-20) | 20 (from 2026-07-23) |
-| Total return | **−1.15%** | **+1.70%** |
-| Sharpe | **−1.27** | **+2.68** |
-| Alpha (annualized) | −17.5% ± 30.6% | +24.7% ± 30.3% |
-| Alpha t-statistic | **−0.57** | **+0.81** |
-| Information ratio | −2.60 | −3.17 |
-| Beta / R² | 0.07 / 0.011 | −0.09 / 0.033 |
-| Win rate | 45.8% | 50.0% |
+| Live sessions | 62 (2026-07-20 to 2026-10-14) | 58 (2026-07-23 to 2026-10-14) |
+| Total return | **+3.52%** | **+1.00%** |
+| Sharpe | **+1.28** | **+0.59** |
+| Max drawdown | −3.23% | −2.23% |
+| Alpha (annualized) | +11.5% ± 23.3% | +0.7% ± 16.4% |
+| Alpha t-statistic | **+0.49** | **+0.04** |
+| Information ratio | 0.00 | −0.06 |
+| Beta / R² | −0.07 / 0.004 | −0.04 / 0.006 |
+| Win rate | 53.2% | 48.3% |
 
-**Neither market has produced a result yet.** The two look opposite — the NYSE is down, the
-JSE is up — and neither difference is big enough to tell from zero. Each alpha carries a
-standard error larger than the estimate itself (t of −0.57 and +0.81, against the ~2 that
-would make either distinguishable), so the honest reading after roughly a month live is that
-the record does not yet separate skill from noise in either direction.
+**Neither market has produced a result yet.** After three months live, both books are up, the
+NYSE by 3.5% and the JSE by 1.0%, and neither is distinguishable from zero. Each alpha's standard
+error is larger than the estimate: t of +0.49 and +0.04, against the ~2 that would separate
+either from noise. On the JSE the champion's own forward skill is about zero
+([scored against momentum](docs/findings/champion-vs-momentum.md)), and the standing decision to
+keep running it comes up for review at 60 live sessions, around 2026-10-20.
 
-That is a deliberately weaker claim than this table made before. An earlier version quoted
-a −22.6% alpha and argued "the sign is the sign" — but a sign is only a sign once it clears
-its own error bar, and this one does not. The annualized figures are a total return of about
-a percent scaled up by 252, not a rate anything has sustained.
+An earlier version of this table, a month in, quoted a −22.6% NYSE alpha and argued "the sign is
+the sign". Two months later the same alpha is positive. A sign is only a sign once it clears its
+own error bar, and neither has. The annualized figures are a few percent of total return scaled
+up to a year, not a rate anything has sustained.
 
-Beta 0.07 and −0.09 with R² near zero do confirm the book is genuinely market-neutral, so
-whatever these returns are, they are not disguised market exposure. Note the information
-ratio is negative on **both** markets including the one that made money: it is
-benchmark-relative and not beta-adjusted, so a market-neutral book that sits out a rising
-index scores badly on it by construction. Alpha and the information ratio answer different
-questions and are expected to disagree here.
+Beta −0.07 and −0.04, with R² below 0.01, confirm both books are genuinely market-neutral, so
+whatever these returns are, they are not disguised market exposure. The information ratio sits
+near zero on both markets even though both made money: it is benchmark-relative and not
+beta-adjusted, so a market-neutral book that sits out a rising index scores badly on it by
+construction. Alpha and the information ratio answer different questions and are expected to
+disagree here.
 
-Ratios stay withheld below 20 sessions because a handful of days annualizes into a
-confident-looking number that is pure noise — the JSE crosses that floor for the first time
-in this table. The floor is necessary and not sufficient, which is what the standard error
-column is for: clearing 20 days does not make an estimate mean anything.
+Ratios stay withheld below 20 sessions, because a handful of days annualizes into a
+confident-looking number that is pure noise. The floor is necessary and not sufficient, which is
+what the standard error column is for: clearing 20 days does not make an estimate mean anything,
+and at 60 it still does not here.
 
 The replay figures below are in-sample throughout. They describe a fit, not a forecast.
 
