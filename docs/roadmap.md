@@ -445,8 +445,9 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     capture. Ownership from SEC EDGAR (2026-10-17) adds insider trades (Form 4) and stakes over
     5% (13D/G) for US stocks; 13F fund holdings are left out, since finding one stock's holders
     means reading every fund's filing each quarter. The advisor brief (2026-10-17) sets all of it
-    out for one stock, to print and discuss with a licensed advisor. Further pieces, such as
-    fundamentals from EDGAR's XBRL facts, are each their own decision. All of it is free data,
+    out for one stock, to print and discuss with a licensed advisor. Fundamentals from EDGAR's
+    XBRL facts (2026-10-17) add each company's revenue, margins, cash and price ratios. Further
+    pieces are each their own decision. All of it is free data,
     and none of it becomes a model input without a pre-registered measurement after the shadow
     verdict.
 11. **The paper options book** ([ADR 0008](adr/0008-options-book-the-signal-as-spreads.md)) runs

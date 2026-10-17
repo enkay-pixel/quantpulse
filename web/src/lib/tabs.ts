@@ -3,6 +3,7 @@ export const TABS = [
   "Evidence",
   "Options",
   "Positioning",
+  "Fundamentals",
   "Brief",
   "Model & Book",
   "Research",

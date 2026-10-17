@@ -76,7 +76,7 @@ Four existing constraints apply:
 - Attention, from the Wikipedia pageviews API (free).
 - Ownership and insider activity, from SEC EDGAR filings: Forms 4, 13F and 13D/G (free). Forms 4
   and 13D/G built; see the amendment below.
-- Fundamentals, from EDGAR's XBRL company facts (free).
+- Fundamentals, from EDGAR's XBRL company facts (free). Built; see the amendment below.
 - The advisor brief (built; see the amendment below): one page per holding or idea, covering the
   evidence, the case for and against,
   the risks, and questions to ask.
@@ -221,3 +221,41 @@ every rule, and fails if any sentence tells the reader to buy, sell or hold. The
 standing is always stated beside its rank: while its live record cannot be told apart from luck,
 the brief says so among its limits and asks the advisor how much weight a model's view should
 carry.
+
+## Amendment, 2026-10-17: fundamentals from SEC XBRL
+
+**Each company's own figures, US stocks only.** Every 10-K and 10-Q is filed with its statements
+tagged in XBRL, and EDGAR serves a company's tagged facts as one document. `financial_facts` keeps
+revenue, operating and net profit, diluted earnings per share, operating cash flow, capital
+spending, and the balance sheet's assets, liabilities, equity, cash and long-term debt, from 2016.
+Each figure is kept as reported, one row per filing, so a restatement sits beside the original.
+`fct_fundamentals` turns them into the last twelve months per company, with margins, growth and,
+where they can be trusted, price ratios. They show on a Fundamentals tab and in the advisor brief.
+
+**Where the naive version goes wrong.** Probed on six companies the same day:
+
+- **Companies change tags.** Apple's revenue left `Revenues` in 2018 for the contract-revenue tag;
+  Alphabet's went the other way in 2025. The tag a company used most recently wins.
+- **Two tags in one statement can mean different things.** Berkshire files its total revenue as
+  `Revenues` and a part of it under the contract-revenue tag. Both tie on recency, and an unbroken
+  tie picked either, period by period: its twelve-month revenue read $260B on one build and $323B
+  on the next. The tie now goes to the broadest tag, and it reads $385B every time.
+- **Twelve months needs arithmetic.** The trailing figure is the last fiscal year plus this year so
+  far less the same months a year earlier, the standard method and the only one available for cash
+  flow, which is filed year to date.
+- **Banks file revenue only yearly.** JPMorgan's net margin divided twelve months of profit to June
+  by the calendar year's revenue. Every ratio now uses figures over the same months: twelve months
+  against twelve months, or fiscal year against fiscal year.
+- **Net profit can mislead.** Alphabet's second quarter of 2026 shows $112B of net profit on $120B of
+  revenue, from revaluing stakes it holds. The page leads with operating margin and says so.
+- **Market value needs a current whole-company share count.** Alphabet reports none, and
+  Berkshire's dates from 2011, both because of several share classes. Market value, price to
+  sales and cash yield are left empty unless a count within 18 months of the newest statement
+  exists; price to earnings uses earnings per share and stands without one.
+- **The facts document can lag a filing.** Coca-Cola's 10-Q of 29 July 2026 was absent from it in
+  October. A company is fetched again when it files a new statement, and a statement the document
+  lacks is retried weekly, so a lagging company costs a few MB a week, not every morning.
+
+The brief gains the twelve-month revenue and its growth, operating margin, free cash flow, price
+to earnings, and cash against long-term debt. Revenue growth of 10% or more leans in a stock's
+favour and a fall leans against; a loss, or negative free cash flow, is a risk to raise.

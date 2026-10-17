@@ -12,6 +12,7 @@ import { BookComparisonCard } from "./components/BookComparisonCard";
 import { DriftPanel } from "./components/DriftPanel";
 import { FindingsList } from "./components/FindingsList";
 import { ForwardVrpChart } from "./components/ForwardVrpChart";
+import { FundamentalsTable } from "./components/FundamentalsTable";
 import { FreshnessStrip } from "./components/FreshnessStrip";
 import { GammaProfileChart } from "./components/GammaProfileChart";
 import { IvSkewChart } from "./components/IvSkewChart";
@@ -48,6 +49,7 @@ import {
   useFindings,
   useForwardVrp,
   useFreshness,
+  useFundamentals,
   useExchanges,
   useGammaProfile,
   useHealth,
@@ -609,6 +611,35 @@ function WatchlistSection({ exchange }: { exchange: string }) {
   );
 }
 
+// Company fundamentals from SEC filings (ADR 0007). US companies file with the SEC; JSE ones do
+// not, so that market gets a plain statement instead of an empty table. The exchange registry
+// marks the US by `has_options`, which stands in here because the US is the only market in it
+// that both lists options and files with the SEC; a market that did one without the other would
+// need its own flag.
+function FundamentalsTab({ exchange, hasFilings }: { exchange: string; hasFilings: boolean }) {
+  const fundamentals = useFundamentals(exchange);
+  return (
+    <div className="grid gap-4">
+      <Section
+        title="How are the businesses doing?"
+        explain="Revenue, profit and cash over each company's last twelve reported months, from the figures it files with the SEC, and what its price pays for them. Each ratio compares figures over the same months."
+      >
+        {!hasFilings ? (
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            JSE companies do not file with the US regulator, so their figures are not in this free
+            source. It is an assessment of the evidence, not a recommendation to buy or sell
+            anything.
+          </p>
+        ) : fundamentals.data ? (
+          <FundamentalsTable data={fundamentals.data} />
+        ) : (
+          <Placeholder height="h-96" />
+        )}
+      </Section>
+    </div>
+  );
+}
+
 // The advisor brief (ADR 0007): one stock at a time, printable, for a conversation with a licensed
 // advisor. Covers the model's universe and the watchlist for the chosen market.
 function BriefTab({ exchange }: { exchange: string }) {
@@ -781,6 +812,9 @@ export default function App() {
       ) : null}
       {tab === "Positioning" && tabs.includes("Positioning") ? (
         <PositioningTab exchange={exchange} hasOptions={market?.has_options ?? true} />
+      ) : null}
+      {tab === "Fundamentals" ? (
+        <FundamentalsTab exchange={exchange} hasFilings={market?.has_options ?? true} />
       ) : null}
       {tab === "Brief" ? <BriefTab exchange={exchange} /> : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}

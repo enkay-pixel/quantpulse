@@ -568,3 +568,34 @@ export interface BriefOut {
   limits: string[];
   disclaimer: string;
 }
+
+/** One US company's business over the last twelve months, from its SEC filings (ADR 0007). */
+export interface FundamentalsRow {
+  ticker: string;
+  followed_by: string;
+  through: string;
+  filed: string;
+  revenue_ttm: number | null;
+  revenue_growth: number | null;
+  revenue_growth_basis: string | null;
+  operating_income_ttm: number | null;
+  net_income_ttm: number | null;
+  free_cash_flow: number | null;
+  free_cash_flow_through: string | null;
+  operating_margin: number | null;
+  net_margin: number | null;
+  fcf_margin: number | null;
+  eps_ttm: number | null;
+  cash: number | null;
+  long_term_debt: number | null;
+  debt_to_equity: number | null;
+  market_cap: number | null;
+  pe_ratio: number | null;
+  price_to_sales: number | null;
+  fcf_yield: number | null;
+}
+
+export interface FundamentalsOut {
+  exchange: string;
+  rows: FundamentalsRow[];
+}

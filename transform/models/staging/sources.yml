@@ -132,3 +132,14 @@ sources:
         columns:
           - name: accession
             tests: [unique, not_null]
+      - name: financial_facts
+        description: >
+          Tagged figures from 10-K and 10-Q filings, from SEC EDGAR's XBRL facts (research branch,
+          ADR 0007). Kept as reported, one row per filing; insert-only.
+        meta:
+          dagster:
+            asset_key: financial_facts
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [ticker, concept, unit, period_end, duration_days, accession]

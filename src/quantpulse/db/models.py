@@ -521,6 +521,52 @@ class HolderFiling(Base):
     __table_args__ = (Index("ix_holder_filings_ticker_filed", "ticker", "filed"),)
 
 
+class FinancialFact(Base):
+    """One tagged figure from a company's 10-K or 10-Q, from SEC EDGAR's XBRL facts (ADR 0007).
+
+    Kept as reported, one row per filing, so a figure a later filing restates sits beside the
+    original; `filed` says when each became known. `duration_days` is the length of the period
+    for a flow such as revenue and zero for a balance at a moment, so a quarter, a year-to-date
+    and a year of the same line never collide. Insert-only; US stocks only.
+    """
+
+    __tablename__ = "financial_facts"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    concept: Mapped[str] = mapped_column(String(100), primary_key=True)
+    unit: Mapped[str] = mapped_column(String(16), primary_key=True)
+    period_end: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    duration_days: Mapped[int] = mapped_column(Integer, primary_key=True)
+    accession: Mapped[str] = mapped_column(String(25), primary_key=True)
+    period_start: Mapped[dt.date | None] = mapped_column(Date)
+    value: Mapped[float] = mapped_column(Float)
+    fiscal_year: Mapped[int | None] = mapped_column(Integer)
+    fiscal_period: Mapped[str | None] = mapped_column(String(4))
+    form: Mapped[str] = mapped_column(String(8))
+    filed: Mapped[dt.date] = mapped_column(Date)
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_financial_facts_ticker_concept", "ticker", "concept"),)
+
+
+class FundamentalsFetch(Base):
+    """When each company's XBRL facts were last fetched, and the newest statement seen then.
+
+    EDGAR's facts document can lag a filing, or never carry it: Coca-Cola's 10-Q of 2026-07-29 was
+    still absent from it in October. Fetching whenever a statement is missing from the stored facts
+    would download several MB for such a company every morning, so a missing statement is retried
+    weekly and a new one at once.
+    """
+
+    __tablename__ = "fundamentals_fetches"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    newest_statement: Mapped[str] = mapped_column(String(25))
+    fetched_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+
+
 class PipelineAlert(Base):
     """Pipeline failures, recorded by the Dagster run-failure sensor.
 

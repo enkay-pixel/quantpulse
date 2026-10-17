@@ -261,6 +261,23 @@ def _ownership() -> None:
     logger.info("Ownership: %s", report)
 
 
+def _fundamentals() -> None:
+    """Fetch company fundamentals from SEC EDGAR by hand — what `research_job` does each weekday
+    morning, and the way to run the first fill outside the daemon."""
+    from quantpulse.db import get_session
+    from quantpulse.research.fundamentals import NoFundamentalsReturned, refresh_fundamentals
+    from quantpulse.research.ownership import SecContactMissing, ownership_tickers
+
+    with get_session() as session:
+        tickers = ownership_tickers(session)
+    try:
+        report = refresh_fundamentals(get_session, tickers)
+    except (SecContactMissing, NoFundamentalsReturned) as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
+    logger.info("Fundamentals: %s", report)
+
+
 def _watchlist() -> None:
     """Sync the research watchlist and refresh its bars, and its chains after the close — what
     `watchlist_job` does each weekday evening."""
@@ -1199,6 +1216,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("options-book", help="Rebuild the paper options book (ADR 0008)")
     sub.add_parser("watchlist", help="Sync the research watchlist and refresh its data")
     sub.add_parser("ownership", help="Fetch insider trades and 5% stakes from SEC EDGAR")
+    sub.add_parser("fundamentals", help="Fetch company fundamentals from SEC EDGAR's XBRL facts")
     options_snapshot = sub.add_parser(
         "options-snapshot", help="Snapshot live option chains for the universe"
     )
@@ -1326,6 +1344,8 @@ def main(argv: list[str] | None = None) -> None:
         _watchlist()
     elif args.command == "ownership":
         _ownership()
+    elif args.command == "fundamentals":
+        _fundamentals()
     elif args.command == "sensitivity":
         _sensitivity()
     elif args.command == "baseline":

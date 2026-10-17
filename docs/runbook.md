@@ -46,7 +46,7 @@ Durations measured 2026-09-19 over the preceding nine days.
 | 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |
 | 01:00 Tue–Sat | processing | 4–7 min | recovered by the catch-up sensor |
 | 07:00 daily | backup | about a minute | skipped for that day |
-| 13:00 Mon–Fri | research: short interest, attention, ownership filings | a minute or two | caught up by the next run, which fetches whatever it has not stored |
+| 13:00 Mon–Fri | research: short interest, attention, ownership filings, fundamentals | a minute or two | caught up by the next run, which fetches whatever it has not stored |
 | 15:00 Saturday | retrain | under a minute | re-run on return, unless killed mid-run |
 
 The launchd checks in [Host agents](#host-agents-launchd) are reports: a skipped one loses
@@ -446,6 +446,14 @@ of filings, about 10 minutes for the universe; later runs read only filings not 
 docker compose exec dagster-daemon quantpulse ownership
 ```
 
+Fundamentals use the same contact and run in the same morning job. A company's facts are fetched
+again only when it files a new 10-K or 10-Q; the first run reads every company, about a minute.
+By hand:
+
+```bash
+docker compose exec dagster-daemon quantpulse fundamentals
+```
+
 ## Data retention
 
 Only one thing here is on a rolling window, and it is deliberate.
@@ -458,6 +466,7 @@ Only one thing here is on a rolling window, and it is deliberate.
 | `option_book_positions`, `option_book_daily` | Rebuilt nightly | Derived in full from the share book and the chains each evening (`quantpulse options-book` rebuilds by hand), so deleting them loses nothing. |
 | `watchlist_option_quotes` | **Never delete** | Live-only chains, like `option_quotes`: an evening not captured cannot be bought back. Small: a few names. |
 | `watchlist`, `watchlist_prices` | Synced and refetched nightly | The list comes from `configs/watchlist.yaml`, and the bars are refetched in full each evening, so deleting them loses nothing. |
+| `financial_facts`, `fundamentals_fetches` | Never delete | Re-fetchable from EDGAR, but kept as reported so restatements stay visible. A few thousand rows per company. |
 | `insider_transactions`, `holder_filings`, `edgar_filings` | Never delete | Re-fetchable from EDGAR in principle, but the first fill takes minutes and `edgar_filings` is what stops a filing being read twice. Small: a few thousand rows a year. |
 | `page_views` | Never delete | Re-fetchable from Wikimedia back to 2015 in principle, but small (~70 rows a day) and the record the attention page reads. |
 | `prices` | Never delete | Backfillable in principle, but it is the base every other table is derived from, and it grows ~50 rows/day. |
