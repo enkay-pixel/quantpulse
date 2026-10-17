@@ -109,6 +109,12 @@ leg whose quote is missing or unsound on a later day is valued at its last sound
 risks 10% of the book. `options_book_job` rebuilds both tables in full each weekday evening, after
 the share books, in its own job; nothing reads the options book back.
 
+The nightly chain capture also keeps both legs of every open spread at any distance from spot, in
+`held_option_quotes`, from the same download. A held strike the stock moved away from therefore
+stays priced, instead of dropping out of the ±20% band and falling back to its last quote. The
+held quotes have their own table so the band in `option_quotes`, which the IV surface, the
+positioning marts and the completeness checks read, stays exactly as it was.
+
 ## Paper books: variations from a baseline
 
 A *book* is one way of turning the signal into a portfolio. `ml/portfolio.py` runs **three**

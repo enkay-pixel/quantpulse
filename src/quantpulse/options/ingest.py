@@ -5,8 +5,9 @@ what *builds* our options history — one snapshot per run, accumulating going f
 
 import datetime as dt
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Hashable, Mapping
 from contextlib import AbstractContextManager
+from typing import Any
 
 import pandas as pd
 import yfinance as yf
@@ -17,7 +18,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from quantpulse.config import get_settings
 from quantpulse.data.calendar import is_post_close, market_today
-from quantpulse.db import OptionQuote
+from quantpulse.db import HeldOptionQuote, OptionQuote
 from quantpulse.options.pricing import OptionType, black_scholes, years_to_expiry
 from quantpulse.utils import chunked
 
@@ -100,6 +101,46 @@ def _fetch_ticker_chain(
     return spot, chains
 
 
+#: The contracts the paper options book holds, by ticker: (expiry, strike, option_type).
+HeldContracts = Mapping[str, set[tuple[dt.date, float, str]]]
+
+
+def _quote_row(
+    ticker: str,
+    spot: float,
+    expiry: dt.date,
+    kind: OptionType,
+    row: Mapping[Hashable, Any],
+    snapshot_date: dt.date,
+    rate: float,
+) -> dict[str, object]:
+    iv = float(row["impliedVolatility"])
+    strike = float(row["strike"])
+    greeks = black_scholes(
+        spot, strike, years_to_expiry((expiry - snapshot_date).days), rate, iv, kind
+    )
+    return {
+        "snapshot_date": snapshot_date,
+        "ticker": ticker,
+        "expiry": expiry,
+        "strike": strike,
+        "option_type": kind,
+        "underlying_close": spot,
+        "bid": float(row["bid"]) if pd.notna(row["bid"]) else None,
+        "ask": float(row["ask"]) if pd.notna(row["ask"]) else None,
+        "last_price": float(row["lastPrice"]) if pd.notna(row["lastPrice"]) else None,
+        "volume": int(row["volume"]) if pd.notna(row["volume"]) else 0,
+        "open_interest": int(row["openInterest"]) if pd.notna(row["openInterest"]) else 0,
+        "implied_volatility": iv,
+        "in_the_money": bool(row["inTheMoney"]),
+        "theo_value": greeks.price,
+        "delta": greeks.delta,
+        "gamma": greeks.gamma,
+        "theta": greeks.theta,
+        "vega": greeks.vega,
+    }
+
+
 def _rows_for_ticker(
     ticker: str,
     spot: float,
@@ -111,41 +152,39 @@ def _rows_for_ticker(
     rows: list[dict[str, object]] = []
     lo, hi = spot * (1 - moneyness), spot * (1 + moneyness)
     for expiry, calls, puts in chains:
-        t_years = years_to_expiry((expiry - snapshot_date).days)
         kind: OptionType
         for kind, frame in (("call", calls), ("put", puts)):
             near = frame[(frame["strike"] >= lo) & (frame["strike"] <= hi)]
             for row in near.to_dict(orient="records"):
-                iv = float(row["impliedVolatility"])
-                strike = float(row["strike"])
-                greeks = black_scholes(spot, strike, t_years, rate, iv, kind)
-                rows.append(
-                    {
-                        "snapshot_date": snapshot_date,
-                        "ticker": ticker,
-                        "expiry": expiry,
-                        "strike": strike,
-                        "option_type": kind,
-                        "underlying_close": spot,
-                        "bid": float(row["bid"]) if pd.notna(row["bid"]) else None,
-                        "ask": float(row["ask"]) if pd.notna(row["ask"]) else None,
-                        "last_price": (
-                            float(row["lastPrice"]) if pd.notna(row["lastPrice"]) else None
-                        ),
-                        "volume": int(row["volume"]) if pd.notna(row["volume"]) else 0,
-                        "open_interest": (
-                            int(row["openInterest"]) if pd.notna(row["openInterest"]) else 0
-                        ),
-                        "implied_volatility": iv,
-                        "in_the_money": bool(row["inTheMoney"]),
-                        "theo_value": greeks.price,
-                        "delta": greeks.delta,
-                        "gamma": greeks.gamma,
-                        "theta": greeks.theta,
-                        "vega": greeks.vega,
-                    }
-                )
+                rows.append(_quote_row(ticker, spot, expiry, kind, row, snapshot_date, rate))
     return rows
+
+
+def held_rows(
+    ticker: str,
+    spot: float,
+    chains: list[tuple[dt.date, pd.DataFrame, pd.DataFrame]],
+    snapshot_date: dt.date,
+    held: set[tuple[dt.date, float, str]],
+    rate: float,
+) -> tuple[list[dict[str, object]], set[tuple[dt.date, float, str]]]:
+    """The held contracts found in a downloaded chain, at any strike, and those not found.
+
+    No extra download is needed: a held expiry was one of the nearest captured when the spread
+    opened, and only gets nearer. A contract not found is reported, since its spread then falls
+    back to its last quote.
+    """
+    rows: list[dict[str, object]] = []
+    for expiry, calls, puts in chains:
+        kind: OptionType
+        for kind, frame in (("call", calls), ("put", puts)):
+            strikes = {k for e, k, t in held if e == expiry and t == kind}
+            if not strikes:
+                continue
+            for row in frame[frame["strike"].isin(strikes)].to_dict(orient="records"):
+                rows.append(_quote_row(ticker, spot, expiry, kind, row, snapshot_date, rate))
+    found = {(r["expiry"], r["strike"], r["option_type"]) for r in rows}
+    return rows, {c for c in held if c not in found}
 
 
 def dedupe_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -165,8 +204,7 @@ def dedupe_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     return list(best.values())
 
 
-def upsert_quotes(session: Session, rows: list[dict[str, object]]) -> int:
-    """Idempotent upsert of option quotes (deduped on the primary key first)."""
+def _upsert(session: Session, rows: list[dict[str, object]], table: Any) -> int:
     if not rows:
         return 0
     deduped = dedupe_rows(rows)
@@ -175,19 +213,29 @@ def upsert_quotes(session: Session, rows: list[dict[str, object]]) -> int:
 
     updatable = [c for c in QUOTE_COLUMNS if c not in _PK_COLUMNS]
     for chunk in chunked(deduped):
-        stmt = pg_insert(OptionQuote).values(list(chunk))
+        stmt = pg_insert(table).values(list(chunk))
         stmt = stmt.on_conflict_do_update(
             index_elements=[
-                OptionQuote.snapshot_date,
-                OptionQuote.ticker,
-                OptionQuote.expiry,
-                OptionQuote.strike,
-                OptionQuote.option_type,
+                table.snapshot_date,
+                table.ticker,
+                table.expiry,
+                table.strike,
+                table.option_type,
             ],
             set_={c: getattr(stmt.excluded, c) for c in updatable},
         )
         session.execute(stmt)
     return len(deduped)
+
+
+def upsert_quotes(session: Session, rows: list[dict[str, object]]) -> int:
+    """Idempotent upsert of option quotes (deduped on the primary key first)."""
+    return _upsert(session, rows, OptionQuote)
+
+
+def upsert_held_quotes(session: Session, rows: list[dict[str, object]]) -> int:
+    """Idempotent upsert of the held contracts' quotes into their own table."""
+    return _upsert(session, rows, HeldOptionQuote)
 
 
 def snapshot_option_chains(
@@ -196,8 +244,13 @@ def snapshot_option_chains(
     snapshot_date: dt.date | None = None,
     *,
     force: bool = False,
+    held: HeldContracts | None = None,
 ) -> int:
     """Fetch, enrich, and upsert an option-chain snapshot, COMMITTING PER TICKER.
+
+    `held` names the contracts the paper options book holds. They are written to
+    `held_option_quotes` at any distance from spot, from the same download, in the same
+    transaction as the ticker's band; the return value counts `option_quotes` rows only.
 
     A full universe takes ~10 minutes of network calls; committing per ticker means an
     interruption (timeout, crash, rate limit) keeps everything already fetched and the
@@ -255,14 +308,31 @@ def snapshot_option_chains(
             settings.quantpulse_option_moneyness,
             settings.quantpulse_risk_free_rate,
         )
+        kept, missing = held_rows(
+            ticker,
+            spot,
+            chains,
+            snapshot_date,
+            (held or {}).get(ticker, set()),
+            settings.quantpulse_risk_free_rate,
+        )
+        if missing:
+            logger.warning(
+                "%s: %d held contracts not in the chain, marked at their last quote: %s",
+                ticker,
+                len(missing),
+                sorted(missing),
+            )
         try:
             with session_factory() as session:  # one transaction per ticker
                 written = upsert_quotes(session, rows)
+                if kept:
+                    upsert_held_quotes(session, kept)
         except Exception:
             logger.warning("Option quote upsert failed for %s", ticker, exc_info=True)
             continue
         total += written
-        logger.info("%s: %d option quotes", ticker, written)
+        logger.info("%s: %d option quotes, %d held", ticker, written, len(kept))
 
     # Guarded on `tickers` so an empty universe stays a legitimate no-op rather than an
     # outage — there is nothing to be served when nothing was asked for.

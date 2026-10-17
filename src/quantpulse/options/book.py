@@ -24,7 +24,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Protocol, cast
 
 import pandas as pd
-from sqlalchemy import Engine, delete, insert, text
+from sqlalchemy import Engine, delete, insert, select, text
 from sqlalchemy.orm import Session
 
 from quantpulse.data.calendar import get_exchange, trading_days
@@ -402,10 +402,15 @@ class DbMarket:
     def legs(
         self, contracts: list[tuple[str, dt.date, float, str]], start: dt.date, end: dt.date
     ) -> pd.DataFrame:
+        # Both tables come from the same nightly download, so where both hold a contract they
+        # agree; the held capture is read first because it also has the strikes the band lost.
+        cols = "snapshot_date, ticker, expiry, strike, option_type, bid, ask, underlying_close"
+        where = "ticker = ANY(:t) AND expiry = ANY(:e) AND snapshot_date BETWEEN :s AND :end"
         frame = self._frame(
-            "SELECT snapshot_date, ticker, expiry, strike, option_type, bid, ask, underlying_close "
-            "FROM option_quotes WHERE ticker = ANY(:t) AND expiry = ANY(:e) "
-            "AND snapshot_date BETWEEN :s AND :end",
+            f"SELECT DISTINCT ON (snapshot_date, ticker, expiry, strike, option_type) {cols} "
+            f"FROM (SELECT {cols}, 0 AS source FROM held_option_quotes WHERE {where} "
+            f"UNION ALL SELECT {cols}, 1 AS source FROM option_quotes WHERE {where}) AS q "
+            "ORDER BY snapshot_date, ticker, expiry, strike, option_type, source",
             t=sorted({c[0] for c in contracts}),
             e=sorted({c[1] for c in contracts}),
             s=start,
@@ -434,6 +439,27 @@ class DbMarket:
             end=end,
         )
         return list(frame["snapshot_date"])
+
+
+def held_contracts(session: Session) -> dict[str, set[tuple[dt.date, float, str]]]:
+    """Both legs of every open spread, by ticker, for the nightly capture to keep at any strike."""
+    rows = session.execute(
+        select(
+            OptionBookPosition.ticker,
+            OptionBookPosition.expiry,
+            OptionBookPosition.long_strike,
+            OptionBookPosition.short_strike,
+            OptionBookPosition.option_type,
+        ).where(OptionBookPosition.status == "open", OptionBookPosition.option_type.is_not(None))
+    )
+    held: dict[str, set[tuple[dt.date, float, str]]] = {}
+    for ticker, expiry, long_strike, short_strike, option_type in rows:
+        if expiry is None or long_strike is None or short_strike is None or option_type is None:
+            continue  # an open spread always has both; a row without them holds nothing
+        held.setdefault(ticker, set()).update(
+            {(expiry, long_strike, option_type), (expiry, short_strike, option_type)}
+        )
+    return held
 
 
 def rebuild_option_book(engine: Engine, session: Session, exchange: str) -> dict[str, Any]:

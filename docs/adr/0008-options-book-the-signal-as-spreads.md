@@ -78,7 +78,7 @@ returns.
   2026-09-11 closed at +1.0% of the book against +2.0% for the same names as shares; and
   2026-10-12 is still open.
 - **Capturing the contracts the book holds** would remove most "last quote" marks, since a held
-  strike would then never leave the snapshot. It is the natural next change to the capture.
+  strike would then never leave the snapshot. Done; see the amendment below.
 - **Daily-expiry ETFs (SPY, QQQ, IWM) are skipped.** The capture keeps each ticker's nearest 10
   expiries, which for them is two weeks, so none reaches the next rebalance. Each skip is named.
   Widening the capture would fix this; it was offered and not chosen.
@@ -89,3 +89,19 @@ returns.
 - A cohort is about a month, so it takes years, not weeks, before the book separates from noise.
   The page states that beside every number. As everywhere else, it assesses evidence; it does not
   advise.
+
+## Amendment, 2026-10-17: the held contracts are captured every night
+
+The nightly chain capture now also keeps both legs of every open spread, at any distance from spot,
+in `held_option_quotes`. They come from the download the capture already makes: a held expiry was
+one of the nearest ten when the spread opened, and only gets nearer, so no extra request is needed.
+A held contract the chain no longer lists is logged by name, and its spread keeps the last-quote rule.
+
+The quotes go to their own table, not `option_quotes`. That table's ±20% band is what the IV surface,
+the positioning marts and the nightly completeness checks read, and adding far strikes to it would
+change all of them. The book reads the held table first and `option_quotes` second; both come from
+the same download, so they agree wherever both hold a contract.
+
+The pricing rules are unchanged, so `LIVE_SINCE` stays at 2026-10-19. The capture starts that night,
+so every mark before it is computed exactly as before, and every live cohort has its held quotes
+from its first day.

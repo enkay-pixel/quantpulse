@@ -448,10 +448,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     it becomes a model input without a pre-registered measurement after the shadow verdict.
 11. **The paper options book** ([ADR 0008](adr/0008-options-book-the-signal-as-spreads.md)) runs
     from 2026-10-19 live; the cohorts before are replay. A cohort is a month, so it takes years to
-    separate options from shares — read it no sooner. The next change is to capture the contracts
-    the book holds every night, so a held strike never leaves the snapshot and "last quote" marks
-    become rare. Options *models* — implied-volatility change, return on a structure — wait for
-    about 250 snapshot days and the shadow verdict, then get their own lineage, gate and shadow.
+    separate options from shares — read it no sooner. From 2026-10-19 the nightly capture also keeps
+    the contracts the book holds at any strike, so "last quote" marks should become rare; count
+    them at the first live cohort's close to confirm. Options *models* — implied-volatility
+    change, return on a structure — wait for about 250 snapshot days and the shadow verdict, then
+    get their own lineage, gate and shadow.
 
 ## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 

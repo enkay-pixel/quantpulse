@@ -160,12 +160,14 @@ def _score(replay: bool, exchange: str | None = None) -> None:
 def _options_snapshot(force: bool = False) -> None:
     from quantpulse.data.universe import active_tickers, options_tickers
     from quantpulse.db import get_session
+    from quantpulse.options.book import held_contracts
     from quantpulse.options.ingest import OffHoursSnapshotError, snapshot_option_chains
 
     with get_session() as session:
         # Options-bearing markets only — same narrowing the Dagster asset applies, so the
         # two paths snapshot the same set instead of the CLI also walking the JSE names.
         tickers = options_tickers(session)
+        held = held_contracts(session)
         if not tickers:
             # "Nothing synced yet" and "synced, but no market here has options" need
             # different fixes, so don't send both to sync-universe.
@@ -177,7 +179,7 @@ def _options_snapshot(force: bool = False) -> None:
             logger.error("No tickers to snapshot — %s", reason)
             sys.exit(1)
     try:
-        n = snapshot_option_chains(get_session, tickers, force=force)
+        n = snapshot_option_chains(get_session, tickers, force=force, held=held)
     except OffHoursSnapshotError as exc:
         # A refusal is an expected outcome of running this by hand, not a crash — report
         # it like the other CLI guards rather than dumping a traceback.

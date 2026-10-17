@@ -11,6 +11,7 @@ from quantpulse.options.ingest import (
     OffHoursSnapshotError,
     _rows_for_ticker,
     dedupe_rows,
+    held_rows,
     snapshot_option_chains,
 )
 
@@ -239,3 +240,30 @@ def test_empty_universe_is_still_a_no_op(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(ingest, "is_post_close", lambda: True)
 
     assert snapshot_option_chains(_exploding_session, []) == 0
+
+
+def test_held_rows_keep_any_strike_and_name_the_missing() -> None:
+    def side() -> pd.DataFrame:
+        return pd.DataFrame(
+            [
+                {
+                    "strike": k,
+                    "bid": 1.0,
+                    "ask": 1.2,
+                    "lastPrice": 1.1,
+                    "volume": 1,
+                    "openInterest": 10,
+                    "impliedVolatility": 0.3,
+                    "inTheMoney": False,
+                }
+                for k in (100.0, 150.0)
+            ]
+        )
+
+    expiry = dt.date(2026, 8, 21)
+    held = {(expiry, 150.0, "call"), (expiry, 100.0, "put"), (expiry, 120.0, "call")}
+    rows, missing = held_rows(
+        "X", 100.0, [(expiry, side(), side())], dt.date(2026, 7, 20), held, 0.04
+    )
+    assert {(r["strike"], r["option_type"]) for r in rows} == {(150.0, "call"), (100.0, "put")}
+    assert missing == {(expiry, 120.0, "call")}
