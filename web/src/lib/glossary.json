@@ -17,6 +17,10 @@
     "meaning": "The average dollar value traded per day over the last 20 trading days.",
     "term": "average dollar volume"
   },
+  "against_points": {
+    "label": "Against it",
+    "meaning": "Points in the evidence that lean towards a negative view of the stock."
+  },
   "alerts": {
     "label": "Alerts",
     "meaning": "Recent pipeline failures, newest first."
@@ -269,6 +273,10 @@
     "label": "View",
     "meaning": "Bullish expects a rise, bearish a fall, neutral no clear view."
   },
+  "disclaimer": {
+    "label": "Not advice",
+    "meaning": "What the brief is and is not."
+  },
   "display_divisor": {
     "label": "Price divisor",
     "meaning": "What stored prices are divided by before display. The JSE stores prices in cents, so its divisor is 100."
@@ -321,6 +329,14 @@
     "label": "Expiry",
     "meaning": "The last day the option can be used. After it, the option is worth only what it pays out."
   },
+  "fact": {
+    "label": "Measure",
+    "meaning": "What the line measures."
+  },
+  "facts": {
+    "label": "The evidence",
+    "meaning": "Each measure the brief draws on, with its value and how to read it."
+  },
   "feature": {
     "label": "Model input",
     "meaning": "One of the 13 measurements the model reads for each stock each day.",
@@ -346,6 +362,11 @@
     "label": "Followed by",
     "meaning": "Who follows the name. \"model\" means it is in the model's universe; \"watchlist\" means only the research pages follow it.",
     "read": "A watchlist name never feeds the model, its forecasts or the paper books."
+  },
+  "for_points": {
+    "label": "In its favour",
+    "meaning": "Points in the evidence that lean towards a positive view of the stock.",
+    "read": "Each is a reading of evidence, not a reason to buy."
   },
   "form": {
     "label": "Filing",
@@ -470,6 +491,10 @@
     "label": "Legs",
     "meaning": "The individual contracts the structure is made of."
   },
+  "limits": {
+    "label": "What this cannot tell you",
+    "meaning": "The gaps and delays in the evidence, and what no public data can know."
+  },
   "live_since": {
     "label": "Live since",
     "meaning": "The day the market's first champion model was promoted. Everything from here is genuinely out-of-sample."
@@ -578,6 +603,10 @@
   "n_days": {
     "label": "Trading days",
     "meaning": "How many trading days the figures cover."
+  },
+  "name": {
+    "label": "Name",
+    "meaning": "The company's name, where the universe file records it."
   },
   "names": {
     "label": "Names",
@@ -703,6 +732,10 @@
     "label": "Question",
     "meaning": "What the investigation set out to answer."
   },
+  "questions": {
+    "label": "Questions for your advisor",
+    "meaning": "Questions the evidence raises that only someone who knows your circumstances can answer."
+  },
   "r_squared": {
     "label": "Share explained by the market",
     "meaning": "How much of the book's ups and downs the market's moves account for.",
@@ -765,6 +798,10 @@
   "risk_budget": {
     "label": "Risked per cohort",
     "meaning": "The share of the options book's value each cohort spends on its spreads — the most a cohort can lose."
+  },
+  "risks": {
+    "label": "Risks to raise",
+    "meaning": "Ways a position in the stock could hurt that are worth discussing before any decision."
   },
   "role": {
     "label": "Role",
@@ -918,6 +955,10 @@
     "label": "Structure",
     "meaning": "The kind of option position, such as a bull call spread."
   },
+  "summary": {
+    "label": "In short",
+    "meaning": "The brief in one paragraph, how many points lean each way and how many risks to raise."
+  },
   "term_structure": {
     "label": "Priced-in swings by expiry",
     "meaning": "Implied volatility for each expiry, near to far.",
@@ -1007,6 +1048,10 @@
   "url": {
     "label": "Link",
     "meaning": "Where to read the full write-up."
+  },
+  "value": {
+    "label": "Value",
+    "meaning": "The measure's value for this stock."
   },
   "value_usd": {
     "label": "Value",

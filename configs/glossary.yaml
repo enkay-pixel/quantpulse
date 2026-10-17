@@ -802,6 +802,42 @@ terms:
     label: Stake
     meaning: The holding as a share of the stock outstanding, as the filer reported it.
 
+  # --- research: the advisor brief ---------------------------------------------------------------------
+  name:
+    label: Name
+    meaning: The company's name, where the universe file records it.
+  summary:
+    label: In short
+    meaning: The brief in one paragraph, how many points lean each way and how many risks to raise.
+  facts:
+    label: The evidence
+    meaning: Each measure the brief draws on, with its value and how to read it.
+  fact:
+    label: Measure
+    meaning: What the line measures.
+  value:
+    label: Value
+    meaning: The measure's value for this stock.
+  for_points:
+    label: In its favour
+    meaning: Points in the evidence that lean towards a positive view of the stock.
+    read: Each is a reading of evidence, not a reason to buy.
+  against_points:
+    label: Against it
+    meaning: Points in the evidence that lean towards a negative view of the stock.
+  risks:
+    label: Risks to raise
+    meaning: Ways a position in the stock could hurt that are worth discussing before any decision.
+  questions:
+    label: Questions for your advisor
+    meaning: Questions the evidence raises that only someone who knows your circumstances can answer.
+  limits:
+    label: What this cannot tell you
+    meaning: The gaps and delays in the evidence, and what no public data can know.
+  disclaimer:
+    label: Not advice
+    meaning: What the brief is and is not.
+
   # --- decisions and findings ---------------------------------------------------------------------------
   decisions:
     label: Standing decisions

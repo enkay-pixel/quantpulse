@@ -77,7 +77,8 @@ Four existing constraints apply:
 - Ownership and insider activity, from SEC EDGAR filings: Forms 4, 13F and 13D/G (free). Forms 4
   and 13D/G built; see the amendment below.
 - Fundamentals, from EDGAR's XBRL company facts (free).
-- The advisor brief: one page per holding or idea, covering the evidence, the case for and against,
+- The advisor brief (built; see the amendment below): one page per holding or idea, covering the
+  evidence, the case for and against,
   the risks, and questions to ask.
 
 ## Consequences
@@ -190,3 +191,28 @@ on the open market in the two years to October 2026: about $11M in April 2025, $
 2026 and about $100M from September, while his reported stake rose from 8.3% on 3 September to
 9.1% on 13 October. That is the kind of evidence this branch exists to show, beside its limit: an
 insider's buying says what they chose to do, not what the stock will do.
+
+## Amendment, 2026-10-17: the advisor brief
+
+**One page per stock, to take to a licensed advisor.** The Brief tab, and
+`GET /research/brief/{ticker}`, set out for any name in the universe or on the watchlist:
+
+- the evidence: price history, the model's rank and its live record, short interest, option hedging,
+  attention, ownership filings and any paper options position;
+- the points that lean in its favour and against it;
+- the risks worth raising, the questions only an advisor who knows the reader can answer, and
+  what the page cannot know.
+
+It prints on its own, without the dashboard.
+
+**Fixed rules, not generated prose.** Each point comes from a named threshold in
+`research/brief.py` — the model's top or bottom fifth, short interest over 10% of the float,
+attention at three times usual, volatility over 50% a year — so the same evidence always reads the
+same way, and a reader can trace every sentence to a number. ADR 0004 already rules out a language
+model answering questions about the data; a brief written by one would be that, in another form.
+
+**The boundary is tested on the text.** A unit test composes briefs from evidence that triggers
+every rule, and fails if any sentence tells the reader to buy, sell or hold. The model's own
+standing is always stated beside its rank: while its live record cannot be told apart from luck,
+the brief says so among its limits and asks the advisor how much weight a model's view should
+carry.

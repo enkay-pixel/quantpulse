@@ -70,3 +70,21 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* The advisor brief prints on its own: the page chrome and controls stay on screen. */
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .brief {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+  .brief-block {
+    break-inside: avoid;
+  }
+}

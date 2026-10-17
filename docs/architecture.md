@@ -112,6 +112,15 @@ in other companies. `fct_insider_trades` keeps open-market trades only, `fct_lar
 filer's latest stake still at 5% or more, and `fct_ownership` sums both per stock. EDGAR needs a
 contact in each request, set as `QUANTPULSE_SEC_CONTACT` in the local `.env` only.
 
+The **advisor brief** draws all of it together for one stock at a time (`research/brief.py`,
+`GET /research/brief/{ticker}`, the Brief tab). `gather` reads every source the pages use: price
+history, the model's rank and its live record, short interest, option hedging, attention,
+ownership and the paper options book. `compose` turns those numbers into facts, points that lean
+each way, risks, questions for an advisor and the page's limits, by fixed thresholds named in the
+module. No language model writes any of it (ADR 0004), so the same evidence always reads the same
+way, and a unit test fails if any sentence it can produce tells the reader to buy, sell or hold.
+The tab prints on its own, without the dashboard around it.
+
 ## Paper options book
 
 The model's forecasts held through options instead of shares
