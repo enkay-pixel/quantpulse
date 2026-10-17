@@ -1,5 +1,8 @@
 # Did options price more volatility than then arrived? (pre-registered 2026-10-14)
 
+**In short:** New York options priced in more movement than then happened — about 5 points of
+volatility on average — but over one calm stretch, which may simply be markets calming down.
+
 **Status: measured 2026-10-14. Options were priced above what then arrived — by the pre-registered
 rule, against the pre-registration's own expectation.** The sections down to the results are the
 pre-registration, pushed to `main` on its own before any code or run existed, under the rule in

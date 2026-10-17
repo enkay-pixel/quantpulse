@@ -1,5 +1,8 @@
 # Model staleness result (2026-08-23, **corrected 2026-09-01**)
 
+**In short:** A model does not measurably lose its edge as it ages, on either market. An earlier
+result saying it did came from too few test points and was withdrawn.
+
 > **The original result was wrong.** Both curves below were measured at five origins, with an
 > error bar that pooled 25 (origin, seed) fits — counting each origin five times, because the
 > seed re-draws the fit and not the market. Rolled across 46 origins the JSE inversion and the

@@ -1,6 +1,6 @@
 # Roadmap & project state
 
-**Updated 2026-08-19.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-10-17.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 

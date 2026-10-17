@@ -73,3 +73,23 @@ def test_every_endpoint_says_what_it_returns() -> None:
         if not op.get("description")
     ]
     assert not missing, f"add a one-line docstring to: {missing}"
+
+
+def test_docs_open_with_a_plain_summary() -> None:
+    """Every ADR, every finding and the reference pages open with a plain "In short" line, so a
+    reader learns what a page says before its detail — and a new page cannot skip it."""
+    docs = ROOT / "docs"
+    pages = [
+        *sorted((docs / "adr").glob("[0-9]*.md")),
+        *sorted(p for p in (docs / "findings").glob("*.md") if p.name != "README.md"),
+        docs / "architecture.md",
+        docs / "runbook.md",
+        docs / "data-dictionary.md",
+    ]
+    assert len(pages) >= 25, f"found {len(pages)} pages — the globs are reading nothing"
+    missing = [
+        str(p.relative_to(ROOT))
+        for p in pages
+        if "**In short:**" not in "\n".join(p.read_text().splitlines()[:8])
+    ]
+    assert not missing, f"open these with an **In short:** line in plain words: {missing}"

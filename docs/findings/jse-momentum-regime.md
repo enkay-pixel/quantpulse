@@ -1,5 +1,8 @@
 # Why the JSE candidate keeps losing to momentum (2026-09-03)
 
+**In short:** Johannesburg candidates kept being rejected not because the model got worse, but
+because the simple momentum rule they are compared against had an unusually strong stretch.
+
 Six consecutive rejections on the JSE since 2026-07-25, with `check-retrain` reporting the
 same reason each week: *the latest candidate loses to the momentum baseline*. That reads as a
 model going wrong. It is not what happened.

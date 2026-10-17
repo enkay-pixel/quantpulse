@@ -1,5 +1,8 @@
 # Can the boosting round count be chosen well? (2026-08-24)
 
+**In short:** No fixed model size is shown to work better on either market. An earlier result saying
+so came from one lucky test period and was withdrawn.
+
 > **The headline result was wrong, corrected 2026-09-01.** "25 rounds beats early stopping on
 > the JSE" was measured on **one holdout** across eight seeds. That error describes how much
 > refitting moves the number on that window, not whether the effect holds; rolled across 46

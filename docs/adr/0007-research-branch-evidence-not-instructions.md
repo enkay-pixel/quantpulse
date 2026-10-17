@@ -2,6 +2,10 @@
 
 **Status**: accepted · **Date**: 2026-10-16
 
+**In short:** A separate research area for forming a view of an investment — short interest, option
+hedging, public attention — that assesses evidence, never says what to buy or sell, and never feeds
+the model.
+
 ## Context
 
 Until now the platform has asked one question: does a model that ranks 50 US and 29 JSE stocks

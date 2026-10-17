@@ -1,5 +1,8 @@
 # Architecture
 
+**In short:** How the pieces fit: the services that run in Docker, how data flows from prices to
+forecasts to the dashboard, and the main design choice behind each layer.
+
 ## Services (docker compose)
 
 | Service | Purpose | Port | Memory cap |

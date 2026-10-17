@@ -1,5 +1,8 @@
 # Does the tuner's budget buy anything? (2026-09-26)
 
+**In short:** Letting the tuner try more settings would not produce better models: most of its tries
+are the same starting points every week, and its checks cannot tell good settings from lucky ones.
+
 Everything above the Results heading was written and **committed before the run started**, so the
 decision rule could not be chosen after seeing the numbers. That is checkable, but not from
 `main`: the two commits were squashed into one on merge, so the separation survives only in

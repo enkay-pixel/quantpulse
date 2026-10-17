@@ -1,5 +1,8 @@
 # Does the live JSE champion beat momentum going forward? (pre-registered 2026-10-10)
 
+**In short:** Scored on days it was never chosen on, the Johannesburg model has shown no skill of
+its own. It only looks ahead of the momentum rule because momentum did badly in that stretch.
+
 **Status: measured 2026-10-10. By the pre-registered rule v3 is ahead — because momentum
 collapsed, not because v3 found anything.** The sections down to the results are the
 pre-registration, pushed to `main` on its own before any code or run existed, under the rule in
