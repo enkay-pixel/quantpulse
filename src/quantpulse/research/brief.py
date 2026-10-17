@@ -46,6 +46,8 @@ HIGH_VOLATILITY = 0.50
 DEEP_FALL = -0.30
 #: Unplanned insider selling above this is worth naming when no insider bought.
 NOTABLE_SELLING = 1_000_000.0
+#: Revenue growth at or above this on a year earlier leans in favour; any fall leans against.
+STRONG_GROWTH = 0.10
 
 
 @dataclass
@@ -84,6 +86,17 @@ class Evidence:
     top_holder_class: str | None = None
     activist_holder: bool = False
     option_spread: str | None = None
+    revenue_ttm: float | None = None
+    revenue_growth: float | None = None
+    revenue_growth_basis: str | None = None
+    figures_through: dt.date | None = None
+    operating_margin: float | None = None
+    net_income_ttm: float | None = None
+    free_cash_flow: float | None = None
+    fcf_margin: float | None = None
+    pe_ratio: float | None = None
+    cash: float | None = None
+    long_term_debt: float | None = None
 
 
 @dataclass
@@ -389,6 +402,85 @@ def compose(e: Evidence) -> Brief:
             )
         )
 
+    # --- the business ---------------------------------------------------------------------------
+    if e.revenue_ttm is not None:
+        growth = (
+            f", {_pct(e.revenue_growth, 0)} on a year earlier"
+            if e.revenue_growth is not None
+            else ""
+        )
+        facts.append(
+            Fact(
+                "Revenue, 12 months",
+                f"{_usd(e.revenue_ttm)}{growth}",
+                f"Through {_date(e.figures_through)}, from its 10-K and 10-Q filings."
+                if e.figures_through
+                else None,
+            )
+        )
+        if e.revenue_growth is not None:
+            basis = (
+                "this fiscal year so far"
+                if e.revenue_growth_basis == "year to date"
+                else "its last fiscal year"
+            )
+            if e.revenue_growth >= STRONG_GROWTH:
+                pros.append(
+                    f"Revenue grew {_pct(e.revenue_growth, 0, signed=False)} in {basis} against a "
+                    "year earlier."
+                )
+            elif e.revenue_growth < 0:
+                cons.append(
+                    f"Revenue fell {_pct(-e.revenue_growth, 0, signed=False)} in {basis} against a "
+                    "year earlier."
+                )
+    if e.operating_margin is not None:
+        facts.append(
+            Fact(
+                "Operating margin",
+                _pct(e.operating_margin, 0, signed=False),
+                "Profit from running the business, as a share of revenue.",
+            )
+        )
+    if e.net_income_ttm is not None and e.net_income_ttm < 0:
+        risks.append(
+            f"It lost {_usd(-e.net_income_ttm)} over the last twelve months. Ask how long its cash "
+            "lasts at that rate, and what would turn it round."
+        )
+    if e.free_cash_flow is not None:
+        of_revenue = f", {_pct(e.fcf_margin, 0, signed=False)} of revenue" if e.fcf_margin else ""
+        facts.append(
+            Fact(
+                "Free cash flow",
+                f"{_usd(e.free_cash_flow)}{of_revenue}"
+                if e.free_cash_flow >= 0
+                else f"-{_usd(-e.free_cash_flow)}",
+                "Cash from the business less spending on equipment and buildings.",
+            )
+        )
+        if e.free_cash_flow < 0:
+            risks.append(
+                "It spent more cash than its business brought in, so it is relying on its savings "
+                "or on raising money."
+            )
+    if e.pe_ratio is not None:
+        facts.append(
+            Fact(
+                "Price to earnings",
+                f"{e.pe_ratio:.0f}",
+                "Years of current profit the price pays for; compare with similar companies.",
+            )
+        )
+    if e.cash is not None or e.long_term_debt is not None:
+        facts.append(
+            Fact(
+                "Cash and long-term debt",
+                f"{_usd(e.cash) if e.cash is not None else '—'} cash; "
+                f"{_usd(e.long_term_debt) if e.long_term_debt is not None else '—'} long-term debt",
+                "From the newest balance sheet.",
+            )
+        )
+
     if e.option_spread:
         facts.append(Fact("The paper options book", e.option_spread, "Paper only (ADR 0008)."))
         questions.append(
@@ -399,8 +491,8 @@ def compose(e: Evidence) -> Brief:
     questions.append("What would buying and holding it cost me, in fees and in tax, where I live?")
     limits.append(
         "Everything here is public and some of it is late: short interest by one to two weeks, "
-        "insider trades by up to two days, large stakes by weeks. None of it knows what the "
-        "company will report next."
+        "insider trades by up to two days, large stakes by weeks, company results by up to a "
+        "quarter. None of it knows what the company will report next."
     )
 
     def points(n: int) -> str:
@@ -591,6 +683,25 @@ def gather(session: Session, ticker: str) -> Evidence | None:
         e.top_holder_percent = own["top_holder_percent"]
         e.top_holder_class = own["top_holder_class"]
         e.activist_holder = bool(own["activist_holder"])
+    fund = _one(
+        session,
+        "SELECT revenue_ttm, revenue_growth, revenue_growth_basis, through, operating_margin, "
+        "net_income_ttm, free_cash_flow, fcf_margin, pe_ratio, cash, long_term_debt "
+        "FROM analytics.fct_fundamentals WHERE ticker = :t",
+        t=ticker,
+    )
+    if fund:
+        e.revenue_ttm = fund["revenue_ttm"]
+        e.revenue_growth = fund["revenue_growth"]
+        e.revenue_growth_basis = fund["revenue_growth_basis"]
+        e.figures_through = fund["through"]
+        e.operating_margin = fund["operating_margin"]
+        e.net_income_ttm = fund["net_income_ttm"]
+        e.free_cash_flow = fund["free_cash_flow"]
+        e.fcf_margin = fund["fcf_margin"]
+        e.pe_ratio = fund["pe_ratio"]
+        e.cash = fund["cash"]
+        e.long_term_debt = fund["long_term_debt"]
     spread = _one(
         session,
         "SELECT option_type, long_strike, short_strike, expiry FROM option_book_positions "

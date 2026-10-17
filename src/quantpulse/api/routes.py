@@ -881,6 +881,25 @@ def ownership_detail(ticker: str, session: SessionDep) -> schemas.OwnershipDetai
     )
 
 
+_FUNDAMENTALS_COLUMNS = ", ".join(schemas.FundamentalsRow.model_fields)
+
+
+@router.get("/research/fundamentals", response_model=schemas.FundamentalsOut)
+def fundamentals(session: SessionDep, exchange: ExchangeDep) -> schemas.FundamentalsOut:
+    """Each US company's revenue, profit, cash flow and balance sheet over the last twelve months,
+    from its SEC filings, with price ratios where they can be trusted. JSE companies file with no
+    US regulator, so that market's list is empty."""
+    rows = _mart_rows(
+        session,
+        f"SELECT {_FUNDAMENTALS_COLUMNS} FROM analytics.fct_fundamentals "
+        "WHERE exchange = :ex ORDER BY ticker",
+        {"ex": exchange},
+    )
+    return schemas.FundamentalsOut(
+        exchange=exchange, rows=[schemas.FundamentalsRow(**dict(r)) for r in rows or []]
+    )
+
+
 @router.get("/research/briefs", response_model=schemas.BriefIndexOut)
 def brief_index(session: SessionDep, exchange: ExchangeDep) -> schemas.BriefIndexOut:
     """The stocks one market has a brief for: the model's universe, then the research watchlist."""

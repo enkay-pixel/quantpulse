@@ -368,3 +368,25 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [ticker, filer]
+
+  - name: fct_financial_lines
+    description: >
+      One value per company, line and period: the latest filing's figure, from the tag the company
+      used most recently where several report the same line (ADR 0007).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, line, period_end, duration_days]
+
+  - name: fct_fundamentals
+    description: >
+      Per covered US company: twelve months of revenue, profit and cash flow, the newest balance
+      sheet, and price ratios where a whole-company share count exists (ADR 0007).
+    columns:
+      - name: ticker
+        tests: [unique, not_null]
+      - name: revenue_growth_basis
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["year to date", "fiscal year"]

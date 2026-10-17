@@ -808,6 +808,79 @@ terms:
     label: Stake
     meaning: The holding as a share of the stock outstanding, as the filer reported it.
 
+  # --- research: fundamentals (SEC XBRL) -----------------------------------------------------------------
+  through:
+    label: Figures through
+    meaning: The end of the newest period the company's filed figures cover.
+  revenue_ttm:
+    label: Revenue, 12 months
+    term: trailing twelve months
+    meaning: What the company sold over the last twelve months it has reported, from its 10-K and 10-Q filings.
+    read: Where the company files revenue only yearly, as banks do, this is its last fiscal year.
+  revenue_growth:
+    label: Revenue growth
+    meaning: Revenue this fiscal year so far against the same months a year earlier, or the last fiscal year against the one before when no later quarter is filed.
+  revenue_growth_basis:
+    label: Growth compares
+    meaning: Which periods the growth compares, this fiscal year so far or whole fiscal years.
+  operating_income_ttm:
+    label: Operating profit, 12 months
+    meaning: Revenue less the costs of running the business, before interest, tax and one-off gains.
+  net_income_ttm:
+    label: Net profit, 12 months
+    meaning: The bottom line after everything, including one-off gains and losses such as revaluing stakes in other companies.
+    read: It can swing on items that say little about the business. Operating profit is the steadier read.
+  free_cash_flow:
+    label: Free cash flow
+    meaning: Cash from running the business less what was spent on equipment and buildings, over twelve months or the last fiscal year.
+  free_cash_flow_through:
+    label: Free cash flow through
+    meaning: The end of the period the free cash flow covers.
+  operating_margin:
+    label: Operating margin
+    meaning: Operating profit as a share of revenue, over the same months.
+    read: Compare it with the company's own past and with similar companies, not across industries.
+  net_margin:
+    label: Net margin
+    meaning: Net profit as a share of revenue, over the same months.
+    read: One-off gains can lift it far above the operating margin, as with Alphabet in 2026.
+  fcf_margin:
+    label: Cash margin
+    term: free-cash-flow margin
+    meaning: Free cash flow as a share of revenue, over the same months.
+  eps_ttm:
+    label: Earnings per share, 12 months
+    term: diluted EPS
+    meaning: Net profit per share over the last twelve months, counting shares that options and convertibles would add.
+  cash:
+    label: Cash
+    meaning: Cash and cash equivalents on the newest balance sheet.
+  long_term_debt:
+    label: Long-term debt
+    meaning: Borrowing due after more than a year, on the newest balance sheet.
+  debt_to_equity:
+    label: Debt to equity
+    meaning: Long-term debt divided by shareholders' equity.
+    read: Higher means more borrowed against what the owners have in. Banks borrow by design, so compare them only with banks.
+  market_cap:
+    label: Market value
+    term: market capitalization
+    meaning: The share price times the shares outstanding.
+    read: Empty where the company reports no current count for all its shares together, as with several share classes.
+  pe_ratio:
+    label: Price to earnings
+    term: P/E
+    meaning: The share price divided by earnings per share over the last twelve months.
+    read: How many years of current profit the price pays for. Empty when earnings are negative.
+  price_to_sales:
+    label: Price to sales
+    meaning: Market value divided by revenue over the last twelve months.
+  fcf_yield:
+    label: Cash yield
+    term: free-cash-flow yield
+    meaning: Free cash flow as a share of market value.
+    read: Roughly the cash return the business makes on its price, before any growth.
+
   # --- research: the advisor brief ---------------------------------------------------------------------
   name:
     label: Name

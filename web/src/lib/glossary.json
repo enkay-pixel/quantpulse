@@ -179,6 +179,10 @@
     "meaning": "How many call contracts are open on the stock.",
     "term": "call open interest"
   },
+  "cash": {
+    "label": "Cash",
+    "meaning": "Cash and cash equivalents on the newest balance sheet."
+  },
   "champions": {
     "label": "Champions",
     "meaning": "One entry per model that has served as champion, with its live record."
@@ -247,6 +251,11 @@
     "meaning": "Calendar days until the option expires.",
     "term": "days to expiry"
   },
+  "debt_to_equity": {
+    "label": "Debt to equity",
+    "meaning": "Long-term debt divided by shareholders' equity.",
+    "read": "Higher means more borrowed against what the owners have in. Banks borrow by design, so compare them only with banks."
+  },
   "decided": {
     "label": "Decided",
     "meaning": "When the decision was taken."
@@ -303,6 +312,11 @@
     "meaning": "What the spread cost per share — the bought option at its ask, less the sold option at its bid. A contract is 100 shares.",
     "term": "entry debit"
   },
+  "eps_ttm": {
+    "label": "Earnings per share, 12 months",
+    "meaning": "Net profit per share over the last twelve months, counting shares that options and convertibles would add.",
+    "term": "diluted EPS"
+  },
   "equity": {
     "label": "Book value",
     "meaning": "The paper book's value, starting at 1.0. 1.10 means it is up 10%.",
@@ -336,6 +350,17 @@
   "facts": {
     "label": "The evidence",
     "meaning": "Each measure the brief draws on, with its value and how to read it."
+  },
+  "fcf_margin": {
+    "label": "Cash margin",
+    "meaning": "Free cash flow as a share of revenue, over the same months.",
+    "term": "free-cash-flow margin"
+  },
+  "fcf_yield": {
+    "label": "Cash yield",
+    "meaning": "Free cash flow as a share of market value.",
+    "read": "Roughly the cash return the business makes on its price, before any growth.",
+    "term": "free-cash-flow yield"
   },
   "feature": {
     "label": "Model input",
@@ -371,6 +396,14 @@
   "form": {
     "label": "Filing",
     "meaning": "Which disclosure it is. 13D is for a holder that may seek influence, 13G for a passive one; /A marks an amendment."
+  },
+  "free_cash_flow": {
+    "label": "Free cash flow",
+    "meaning": "Cash from running the business less what was spent on equipment and buildings, over twelve months or the last fiscal year."
+  },
+  "free_cash_flow_through": {
+    "label": "Free cash flow through",
+    "meaning": "The end of the period the free cash flow covers."
   },
   "gamma": {
     "label": "How fast that changes",
@@ -507,6 +540,10 @@
     "label": "Bought strike",
     "meaning": "The strike of the option bought, nearest the stock's price when the spread opened."
   },
+  "long_term_debt": {
+    "label": "Long-term debt",
+    "meaning": "Borrowing due after more than a year, on the newest balance sheet."
+  },
   "low": {
     "label": "Low",
     "meaning": "The lowest traded price of the day."
@@ -537,6 +574,12 @@
   "mark_value": {
     "label": "Value now",
     "meaning": "What closing the spread would raise per share — the bought option at its bid, less buying back the sold one at its ask."
+  },
+  "market_cap": {
+    "label": "Market value",
+    "meaning": "The share price times the shares outstanding.",
+    "read": "Empty where the company reports no current count for all its shares together, as with several share classes.",
+    "term": "market capitalization"
   },
   "max_drawdown": {
     "label": "Worst fall",
@@ -617,6 +660,16 @@
     "meaning": "What the structure costs per share — the bought leg less the sold leg. A contract is 100 shares.",
     "term": "net debit"
   },
+  "net_income_ttm": {
+    "label": "Net profit, 12 months",
+    "meaning": "The bottom line after everything, including one-off gains and losses such as revaluing stakes in other companies.",
+    "read": "It can swing on items that say little about the business. Operating profit is the steadier read."
+  },
+  "net_margin": {
+    "label": "Net margin",
+    "meaning": "Net profit as a share of revenue, over the same months.",
+    "read": "One-off gains can lift it far above the operating margin, as with Alphabet in 2026."
+  },
   "note": {
     "label": "Note",
     "meaning": "A remark recorded with the item."
@@ -633,6 +686,15 @@
   "opened": {
     "label": "Opened",
     "meaning": "The day the spreads were bought — a rebalance day of the monthly share book."
+  },
+  "operating_income_ttm": {
+    "label": "Operating profit, 12 months",
+    "meaning": "Revenue less the costs of running the business, before interest, tax and one-off gains."
+  },
+  "operating_margin": {
+    "label": "Operating margin",
+    "meaning": "Operating profit as a share of revenue, over the same months.",
+    "read": "Compare it with the company's own past and with similar companies, not across industries."
   },
   "option_type": {
     "label": "Call or put",
@@ -654,6 +716,12 @@
   "owner": {
     "label": "Insider",
     "meaning": "The person or entity who traded, as named on the Form 4."
+  },
+  "pe_ratio": {
+    "label": "Price to earnings",
+    "meaning": "The share price divided by earnings per share over the last twelve months.",
+    "read": "How many years of current profit the price pays for. Empty when earnings are negative.",
+    "term": "P/E"
   },
   "percent": {
     "label": "Stake",
@@ -696,6 +764,10 @@
   "price": {
     "label": "Price",
     "meaning": "The leg's price per share, at the midpoint where quotable. A contract is 100 shares."
+  },
+  "price_to_sales": {
+    "label": "Price to sales",
+    "meaning": "Market value divided by revenue over the last twelve months."
   },
   "psi": {
     "label": "Shift from training",
@@ -794,6 +866,20 @@
     "meaning": "What a spread made or lost, as a share of what it cost to open, commissions included.",
     "read": "-100% is the most a spread can lose. It does not depend on how much of the book was risked.",
     "term": "return on premium"
+  },
+  "revenue_growth": {
+    "label": "Revenue growth",
+    "meaning": "Revenue this fiscal year so far against the same months a year earlier, or the last fiscal year against the one before when no later quarter is filed."
+  },
+  "revenue_growth_basis": {
+    "label": "Growth compares",
+    "meaning": "Which periods the growth compares, this fiscal year so far or whole fiscal years."
+  },
+  "revenue_ttm": {
+    "label": "Revenue, 12 months",
+    "meaning": "What the company sold over the last twelve months it has reported, from its 10-K and 10-Q filings.",
+    "read": "Where the company files revenue only yearly, as banks do, this is its last fiscal year.",
+    "term": "trailing twelve months"
   },
   "risk_budget": {
     "label": "Risked per cohort",
@@ -977,6 +1063,10 @@
     "label": "Daily time decay",
     "meaning": "How much value the option loses per day as expiry approaches, all else equal.",
     "term": "theta, Θ"
+  },
+  "through": {
+    "label": "Figures through",
+    "meaning": "The end of the newest period the company's filed figures cover."
   },
   "ticker": {
     "label": "Ticker",

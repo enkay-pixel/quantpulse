@@ -499,6 +499,32 @@ def ownership() -> Iterator[dg.MaterializeResult]:
 
 
 @dg.asset(group_name="research", kinds={"python", "postgres"})
+def financial_facts() -> dg.MaterializeResult:
+    """Company fundamentals from SEC EDGAR's XBRL facts, for the US stocks the research pages cover
+    (ADR 0007): revenue, profit, cash flow and the balance sheet from each 10-K and 10-Q.
+
+    A company's facts are fetched again only when it has filed a statement newer than those
+    stored, so most mornings read a filing list per company and nothing more. Insert-only.
+    """
+    from quantpulse.research.fundamentals import refresh_fundamentals
+    from quantpulse.research.ownership import ownership_tickers
+
+    with get_session() as session:
+        tickers = ownership_tickers(session)
+    report = refresh_fundamentals(get_session, tickers)
+    return dg.MaterializeResult(
+        metadata={
+            "tickers": report.tickers,
+            "refreshed": ", ".join(report.refreshed) or "none",
+            "up_to_date": report.up_to_date,
+            "new_facts": report.facts,
+            "no_cik": ", ".join(report.no_cik) or "none",
+            "failed": ", ".join(f"{t} ({r})" for t, r in report.failed.items()) or "none",
+        }
+    )
+
+
+@dg.asset(group_name="research", kinds={"python", "postgres"})
 def watchlist() -> dg.MaterializeResult:
     """Sync configs/watchlist.yaml into the `watchlist` table — the research watchlist (ADR 0007).
 

@@ -144,6 +144,20 @@ the right to sell them.
 
 `snapshot_date` · The trading day whose after-close option prices were recorded.
 
+## Cash
+
+`cash` · Cash and cash equivalents on the newest balance sheet.
+
+## Cash margin — free-cash-flow margin
+
+`fcf_margin` · Free cash flow as a share of revenue, over the same months.
+
+## Cash yield — free-cash-flow yield
+
+`fcf_yield` · Free cash flow as a share of market value.
+
+**How to read it:** Roughly the cash return the business makes on its price, before any growth.
+
 ## Champions
 
 `champions` · One entry per model that has served as champion, with its live record.
@@ -262,6 +276,13 @@ trading it would take every short seller to buy back.
 
 **How to read it:** Above 50% means more up days than down, though not necessarily more money.
 
+## Debt to equity
+
+`debt_to_equity` · Long-term debt divided by shareholders' equity.
+
+**How to read it:** Higher means more borrowed against what the owners have in. Banks borrow by
+design, so compare them only with banks.
+
 ## Decided
 
 `decided` · When the decision was taken.
@@ -284,6 +305,11 @@ deviation.
 
 `drifted` · Whether this input's shift from training is above 0.20.
 
+## Earnings per share, 12 months — diluted EPS
+
+`eps_ttm` · Net profit per share over the last twelve months, counting shares that options and
+convertibles would add.
+
 ## Error
 
 `error` · The failure message.
@@ -305,6 +331,10 @@ details are kept.
 ## Expiry
 
 `expiry` · The last day the option can be used. After it, the option is worth only what it pays out.
+
+## Figures through
+
+`through` · The end of the newest period the company's filed figures cover.
 
 ## Filed
 
@@ -335,9 +365,23 @@ holds the strongest forecasts, 5 the weakest.
 
 `latest_prediction_date` · The newest trading day with model forecasts.
 
+## Free cash flow
+
+`free_cash_flow` · Cash from running the business less what was spent on equipment and buildings,
+over twelve months or the last fiscal year.
+
+## Free cash flow through
+
+`free_cash_flow_through` · The end of the period the free cash flow covers.
+
 ## From
 
 `start_date` · The first trading day included.
+
+## Growth compares
+
+`revenue_growth_basis` · Which periods the growth compares, this fiscal year so far or whole fiscal
+years.
 
 ## Has option data
 
@@ -483,6 +527,10 @@ genuinely out-of-sample.
 
 `live_window` · The first and last trading day of the live record.
 
+## Long-term debt
+
+`long_term_debt` · Borrowing due after more than a year, on the newest balance sheet.
+
 ## Low
 
 `low` · The lowest traded price of the day.
@@ -495,6 +543,13 @@ the Johannesburg Stock Exchange.
 ## Market code
 
 `code` · The exchange's standard four-letter code, such as XNYS or XJSE.
+
+## Market value — market capitalization
+
+`market_cap` · The share price times the shares outstanding.
+
+**How to read it:** Empty where the company reports no current count for all its shares together, as
+with several share classes.
 
 ## Measure
 
@@ -590,6 +645,21 @@ it moves one-for-one.
 
 `names` · The names on the research watchlist, both markets.
 
+## Net margin
+
+`net_margin` · Net profit as a share of revenue, over the same months.
+
+**How to read it:** One-off gains can lift it far above the operating margin, as with Alphabet in
+2026.
+
+## Net profit, 12 months
+
+`net_income_ttm` · The bottom line after everything, including one-off gains and losses such as
+revaluing stakes in other companies.
+
+**How to read it:** It can swing on items that say little about the business. Operating profit is
+the steadier read.
+
 ## Normal day's trading — average dollar volume
 
 `adv_usd_20d` · The average dollar value traded per day over the last 20 trading days.
@@ -609,6 +679,18 @@ it moves one-for-one.
 ## Opened
 
 `opened` · The day the spreads were bought — a rebalance day of the monthly share book.
+
+## Operating margin
+
+`operating_margin` · Operating profit as a share of revenue, over the same months.
+
+**How to read it:** Compare it with the company's own past and with similar companies, not across
+industries.
+
+## Operating profit, 12 months
+
+`operating_income_ttm` · Revenue less the costs of running the business, before interest, tax and
+one-off gains.
 
 ## Options book return
 
@@ -701,6 +783,17 @@ they say less than unplanned ones.
 
 `display_divisor` · What stored prices are divided by before display. The JSE stores prices in
 cents, so its divisor is 100.
+
+## Price to earnings — P/E
+
+`pe_ratio` · The share price divided by earnings per share over the last twelve months.
+
+**How to read it:** How many years of current profit the price pays for. Empty when earnings are
+negative.
+
+## Price to sales
+
+`price_to_sales` · Market value divided by revenue over the last twelve months.
 
 ## Price vs 1-month average, ranked — ma_ratio_21_cs_rank
 
@@ -846,6 +939,19 @@ Withheld under 20 trading days, where it is noise.
 `holdout_sharpe` · The Sharpe ratio a paper book following the model earned on the test period.
 
 **How to read it:** Higher is better; below 0 lost money.
+
+## Revenue growth
+
+`revenue_growth` · Revenue this fiscal year so far against the same months a year earlier, or the
+last fiscal year against the one before when no later quarter is filed.
+
+## Revenue, 12 months — trailing twelve months
+
+`revenue_ttm` · What the company sold over the last twelve months it has reported, from its 10-K and
+10-Q filings.
+
+**How to read it:** Where the company files revenue only yearly, as banks do, this is its last
+fiscal year.
 
 ## Risked per cohort
 

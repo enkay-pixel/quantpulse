@@ -484,6 +484,40 @@ class BriefOut(BaseModel):
     disclaimer: str
 
 
+class FundamentalsRow(BaseModel):
+    """One US company's business over the last twelve months, from its 10-K and 10-Q filings
+    (ADR 0007). Ratios divide figures covering the same months; price ratios are empty where the
+    company reports no current whole-company share count, as with several share classes."""
+
+    ticker: str
+    followed_by: str = "model"
+    through: dt.date
+    filed: dt.date
+    revenue_ttm: float | None
+    revenue_growth: float | None
+    revenue_growth_basis: str | None
+    operating_income_ttm: float | None
+    net_income_ttm: float | None
+    free_cash_flow: float | None
+    free_cash_flow_through: dt.date | None
+    operating_margin: float | None
+    net_margin: float | None
+    fcf_margin: float | None
+    eps_ttm: float | None
+    cash: float | None
+    long_term_debt: float | None
+    debt_to_equity: float | None
+    market_cap: float | None
+    pe_ratio: float | None
+    price_to_sales: float | None
+    fcf_yield: float | None
+
+
+class FundamentalsOut(BaseModel):
+    exchange: str
+    rows: list[FundamentalsRow]
+
+
 class AttentionDay(BaseModel):
     date: dt.date
     views: int

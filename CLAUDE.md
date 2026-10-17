@@ -31,7 +31,8 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `page_views`, `watchlist*`; no FK to `universe`), own jobs (`research_job`, `watchlist_job`),
   never a model input. `configs/watchlist.yaml` adds names beyond the universe;
   `research/ownership.py` reads SEC EDGAR (needs `QUANTPULSE_SEC_CONTACT` in the local `.env`
-  only — never commit the value); `research/brief.py` is the advisor brief, fixed rules over the
+  only — never commit the value); `research/fundamentals.py` reads its XBRL facts (twelve-month
+  figures in `fct_fundamentals`); `research/brief.py` is the advisor brief, fixed rules over the
   evidence with a test that no sentence instructs. Pages assess;
   they never say what to buy or sell. `fct_gamma_by_strike` / `fct_positioning` (NYSE only: the JSE
   publishes no free short interest or chains) and `fct_attention` (both markets) feed the

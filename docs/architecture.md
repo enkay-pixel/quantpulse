@@ -112,6 +112,14 @@ in other companies. `fct_insider_trades` keeps open-market trades only, `fct_lar
 filer's latest stake still at 5% or more, and `fct_ownership` sums both per stock. EDGAR needs a
 contact in each request, set as `QUANTPULSE_SEC_CONTACT` in the local `.env` only.
 
+**Fundamentals** come from EDGAR's XBRL facts, for the same US stocks: `financial_facts` keeps each
+tagged figure as reported, one row per filing, and `fct_financial_lines` picks one value per line
+and period (the tag in use now, ties to the broadest). `fct_fundamentals` computes the last twelve
+months as the fiscal year plus this year so far less the same months before, divides only figures
+over the same months, and leaves price ratios empty without a current whole-company share count.
+`research_job` fetches a company again only when it files a new 10-K or 10-Q, and retries weekly a
+statement EDGAR's document has not caught up with (`fundamentals_fetches`).
+
 The **advisor brief** draws all of it together for one stock at a time (`research/brief.py`,
 `GET /research/brief/{ticker}`, the Brief tab). `gather` reads every source the pages use: price
 history, the model's rank and its live record, short interest, option hedging, attention,

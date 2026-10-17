@@ -218,6 +218,13 @@ export const useBrief = (ticker: string | null) =>
     refetchInterval: 10 * REFRESH_MS,
   });
 
+export const useFundamentals = (exchange: string) =>
+  useQuery({
+    queryKey: ["fundamentals", exchange],
+    queryFn: () => api.fundamentals(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
 export const useWatchlist = () =>
   useQuery({
     queryKey: ["watchlist"],

@@ -108,3 +108,6 @@ models:
 
   - name: stg_holder_filings
     description: Structured 13D/13G stake disclosures; is_13d marks a holder who may seek influence.
+
+  - name: stg_financial_facts
+    description: Tagged 10-K and 10-Q figures mapped to the line they report; several tags share a line.

@@ -219,6 +219,7 @@ def test_the_research_branch_runs_apart_from_the_pipeline() -> None:
         "page_views",
         "insider_transactions",
         "holder_filings",
+        "financial_facts",
     }
     for name in ("ingest_job", "process_job", "training_job"):
         keys = {
