@@ -53,7 +53,7 @@ function byRatio(a: AttentionRow, b: AttentionRow): number {
 
 /**
  * Public attention per stock: the past week's daily Wikipedia views against the article's usual
- * level. The one research measure that covers the JSE as well as the NYSE.
+ * level. The one research measure that covers every market, not only the NYSE.
  */
 export function AttentionTable({
   data,

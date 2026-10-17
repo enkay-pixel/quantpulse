@@ -445,7 +445,7 @@ function OptionsTab({ exchange }: { exchange: string }) {
 }
 
 // The research branch's positioning page (ADR 0007). Squeeze fuel needs short interest and
-// option chains, which only the NYSE has free; attention covers both markets. It assesses; it
+// option chains, which only the NYSE has free; attention covers every market. It assesses; it
 // does not advise.
 function SqueezeSections({ exchange }: { exchange: string }) {
   const positioning = usePositioning(exchange);
@@ -564,8 +564,8 @@ function PositioningTab({ exchange, hasOptions }: { exchange: string; hasOptions
   );
 }
 
-// Ownership filings are a US requirement: a JSE company files with no US regulator, so the
-// section shows only where the squeeze sections do.
+// Ownership filings are a US requirement: a company listed elsewhere files with no US regulator,
+// so the section shows only where the squeeze sections do.
 function OwnershipSections({ exchange }: { exchange: string }) {
   const ownership = useOwnership(exchange);
   const [picked, setPicked] = useState<string | null>(null);
@@ -613,7 +613,7 @@ function WatchlistSection({ exchange }: { exchange: string }) {
   );
 }
 
-// Company fundamentals from SEC filings (ADR 0007). US companies file with the SEC; JSE ones do
+// Company fundamentals from SEC filings (ADR 0007). US companies file with the SEC; others do
 // not, so that market gets a plain statement instead of an empty table. The exchange registry
 // marks the US by `has_options`, which stands in here because the US is the only market in it
 // that both lists options and files with the SEC; a market that did one without the other would
@@ -628,9 +628,9 @@ function FundamentalsTab({ exchange, hasFilings }: { exchange: string; hasFiling
       >
         {!hasFilings ? (
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            JSE companies do not file with the US regulator, so their figures are not in this free
-            source. It is an assessment of the evidence, not a recommendation to buy or sell
-            anything.
+            This market's companies do not file with the US regulator, so their figures are not
+            in this free source. It is an assessment of the evidence, not a recommendation to buy or
+            sell anything.
           </p>
         ) : fundamentals.data ? (
           <FundamentalsTable data={fundamentals.data} />

@@ -328,7 +328,7 @@
   },
   "exchange": {
     "label": "Market",
-    "meaning": "Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE the Johannesburg Stock Exchange.",
+    "meaning": "Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE the Johannesburg Stock Exchange, XLON the London Stock Exchange.",
     "term": "exchange"
   },
   "exit_date": {

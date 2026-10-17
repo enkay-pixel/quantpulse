@@ -67,7 +67,7 @@ def test_today_is_not_expected_until_its_ingest_is_overdue(patched: dict[str, ob
     # Pre-overdue, the expected window must end at *yesterday*: at 00:08 exchange time
     # the date has flipped but the session hasn't traded, and requesting it would burn
     # the rescue attempt on a day that does not exist yet.
-    assert windows == {"XNYS": TODAY - dt.timedelta(days=1), "XJSE": TODAY - dt.timedelta(days=1)}
+    assert windows == dict.fromkeys(calendar.EXCHANGES, TODAY - dt.timedelta(days=1))
 
 
 def test_exhausted_sessions_are_reported_as_exhausted_not_as_healthy(

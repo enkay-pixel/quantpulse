@@ -43,6 +43,29 @@ def test_repo_universe_file_is_valid() -> None:
     assert len(entries) >= 40
 
 
+def test_every_registered_market_is_fully_onboarded() -> None:
+    """The checklist a new market must clear before it ingests, from the M12 London pilot.
+
+    A market in the registry needs stocks to rank, its own benchmark fund in its universe (the
+    book is judged against it), enough names for ~10 a side at its quantile width, and a
+    canonical Wikipedia title per stock for the attention page. Missing any of these fails
+    quietly downstream — an empty book, a benchmark chart with no line — so it fails here.
+    """
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.research.attention import load_titles
+
+    root = Path(__file__).parents[2]
+    entries = load_universe(root / "configs" / "universe.yaml")
+    titles = load_titles(root / "configs" / "attention.yaml")
+    for code, ex in EXCHANGES.items():
+        stocks = [e.ticker for e in entries if e.exchange == code and e.asset_type == "stock"]
+        etfs = {e.ticker for e in entries if e.exchange == code and e.asset_type == "etf"}
+        assert ex.benchmark in etfs, f"{code}: its benchmark {ex.benchmark} is not in its universe"
+        assert round(len(stocks) * ex.quantile_width) >= 8, f"{code}: too few names per side"
+        missing = [t for t in stocks if t not in titles]
+        assert not missing, f"{code}: no Wikipedia title for {missing}"
+
+
 # --- options_tickers ----------------------------------------------------------------
 #
 # The single place that answers "which markets have chains to snapshot?". The CLI, the

@@ -94,3 +94,50 @@ exchanges:
       - EXX.JO
       - KIO.JO
       - ARI.JO
+  # London (M12 pilot): 40 large FTSE 100 names with Yahoo history from early 2018. Quoted in
+  # pence. Left out for history too short to train beside the rest: M&G (2019), Haleon (2022);
+  # Ashtead is no longer listed in London.
+  XLON:
+    etfs:
+      - ISF.L
+    stocks:
+      - AZN.L
+      - SHEL.L
+      - HSBA.L
+      - ULVR.L
+      - RIO.L
+      - BP.L
+      - REL.L
+      - GSK.L
+      - BATS.L
+      - LSEG.L
+      - DGE.L
+      - AAL.L
+      - GLEN.L
+      - BARC.L
+      - LLOY.L
+      - NWG.L
+      - RR.L
+      - BA.L
+      - CPG.L
+      - NG.L
+      - PRU.L
+      - VOD.L
+      - TSCO.L
+      - EXPN.L
+      - STAN.L
+      - IMB.L
+      - RKT.L
+      - AV.L
+      - LGEN.L
+      - SSE.L
+      - III.L
+      - ANTO.L
+      - BT-A.L
+      - IHG.L
+      - NXT.L
+      - SGE.L
+      - ABF.L
+      - WPP.L
+      - SN.L
+      - CRDA.L
