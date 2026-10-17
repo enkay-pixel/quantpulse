@@ -184,8 +184,9 @@ Two things are not, and they are why backups exist: **`option_quotes`** (live-on
 a day not captured is gone permanently) and the **live record** in `portfolio_snapshots` /
 `predictions` (recreating it would mean re-scoring history with today's champion — the
 retroactive rewrite the promotion gate exists to prevent). The whole database is dumped
-regardless: ~48 MB gzipped, and a single-file restore beats reasoning about foreign-key
-order at the moment you need it.
+regardless, and a single-file restore beats reasoning about foreign-key order at the moment
+you need it. On 2026-10-17 a dump was 186 MB gzipped, growing about 2.5 MB a day with the
+option chains, so the 14 kept take about 2.6 GB.
 
 Runs daily at 07:00 via launchd, after every overnight job — the option-capture window
 runs until ~06:00, so an earlier backup would routinely miss the irreplaceable table.

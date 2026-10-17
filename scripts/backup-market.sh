@@ -10,8 +10,9 @@
 #                      would mean re-scoring history with today's champion, which is the
 #                      retroactive rewrite the promotion gate exists to prevent.
 #
-# Dumps the whole database anyway: it is only ~48 MB gzipped, and a single-file restore
-# beats reasoning about foreign-key order at the moment you actually need it.
+# Dumps the whole database anyway: it grows a few MB a day, mostly the option chains, which is
+# small against the disk, and a single-file restore beats reasoning about foreign-key order
+# at the moment you actually need it.
 #
 # `mlflow` is included for the same reason at a fraction of the size. It holds the trained
 # boosters themselves along with the alias and version history, so losing it means the
