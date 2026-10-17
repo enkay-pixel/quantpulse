@@ -27,6 +27,7 @@ import type {
   AttentionOut,
   ForwardVrpOut,
   GammaProfileOut,
+  OptionBookOut,
   PositioningOut,
 } from "./types";
 
@@ -91,6 +92,7 @@ export const api = {
   findings: () => getJson<FindingsOut>("/findings"),
   forwardVrp: (ex: string) =>
     getJson<ForwardVrpOut>(`/options/forward-vrp?exchange=${ex}`),
+  optionBook: (ex: string) => getJson<OptionBookOut>(`/options/book?exchange=${ex}`),
   positioning: (ex: string) =>
     getJson<PositioningOut>(`/research/positioning?exchange=${ex}`),
   attention: (ex: string) =>

@@ -1,5 +1,8 @@
 # Architecture
 
+**In short:** How the pieces fit: the services that run in Docker, how data flows from prices to
+forecasts to the dashboard, and the main design choice behind each layer.
+
 ## Services (docker compose)
 
 | Service | Purpose | Port | Memory cap |
@@ -90,6 +93,21 @@ nor option chains free, but each company has a Wikipedia article. `page_views` s
 per stock (titles in `configs/attention.yaml`, checked canonical on every run, because the API
 does not count redirects), and `fct_attention` sets the past week against the usual level. The
 Positioning tab shows on both markets, with the squeeze sections only where their data exists.
+
+## Paper options book
+
+The model's forecasts held through options instead of shares
+([ADR 0008](adr/0008-options-book-the-signal-as-spreads.md)). It varies one thing from the
+21-session share book, the instrument. Each cohort opens on that book's rebalance dates, on the
+same names, read from its stored positions: a bull call spread for each long, a bear put spread for
+each short, using the strike rule of the Options tab's illustration (`options/strategy.py`). The
+expiry is the first after the next rebalance, and the cohort closes at that rebalance.
+
+Fills are pessimistic — buy at the ask, sell at the bid, commission per leg — but only on *sound*
+quotes: a real bid, a gap within 25% of the midpoint or $0.25, and at least ten contracts open. A
+leg whose quote is missing or unsound on a later day is valued at its last sound quote. Each cohort
+risks 10% of the book. `options_book_job` rebuilds both tables in full each weekday evening, after
+the share books, in its own job; nothing reads the options book back.
 
 ## Paper books: variations from a baseline
 

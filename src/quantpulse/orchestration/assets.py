@@ -445,6 +445,30 @@ def page_views() -> dg.MaterializeResult:
     )
 
 
+@dg.asset(
+    deps=[portfolio_equity, option_chains], group_name="options_book", kinds={"python", "postgres"}
+)
+def option_book() -> dg.MaterializeResult:
+    """The paper options book (ADR 0008): the stock signal held through spreads instead of shares.
+
+    Rebuilt in full each evening from the share book's positions and the captured chains, like the
+    share books. Never a model input, and in its own job so a failure here holds up nothing else.
+    """
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.options.book import rebuild_option_book
+
+    metadata: dict[str, str | int | float] = {}
+    for code, ex in sorted(EXCHANGES.items()):
+        if not ex.has_options:
+            continue
+        with get_session() as session:
+            result = rebuild_option_book(get_engine(), session, code)
+        for key, value in result.items():
+            if value is not None:
+                metadata[f"{code}_{key}"] = float(value) if isinstance(value, float) else value
+    return dg.MaterializeResult(metadata=metadata)
+
+
 @dg.asset_check(asset=option_chains, blocking=False)
 def option_snapshot_quality() -> dg.AssetCheckResult:
     """Guard the options dataset: coverage, plausible IV (catches stale/pre-market

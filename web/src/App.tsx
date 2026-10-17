@@ -17,6 +17,7 @@ import { IvSkewChart } from "./components/IvSkewChart";
 import { IvSurfaceChart } from "./components/IvSurfaceChart";
 import { ModelHistoryTable } from "./components/ModelHistoryTable";
 import { OptionChainTable } from "./components/OptionChainTable";
+import { OptionBookCard } from "./components/OptionBookCard";
 import { OptionIdeaCard } from "./components/OptionIdeaCard";
 import { PositioningTable } from "./components/PositioningTable";
 import { PositionsTable } from "./components/PositionsTable";
@@ -45,6 +46,7 @@ import {
   useGammaProfile,
   useHealth,
   useModelHistory,
+  useOptionBook,
   useOptionChain,
   useIvSurface,
   useOptionIdea,
@@ -280,6 +282,7 @@ function EvidenceTab({
 
 function OptionsTab({ exchange }: { exchange: string }) {
   const predictions = usePredictions(exchange);
+  const optionBook = useOptionBook(exchange);
   const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];
   const rotation = useRotatingTicker(tickers);
   const ticker = rotation.ticker;
@@ -420,6 +423,12 @@ function OptionsTab({ exchange }: { exchange: string }) {
           )}
         </Section>
       </div>
+      <Section
+        title="What if the forecasts were held as options?"
+        explain="The model's forecasts held through limited-risk option spreads instead of shares — bull call spreads on the stocks it favours, bear put spreads on the ones it doesn't — priced every evening at what trading would actually get. Paper only, not a recommendation."
+      >
+        {optionBook.data ? <OptionBookCard data={optionBook.data} /> : <Placeholder height="h-56" />}
+      </Section>
     </>
   );
 }

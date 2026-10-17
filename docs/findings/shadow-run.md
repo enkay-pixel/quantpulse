@@ -1,5 +1,9 @@
 # A live check before replacing the tuner (pre-registered 2026-10-04)
 
+**In short:** A test running until about the end of December: beside each weekly model, a model with
+fixed settings is trained and scored on later data, to check the fixed settings do no harm. Its
+result cannot be read early, by design.
+
 **Status: pre-registered, not yet measured.** This page reaches `main` in the same change that adds
 the shadow, so no shadow row exists until its decision rule is fixed — the rule in
 [How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).

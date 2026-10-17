@@ -12,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     func,
 )
@@ -262,6 +263,62 @@ class PageView(Base):
     )
 
     __table_args__ = (CheckConstraint("views >= 0", name="views_nonnegative"),)
+
+
+class OptionBookPosition(Base):
+    """One spread in the paper options book (ADR 0008), or a name it could not trade.
+
+    Rebuilt in full from predictions, the share book's positions and the captured chains, like
+    the share books. `status` is open, closed or skipped; a skipped row keeps the reason in
+    `note` so the gaps in coverage are visible rather than silent. Prices are per share (a
+    contract is 100); `quantity` is fractional, as paper allows.
+    """
+
+    __tablename__ = "option_book_positions"
+
+    book: Mapped[str] = mapped_column(String(32), primary_key=True)
+    opened: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    exchange: Mapped[str] = mapped_column(String(8))
+    side: Mapped[str] = mapped_column(String(8))  # 'long' | 'short', from the share book
+    phase: Mapped[str] = mapped_column(String(8))  # 'replay' | 'live'
+    status: Mapped[str] = mapped_column(String(8))  # 'open' | 'closed' | 'skipped'
+    note: Mapped[str | None] = mapped_column(String(200))
+    option_type: Mapped[str | None] = mapped_column(String(4))
+    expiry: Mapped[dt.date | None] = mapped_column(Date)
+    long_strike: Mapped[float | None] = mapped_column(Float)
+    short_strike: Mapped[float | None] = mapped_column(Float)
+    entry_debit: Mapped[float | None] = mapped_column(Float)
+    quantity: Mapped[float | None] = mapped_column(Float)
+    mark_date: Mapped[dt.date | None] = mapped_column(Date)
+    mark_value: Mapped[float | None] = mapped_column(Float)
+    mark_basis: Mapped[str | None] = mapped_column(String(16))  # 'quote' | 'intrinsic' | 'settled'
+    exit_date: Mapped[dt.date | None] = mapped_column(Date)
+    model_version: Mapped[str | None] = mapped_column(String(64))
+
+    __table_args__ = (
+        CheckConstraint("side IN ('long', 'short')", name="option_book_side_valid"),
+        CheckConstraint("phase IN ('replay', 'live')", name="option_book_phase_valid"),
+        CheckConstraint("status IN ('open', 'closed', 'skipped')", name="option_book_status_valid"),
+    )
+
+
+class OptionBookDay(Base):
+    """The paper options book's equity on each snapshot day (ADR 0008), starting at 1.0."""
+
+    __tablename__ = "option_book_daily"
+
+    book: Mapped[str] = mapped_column(String(32), primary_key=True)
+    date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    exchange: Mapped[str] = mapped_column(String(8))
+    equity: Mapped[float] = mapped_column(Float)
+    cash: Mapped[float] = mapped_column(Float)
+    open_positions: Mapped[int] = mapped_column(Integer)
+    phase: Mapped[str] = mapped_column(String(8))
+
+    __table_args__ = (
+        CheckConstraint("phase IN ('replay', 'live')", name="option_book_daily_phase_valid"),
+    )
 
 
 class PipelineAlert(Base):

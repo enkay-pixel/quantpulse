@@ -1,6 +1,6 @@
 # Roadmap & project state
 
-**Updated 2026-08-19.** What exists today, how it actually performs, and what comes next.
+**Updated 2026-10-17.** What exists today, how it actually performs, and what comes next.
 For *how* it was built and every bug paid for along the way, see
 [development-history.md](development-history.md); for design rationale see [adr/](adr/).
 
@@ -446,6 +446,12 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     activity from SEC EDGAR (Forms 4, 13F, 13D/G); and an advisor brief, one page per holding or
     idea, written to be discussed with a licensed advisor. All of it is free data, and none of
     it becomes a model input without a pre-registered measurement after the shadow verdict.
+11. **The paper options book** ([ADR 0008](adr/0008-options-book-the-signal-as-spreads.md)) runs
+    from 2026-10-19 live; the cohorts before are replay. A cohort is a month, so it takes years to
+    separate options from shares — read it no sooner. The next change is to capture the contracts
+    the book holds every night, so a held strike never leaves the snapshot and "last quote" marks
+    become rare. Options *models* — implied-volatility change, return on a structure — wait for
+    about 250 snapshot days and the shadow verdict, then get their own lineage, gate and shadow.
 
 ## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 

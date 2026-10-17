@@ -21,6 +21,7 @@ def test_expected_assets_present() -> None:
         "champion_model",
         "short_interest",
         "page_views",
+        "option_book",
     }
     dbt_models = {
         "stg_prices",
@@ -215,3 +216,18 @@ def test_the_research_branch_runs_apart_from_the_pipeline() -> None:
             k.to_user_string() for k in defs.resolve_job_def(name).asset_layer.selected_asset_keys
         }
         assert not research_keys & keys, name
+
+
+def test_the_options_book_runs_in_its_own_job() -> None:
+    """ADR 0008: the book reads the evening's share book and chains, and nothing reads it back —
+    so a failure in it must not fail the processing run the live record depends on."""
+    keys = {
+        k.to_user_string()
+        for k in defs.resolve_job_def("options_book_job").asset_layer.selected_asset_keys
+    }
+    assert keys == {"option_book"}
+    for name in ("ingest_job", "process_job", "training_job", "research_job"):
+        others = {
+            k.to_user_string() for k in defs.resolve_job_def(name).asset_layer.selected_asset_keys
+        }
+        assert "option_book" not in others, name

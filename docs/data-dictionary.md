@@ -1,5 +1,8 @@
 # Data dictionary — `market` database
 
+**In short:** What every table holds and where it comes from. For what a term on the dashboard or in
+the API means, see the [glossary](glossary.md).
+
 > **Three databases share this Postgres server.** Only `market` (schemas `public` +
 > `analytics`) is ours — defined by Alembic migrations and `src/quantpulse/db/models.py`.
 > The `mlflow` and `dagster` databases are owned by those tools and **must not be modified
@@ -35,6 +38,8 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 | `option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Daily live option-chain snapshots + Black-Scholes Greeks. NYSE only (no free JSE chain data). Accumulates forward — no free history exists to backfill |
 | `short_interest` | (ticker, settlement_date) | Shares sold short, days to cover and share of float per settlement, from yfinance — the research branch's first table ([ADR 0007](adr/0007-research-branch-evidence-not-instructions.md)). Insert-only, so `ingested_at` is when a figure first became known; history is joined on that date, never on settlement, because figures arrive a week or two late. The vendor shows only the latest two settlements, so this too accumulates forward |
 | `page_views` | (ticker, date) | Daily English Wikipedia views of each stock's article, both markets — public attention, the research branch's first JSE-covering table (ADR 0007). Titles in `configs/attention.yaml`; `article` records which title was counted. Insert-only, backfilled to 2018. An unpublished day is absent, not zero |
+| `option_book_positions` | (book, opened, ticker) | The paper options book's spreads (ADR 0008): one row per name the 21-session share book held at each rebalance — strikes, expiry, cost to open, latest value and what it was valued from (quote, last quote, intrinsic, settled). A name that could not be traded is a `skipped` row with the reason. Rebuilt in full nightly |
+| `option_book_daily` | (book, date) | The options book's value on each snapshot day, starting at 1.0, with its cash and replay/live phase. Rebuilt in full nightly |
 | `pipeline_alerts` | alert id | Pipeline failures recorded by the Dagster run-failure sensor, served at `GET /alerts`. Operational tail, not an audit trail: trimmed to the newest 200. In the database because the daemon writes it and the API (a different container) reads it |
 
 Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign

@@ -91,6 +91,10 @@ Each differs from the daily book in exactly one way.
 
 `books` · One entry per version of the paper book.
 
+## Bought strike
+
+`long_strike` · The strike of the option bought, nearest the stock's price when the spread opened.
+
 ## Breakeven price
 
 `breakeven` · The stock price at expiry where the structure neither gains nor loses.
@@ -147,6 +151,15 @@ the right to sell them.
 
 `close` · The last traded price of the day, adjusted for dividends and splits.
 
+## Closed
+
+`exit_date` · The day the spreads were sold — the share book's next rebalance. Empty while still
+open.
+
+## Cohorts
+
+`cohorts` · One entry per group of spreads opened on the same day.
+
 ## Configured
 
 `configured` · Whether the market is set up in the configuration file.
@@ -167,6 +180,15 @@ the right to sell them.
 
 `net_debit` · What the structure costs per share — the bought leg less the sold leg. A contract is
 100 shares.
+
+## Cost to open — entry debit
+
+`entry_debit` · What the spread cost per share — the bought option at its ask, less the sold option
+at its bid. A contract is 100 shares.
+
+## Could not trade
+
+`skipped` · Names the share book held that the options book could not, each with the reason.
 
 ## Currency
 
@@ -423,6 +445,11 @@ research output, not advice.
 
 **How to read it:** Higher means the model expects the stock to do better than the others.
 
+## Monthly share book value
+
+`share_equity` · The monthly-rebalanced share book's value on the same scale as the options book,
+both starting at 1.0 on the options book's first day.
+
 ## Monthly-rebalanced book value
 
 `horizon_equity` · The same signal traded only every 21 days instead of daily, on the same scale.
@@ -457,6 +484,18 @@ it moves one-for-one.
 ## Open
 
 `open` · The first traded price of the day.
+
+## Opened
+
+`opened` · The day the spreads were bought — a rebalance day of the monthly share book.
+
+## Options book return
+
+`options_return` · What the cohort's spreads made or lost, as a share of the options book's value
+when they were bought.
+
+**How to read it:** Each cohort risks a fixed tenth of the book, so this scales with that choice;
+compare return on premium too.
 
 ## Outcome
 
@@ -632,6 +671,14 @@ removed — the part the signal earned.
 **How to read it:** Only meaningful beside its error band. A figure inside its own error band cannot
 be told from zero.
 
+## Return on what was paid — return on premium
+
+`return_on_premium` · What a spread made or lost, as a share of what it cost to open, commissions
+included.
+
+**How to read it:** -100% is the most a spread can lose. It does not depend on how much of the book
+was risked.
+
 ## Return over the index per unit of difference — information ratio
 
 `information_ratio` · The book's return above the index, divided by how differently it moves.
@@ -657,6 +704,11 @@ Withheld under 20 trading days, where it is noise.
 
 **How to read it:** Higher is better; below 0 lost money.
 
+## Risked per cohort
+
+`risk_budget` · The share of the options book's value each cohort spends on its spreads — the most a
+cohort can lose.
+
 ## Rows
 
 `rows` · One entry per stock.
@@ -669,6 +721,11 @@ Withheld under 20 trading days, where it is noise.
 
 `run_type` · What the training run was — a candidate (train), a promotion, a demotion, or a shadow
 fitted only for comparison.
+
+## Same names held as shares
+
+`shares_return` · What the monthly share book, holding the same stocks over the same window, made or
+lost.
 
 ## Sensitivity to priced-in swings — vega
 
@@ -737,6 +794,19 @@ two later.
 
 **How to read it:** Beyond about ±2 the result is distinguishable from luck; inside it, it is not.
 
+## Sold strike
+
+`short_strike` · The strike of the option sold, about 10% further out, which caps both the cost and
+the payoff.
+
+## Spreads (`spreads`)
+
+`spreads` · How many option spreads the cohort holds.
+
+## Spreads (`positions`)
+
+`positions` · One entry per name in the newest cohort, including any that could not be traded.
+
 ## Standing decisions
 
 `decisions` · Decisions already taken, each with the conditions named in advance that would reopen
@@ -749,7 +819,8 @@ checked here. For a condition — armed, fired or unknown.
 
 ## Status
 
-`status` · Whether the service is working.
+`status` · The item's state. For the service, whether it is working; for an options-book spread,
+open, closed, or skipped because it could not be traded.
 
 ## Stock price — spot
 
@@ -819,6 +890,22 @@ yearly scale.
 ## Usual views a day — 90-day median
 
 `baseline_90d` · The middle value of daily page views over the 90 days before that week.
+
+## Value now
+
+`mark_value` · What closing the spread would raise per share — the bought option at its bid, less
+buying back the sold one at its ask.
+
+## Valued from
+
+`mark_basis` · Quote means that day's bid and ask. Last quote means one option's quote that day was
+missing or unreliable (no bid, or far too wide), so its last sound quote stands in. Intrinsic means
+no sound quote was ever seen, so it is valued at what it would pay out now. Settled means it
+expired.
+
+## Valued on
+
+`mark_date` · The day the value was taken.
 
 ## View
 

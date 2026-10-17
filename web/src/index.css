@@ -14,7 +14,10 @@
   --border: rgba(11, 11, 11, 0.1);
   --series-1: #2a78d6;
   --series-2: #1baf7a;
-  --series-3: #8a5cd0; /* third line: the 21-day book alongside strategy and benchmark */
+  /* Third line, the monthly book. Orange, the reference palette's second slot: the purple this
+     replaced sat 2.1 apart from --series-1 for deutan readers and 12.5 for everyone, under the
+     floor of 15, so the two books could not be told apart. All three slots pass all-pairs. */
+  --series-3: #eb6834;
   --seq-250: #86b6ef;
   --seq-350: #5598e7;
   --seq-450: #2a78d6;
@@ -41,7 +44,7 @@
     --border: rgba(255, 255, 255, 0.1);
     --series-1: #3987e5;
     --series-2: #199e70;
-    --series-3: #a37ae0;
+    --series-3: #d95926;
     --seq-250: #184f95;
     --seq-350: #256abf;
     --seq-450: #3987e5;

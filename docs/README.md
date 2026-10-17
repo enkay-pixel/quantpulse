@@ -4,6 +4,9 @@ Start here. Everything below is plain markdown, readable on GitHub and in Obsidi
 
 ## Where to look
 
+Every ADR, finding and reference page opens with an **In short** line in plain words — read
+that first, and the detail only if you need it.
+
 | If you want | Read |
 |---|---|
 | What this is and how it's doing | [../README.md](../README.md) |

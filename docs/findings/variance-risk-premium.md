@@ -1,5 +1,8 @@
 # Is there a variance risk premium here? (2026-08-30)
 
+**In short:** Measured against the same past window, options did not cost measurably more than the
+movement the stocks delivered. A first report of a huge effect was a units error.
+
 The snapshot-forward option capture has run since 2026-07-20 because no free source sells
 option history retroactively. The first question it can answer: did the option market charge
 more for volatility than the underlying delivered?

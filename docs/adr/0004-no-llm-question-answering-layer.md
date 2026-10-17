@@ -2,6 +2,9 @@
 
 **Status**: accepted · **Date**: 2026-07-22
 
+**In short:** The dashboard's explanations are fixed, tested rules over stored numbers rather than
+an AI chatbot, so they can never invent a figure.
+
 ## Context
 
 The dashboard answers a fixed set of questions well. The natural next feature looked like a

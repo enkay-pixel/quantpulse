@@ -202,3 +202,10 @@ export const useAttentionHistory = (ticker: string | null) =>
     enabled: ticker !== null,
     refetchInterval: 10 * REFRESH_MS,
   });
+
+export const useOptionBook = (exchange: string) =>
+  useQuery({
+    queryKey: ["option-book", exchange],
+    queryFn: () => api.optionBook(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });

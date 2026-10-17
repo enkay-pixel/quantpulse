@@ -2,6 +2,9 @@
 
 **Status**: accepted · **Date**: 2026-07-23
 
+**In short:** Everything is kept separate per stock market (New York, Johannesburg), so figures from
+one market are never mixed into the other's.
+
 ## Context
 
 The platform was NYSE-only. Adding a second market (the JSE) is not a config change: the

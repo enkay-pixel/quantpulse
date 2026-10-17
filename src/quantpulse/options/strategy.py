@@ -10,6 +10,8 @@ from typing import Literal
 
 # A signal is "actionable" only past this magnitude (21-day forward-return forecast).
 SIGNAL_THRESHOLD = 0.02
+#: How far out of the money the short leg sits, in the signal's direction: it caps the risk.
+SHORT_LEG_DISTANCE = 0.10
 
 Direction = Literal["bullish", "bearish", "neutral"]
 
@@ -46,6 +48,24 @@ def _nearest(strikes: list[float], target: float) -> float:
     return min(strikes, key=lambda s: abs(s - target))
 
 
+def spread_strikes(
+    direction: Direction, spot: float, strikes: list[float]
+) -> tuple[float, float] | None:
+    """(long strike, short strike) for a vertical spread in the signal's direction.
+
+    The long leg sits nearest the money; the short leg sits about SHORT_LEG_DISTANCE further out
+    in the signal's direction, which caps both the cost and the payoff. The one strike rule shared
+    by the Options tab's illustration and the paper options book (ADR 0008).
+    """
+    available = sorted(set(strikes))
+    if direction == "neutral" or len(available) < 2:
+        return None
+    long_strike = _nearest(available, spot)
+    target = spot * (1 + SHORT_LEG_DISTANCE if direction == "bullish" else 1 - SHORT_LEG_DISTANCE)
+    short_strike = _nearest([k for k in available if k != long_strike], target)
+    return long_strike, short_strike
+
+
 @dataclass(frozen=True)
 class ChainRow:
     strike: float
@@ -64,16 +84,11 @@ def build_idea(score: float, spot: float, chain: list[ChainRow]) -> OptionIdea |
         return None
 
     kind = "call" if direction == "bullish" else "put"
-    legs_available = sorted({c.strike for c in chain if c.option_type == kind})
-    if len(legs_available) < 2:
-        return None
     priced = {c.strike: c.price for c in chain if c.option_type == kind}
-
-    long_strike = _nearest(legs_available, spot)  # near the money
-    # Short leg ~10% further out in the signal's direction, to define risk.
-    target = spot * (1.10 if direction == "bullish" else 0.90)
-    candidates = [s for s in legs_available if s != long_strike]
-    short_strike = _nearest(candidates, target)
+    picked = spread_strikes(direction, spot, list(priced))
+    if picked is None:
+        return None
+    long_strike, short_strike = picked
     long_price = priced[long_strike]
     short_price = priced[short_strike]
 
