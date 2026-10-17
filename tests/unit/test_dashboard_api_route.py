@@ -39,7 +39,6 @@ def test_the_dashboard_starts_without_the_network_on_a_pinned_image() -> None:
     rebuild cannot swap the image underneath."""
     dockerfile = (ROOT / "docker" / "web.Dockerfile").read_text()
     serve = [line for line in dockerfile.splitlines() if line.startswith("FROM nginx")]
-    assert serve and all(re.match(r"FROM nginx:\d+\.\d+\.\d+-alpine$", line) for line in serve), (
-        serve
-    )
+    pinned = r"FROM nginx:\d+\.\d+\.\d+-alpine@sha256:[0-9a-f]{64}$"
+    assert serve and all(re.match(pinned, line) for line in serve), serve
     assert "rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh" in dockerfile
