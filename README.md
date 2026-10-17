@@ -91,6 +91,14 @@ At the bottom, implied volatility runs beside the volatility that then arrived o
 sessions — the [forward variance risk premium](docs/findings/forward-variance-risk-premium.md),
 which a day joins only once its window has closed.
 
+Below that is the **paper options book** ([ADR 0008](docs/adr/0008-options-book-the-signal-as-spreads.md)).
+It takes the model's monthly picks and holds them through limited-risk option spreads instead of
+shares: bull call spreads on the favoured stocks, bear put spreads on the rest. Fills are
+pessimistic, buying at the ask and selling at the bid, and only on quotes a trader could deal at.
+It sits beside the share book holding the same names over the same month. Its replay so far is
+one closed month, +1.0% against +2.0% as shares. That is far too little to tell the two apart,
+and the page says so.
+
 ## Positioning — where a squeeze would have fuel
 
 ![Positioning tab](docs/assets/positioning-tab.png)

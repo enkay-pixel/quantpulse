@@ -41,6 +41,10 @@ research_job = dg.define_asset_job(
     "research_job", selection=[qp_assets.short_interest, qp_assets.page_views]
 )
 
+# The paper options book (ADR 0008) runs apart too: it reads the evening's share book and option
+# chains, and nothing downstream of the model reads it.
+options_book_job = dg.define_asset_job("options_book_job", selection=[qp_assets.option_book])
+
 # Catch-up bounds: how far back to look for skipped sessions, and how many to request
 # per sensor tick (so a long sleep doesn't stampede the queue).
 LOOKBACK_DAYS = 30
@@ -120,6 +124,16 @@ research_schedule = dg.ScheduleDefinition(
     cron_schedule="0 7 * * 1-5",
     execution_timezone="America/New_York",
     name="daily_research_schedule",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
+)
+
+
+# Weekday evenings, New York time, after the processing run has rebuilt the share books.
+options_book_schedule = dg.ScheduleDefinition(
+    job=options_book_job,
+    cron_schedule="30 20 * * 1-5",
+    execution_timezone="America/New_York",
+    name="daily_options_book_schedule",
     default_status=dg.DefaultScheduleStatus.RUNNING,
 )
 
@@ -382,6 +396,7 @@ defs = dg.Definitions(
         qp_assets.champion_model,
         qp_assets.short_interest,
         qp_assets.page_views,
+        qp_assets.option_book,
         transform_dbt_assets,
     ],
     asset_checks=[
@@ -392,8 +407,14 @@ defs = dg.Definitions(
         qp_assets.champion_registry_agrees,
         qp_assets.resource_headroom,
     ],
-    jobs=[ingest_job, process_job, training_job, research_job],
-    schedules=[*ingest_schedules, process_schedule, training_schedule, research_schedule],
+    jobs=[ingest_job, process_job, training_job, research_job, options_book_job],
+    schedules=[
+        *ingest_schedules,
+        process_schedule,
+        training_schedule,
+        research_schedule,
+        options_book_schedule,
+    ],
     sensors=[
         drift_retrain_sensor,
         pipeline_failure_alert,

@@ -554,6 +554,63 @@ terms:
     label: Available
     meaning: Whether an illustration could be built — it needs a strong enough forecast and enough quoted strikes.
 
+  # --- the paper options book ---------------------------------------------------------------------
+  opened:
+    label: Opened
+    meaning: The day the spreads were bought — a rebalance day of the monthly share book.
+  exit_date:
+    label: Closed
+    meaning: The day the spreads were sold — the share book's next rebalance. Empty while still open.
+  spreads:
+    label: Spreads
+    meaning: How many option spreads the cohort holds.
+  skipped:
+    label: Could not trade
+    meaning: Names the share book held that the options book could not, each with the reason.
+  options_return:
+    label: Options book return
+    meaning: What the cohort's spreads made or lost, as a share of the options book's value when they were bought.
+    read: Each cohort risks a fixed tenth of the book, so this scales with that choice; compare return on premium too.
+  return_on_premium:
+    label: Return on what was paid
+    term: return on premium
+    meaning: What a spread made or lost, as a share of what it cost to open, commissions included.
+    read: -100% is the most a spread can lose. It does not depend on how much of the book was risked.
+  shares_return:
+    label: Same names held as shares
+    meaning: What the monthly share book, holding the same stocks over the same window, made or lost.
+  share_equity:
+    label: Monthly share book value
+    meaning: The monthly-rebalanced share book's value on the same scale as the options book, both starting at 1.0 on the options book's first day.
+  risk_budget:
+    label: Risked per cohort
+    meaning: The share of the options book's value each cohort spends on its spreads — the most a cohort can lose.
+  long_strike:
+    label: Bought strike
+    meaning: The strike of the option bought, nearest the stock's price when the spread opened.
+  short_strike:
+    label: Sold strike
+    meaning: The strike of the option sold, about 10% further out, which caps both the cost and the payoff.
+  entry_debit:
+    label: Cost to open
+    term: entry debit
+    meaning: What the spread cost per share — the bought option at its ask, less the sold option at its bid. A contract is 100 shares.
+  mark_value:
+    label: Value now
+    meaning: What closing the spread would raise per share — the bought option at its bid, less buying back the sold one at its ask.
+  mark_basis:
+    label: Valued from
+    meaning: Quote means that day's bid and ask. Last quote means one option's quote that day was missing or unreliable (no bid, or far too wide), so its last sound quote stands in. Intrinsic means no sound quote was ever seen, so it is valued at what it would pay out now. Settled means it expired.
+  mark_date:
+    label: Valued on
+    meaning: The day the value was taken.
+  cohorts:
+    label: Cohorts
+    meaning: One entry per group of spreads opened on the same day.
+  positions:
+    label: Spreads
+    meaning: One entry per name in the newest cohort, including any that could not be traded.
+
   # --- the volatility premium ----------------------------------------------------------------------
   implied:
     label: Priced-in swings
@@ -675,7 +732,7 @@ terms:
   # --- pipeline health ------------------------------------------------------------------------------------
   status:
     label: Status
-    meaning: Whether the service is working.
+    meaning: The item's state. For the service, whether it is working; for an options-book spread, open, closed, or skipped because it could not be traded.
   database:
     label: Database reachable
     meaning: Whether the service could read the database.

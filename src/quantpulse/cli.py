@@ -244,6 +244,18 @@ def _page_views() -> None:
     )
 
 
+def _options_book() -> None:
+    """Rebuild the paper options book by hand — what `options_book_job` does each evening."""
+    from quantpulse.data.calendar import EXCHANGES
+    from quantpulse.db import get_engine, get_session
+    from quantpulse.options.book import rebuild_option_book
+
+    for code, ex in sorted(EXCHANGES.items()):
+        if ex.has_options:
+            with get_session() as session:
+                logger.info("%s: %s", code, rebuild_option_book(get_engine(), session, code))
+
+
 def _demote(exchange: str, reason: str, version: str | None, dry_run: bool) -> None:
     """Withdraw a promotion and fall back to whatever stands behind it.
 
@@ -1140,6 +1152,7 @@ def main(argv: list[str] | None = None) -> None:
         "short-interest", help="Fetch short interest for the options-bearing names (research)"
     )
     sub.add_parser("page-views", help="Fetch Wikipedia page views for both markets (research)")
+    sub.add_parser("options-book", help="Rebuild the paper options book (ADR 0008)")
     options_snapshot = sub.add_parser(
         "options-snapshot", help="Snapshot live option chains for the universe"
     )
@@ -1261,6 +1274,8 @@ def main(argv: list[str] | None = None) -> None:
         _short_interest()
     elif args.command == "page-views":
         _page_views()
+    elif args.command == "options-book":
+        _options_book()
     elif args.command == "sensitivity":
         _sensitivity()
     elif args.command == "baseline":

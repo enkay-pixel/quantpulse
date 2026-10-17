@@ -388,6 +388,52 @@ class AttentionHistoryOut(BaseModel):
     days: list[AttentionDay]
 
 
+class OptionBookDayOut(BaseModel):
+    date: dt.date
+    equity: float
+    phase: str
+    share_equity: float | None
+
+
+class OptionBookCohortOut(BaseModel):
+    opened: dt.date
+    exit_date: dt.date | None
+    phase: str
+    spreads: int
+    skipped: int
+    options_return: float | None
+    return_on_premium: float | None
+    shares_return: float | None
+
+
+class OptionBookPositionOut(BaseModel):
+    ticker: str
+    side: str
+    status: str
+    note: str | None
+    option_type: str | None
+    expiry: dt.date | None
+    long_strike: float | None
+    short_strike: float | None
+    entry_debit: float | None
+    mark_value: float | None
+    mark_basis: str | None
+    mark_date: dt.date | None
+    return_on_premium: float | None
+
+
+class OptionBookOut(BaseModel):
+    """The paper options book (ADR 0008): its value day by day beside the share book it shadows,
+    each cohort's result, and the newest cohort's spreads — skipped names included, with why."""
+
+    exchange: str
+    live_since: dt.date
+    risk_budget: float
+    days: list[OptionBookDayOut]
+    cohorts: list[OptionBookCohortOut]
+    positions: list[OptionBookPositionOut]
+
+
 class QuintileStat(BaseModel):
     signal_quintile: int
     n_days: int
