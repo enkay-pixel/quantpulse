@@ -420,3 +420,47 @@ export interface AttentionHistoryOut {
   article: string | null;
   days: AttentionDay[];
 }
+
+/** The paper options book (ADR 0008): the forecasts held through spreads instead of shares. */
+export interface OptionBookDay {
+  date: string;
+  equity: number;
+  phase: string;
+  share_equity: number | null;
+}
+
+export interface OptionBookCohort {
+  opened: string;
+  exit_date: string | null;
+  phase: string;
+  spreads: number;
+  skipped: number;
+  options_return: number | null;
+  return_on_premium: number | null;
+  shares_return: number | null;
+}
+
+export interface OptionBookPosition {
+  ticker: string;
+  side: string;
+  status: string;
+  note: string | null;
+  option_type: string | null;
+  expiry: string | null;
+  long_strike: number | null;
+  short_strike: number | null;
+  entry_debit: number | null;
+  mark_value: number | null;
+  mark_basis: string | null;
+  mark_date: string | null;
+  return_on_premium: number | null;
+}
+
+export interface OptionBookOut {
+  exchange: string;
+  live_since: string;
+  risk_budget: number;
+  days: OptionBookDay[];
+  cohorts: OptionBookCohort[];
+  positions: OptionBookPosition[];
+}

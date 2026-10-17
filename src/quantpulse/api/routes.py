@@ -844,6 +844,82 @@ def attention_history(ticker: str, session: SessionDep) -> schemas.AttentionHist
     )
 
 
+@router.get("/options/book", response_model=schemas.OptionBookOut)
+def option_book(session: SessionDep, exchange: ExchangeDep) -> schemas.OptionBookOut:
+    """The paper options book: the model's forecasts held through limited-risk option spreads
+    instead of shares, priced every evening at the pessimistic side of each quote, beside the
+    21-day share book holding the same names over the same windows. Paper only, not advice."""
+    import bisect
+
+    from quantpulse.db import OptionBookDay, OptionBookPosition
+    from quantpulse.options import book as ob
+
+    positions = [
+        {c.name: getattr(p, c.name) for c in OptionBookPosition.__table__.columns}
+        for p in session.scalars(
+            select(OptionBookPosition)
+            .where(OptionBookPosition.book == ob.BOOK, OptionBookPosition.exchange == exchange)
+            .order_by(OptionBookPosition.opened, OptionBookPosition.ticker)
+        )
+    ]
+    days = session.scalars(
+        select(OptionBookDay)
+        .where(OptionBookDay.book == ob.BOOK, OptionBookDay.exchange == exchange)
+        .order_by(OptionBookDay.date)
+    ).all()
+    shares = session.execute(
+        select(PortfolioSnapshot.date, PortfolioSnapshot.equity)
+        .where(PortfolioSnapshot.exchange == exchange, PortfolioSnapshot.variant == ob.SHARE_BOOK)
+        .order_by(PortfolioSnapshot.date)
+    ).all()
+    dates = [row.date for row in shares]
+    equities = [row.equity for row in shares]
+
+    def share_value(day: dt.date | None) -> float | None:
+        # A share-book row already includes the next session's return, so the value at a day's
+        # close is the row before that day; with no day, the newest value there is.
+        if day is None:
+            return equities[-1] if equities else None
+        i = bisect.bisect_left(dates, day)
+        return equities[i - 1] if i else None
+
+    def share_return(opened: dt.date, closes: dt.date | None) -> float | None:
+        start, end = share_value(opened), share_value(closes)
+        return end / start - 1 if start and end else None
+
+    base = share_value(days[0].date) if days else None
+    newest = positions[-1]["opened"] if positions else None
+    return schemas.OptionBookOut(
+        exchange=exchange,
+        live_since=ob.LIVE_SINCE,
+        risk_budget=ob.RISK_BUDGET,
+        days=[
+            schemas.OptionBookDayOut(
+                date=d.date,
+                equity=d.equity,
+                phase=d.phase,
+                share_equity=(v / base if base and (v := share_value(d.date)) else None),
+            )
+            for d in days
+        ],
+        cohorts=[
+            schemas.OptionBookCohortOut(**c) for c in ob.summarize_cohorts(positions, share_return)
+        ],
+        positions=[
+            schemas.OptionBookPositionOut(
+                **{k: p[k] for k in schemas.OptionBookPositionOut.model_fields if k in p},
+                return_on_premium=(
+                    ob.return_on_premium(p["entry_debit"], p["mark_value"])
+                    if p["status"] != "skipped"
+                    else None
+                ),
+            )
+            for p in positions
+            if p["opened"] == newest
+        ],
+    )
+
+
 @router.get("/signals/quintiles", response_model=schemas.QuintilesOut)
 def signal_quintiles(session: SessionDep, exchange: ExchangeDep) -> schemas.QuintilesOut:
     """Whether the ranking works: the average next-day return of each fifth of the stocks, sorted

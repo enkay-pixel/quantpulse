@@ -172,6 +172,10 @@
     "label": "Market code",
     "meaning": "The exchange's standard four-letter code, such as XNYS or XJSE."
   },
+  "cohorts": {
+    "label": "Cohorts",
+    "meaning": "One entry per group of spreads opened on the same day."
+  },
   "conditions": {
     "label": "Reopen conditions",
     "meaning": "The checks that would bring the decision back for review, each evaluated on the current record."
@@ -271,6 +275,11 @@
     "label": "To",
     "meaning": "The last trading day included."
   },
+  "entry_debit": {
+    "label": "Cost to open",
+    "meaning": "What the spread cost per share — the bought option at its ask, less the sold option at its bid. A contract is 100 shares.",
+    "term": "entry debit"
+  },
   "equity": {
     "label": "Book value",
     "meaning": "The paper book's value, starting at 1.0. 1.10 means it is up 10%.",
@@ -284,6 +293,10 @@
     "label": "Market",
     "meaning": "Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE the Johannesburg Stock Exchange.",
     "term": "exchange"
+  },
+  "exit_date": {
+    "label": "Closed",
+    "meaning": "The day the spreads were sold — the share book's next rebalance. Empty while still open."
   },
   "expiries": {
     "label": "Expiries",
@@ -421,6 +434,10 @@
     "label": "Live window",
     "meaning": "The first and last trading day of the live record."
   },
+  "long_strike": {
+    "label": "Bought strike",
+    "meaning": "The strike of the option bought, nearest the stock's price when the spread opened."
+  },
   "low": {
     "label": "Low",
     "meaning": "The lowest traded price of the day."
@@ -439,6 +456,18 @@
     "label": "Price vs its 3-month average",
     "meaning": "How far the price sits above or below its average over the last 63 trading days.",
     "term": "ma_ratio_63"
+  },
+  "mark_basis": {
+    "label": "Valued from",
+    "meaning": "Quote means that day's bid and ask. Last quote means one option's quote that day was missing or unreliable (no bid, or far too wide), so its last sound quote stands in. Intrinsic means no sound quote was ever seen, so it is valued at what it would pay out now. Settled means it expired."
+  },
+  "mark_date": {
+    "label": "Valued on",
+    "meaning": "The day the value was taken."
+  },
+  "mark_value": {
+    "label": "Value now",
+    "meaning": "What closing the spread would raise per share — the bought option at its bid, less buying back the sold one at its ask."
   },
   "max_drawdown": {
     "label": "Worst fall",
@@ -524,9 +553,18 @@
     "meaning": "How many contracts exist and have not yet been closed or exercised.",
     "term": "open interest, OI"
   },
+  "opened": {
+    "label": "Opened",
+    "meaning": "The day the spreads were bought — a rebalance day of the monthly share book."
+  },
   "option_type": {
     "label": "Call or put",
     "meaning": "A call is the right to buy 100 shares at the strike price before expiry; a put is the right to sell them."
+  },
+  "options_return": {
+    "label": "Options book return",
+    "meaning": "What the cohort's spreads made or lost, as a share of the options book's value when they were bought.",
+    "read": "Each cohort risks a fixed tenth of the book, so this scales with that choice; compare return on premium too."
   },
   "outcome": {
     "label": "Outcome",
@@ -548,6 +586,10 @@
   "points": {
     "label": "Points",
     "meaning": "One entry per trading day."
+  },
+  "positions": {
+    "label": "Spreads",
+    "meaning": "One entry per name in the newest cohort, including any that could not be traded."
   },
   "premium": {
     "label": "Priced-in minus actual",
@@ -647,6 +689,16 @@
     "meaning": "Where the stock's past-week return ranks among all stocks in its market that day, from 0 to 1.",
     "term": "ret_5_cs_rank"
   },
+  "return_on_premium": {
+    "label": "Return on what was paid",
+    "meaning": "What a spread made or lost, as a share of what it cost to open, commissions included.",
+    "read": "-100% is the most a spread can lose. It does not depend on how much of the book was risked.",
+    "term": "return on premium"
+  },
+  "risk_budget": {
+    "label": "Risked per cohort",
+    "meaning": "The share of the options book's value each cohort spends on its spreads — the most a cohort can lose."
+  },
   "rolling_sharpe_63d": {
     "label": "Return per unit of risk, past 3 months",
     "meaning": "The Sharpe ratio over the most recent 63 trading days, recomputed each day.",
@@ -675,9 +727,17 @@
     "meaning": "The share of the 13 model inputs whose shift from training is above 0.20.",
     "read": "At 30% or more, the model is retrained early."
   },
+  "share_equity": {
+    "label": "Monthly share book value",
+    "meaning": "The monthly-rebalanced share book's value on the same scale as the options book, both starting at 1.0 on the options book's first day."
+  },
   "share_threshold": {
     "label": "Alarm level overall",
     "meaning": "The share of model inputs that must drift before the model is retrained early."
+  },
+  "shares_return": {
+    "label": "Same names held as shares",
+    "meaning": "What the monthly share book, holding the same stocks over the same window, made or lost."
   },
   "shares_short": {
     "label": "Shares sold short",
@@ -708,6 +768,10 @@
     "label": "Short interest settled",
     "meaning": "The date the short-interest figure describes. It is published a week or two later."
   },
+  "short_strike": {
+    "label": "Sold strike",
+    "meaning": "The strike of the option sold, about 10% further out, which caps both the cost and the payoff."
+  },
   "side": {
     "label": "Side",
     "meaning": "Long means bought, expecting a rise. Short means sold borrowed shares, expecting a fall."
@@ -723,6 +787,10 @@
     "meaning": "Each day the stocks are split into five equal groups by the model's forecast. 1 holds the strongest forecasts, 5 the weakest.",
     "term": "signal quintile"
   },
+  "skipped": {
+    "label": "Could not trade",
+    "meaning": "Names the share book held that the options book could not, each with the reason."
+  },
   "snapshot_date": {
     "label": "Captured on",
     "meaning": "The trading day whose after-close option prices were recorded.",
@@ -732,6 +800,10 @@
     "label": "Stock price",
     "meaning": "The stock's price when the option chain was captured, after the close.",
     "term": "spot"
+  },
+  "spreads": {
+    "label": "Spreads",
+    "meaning": "How many option spreads the cohort holds."
   },
   "start_date": {
     "label": "From",
@@ -743,7 +815,7 @@
   },
   "status": {
     "label": "Status",
-    "meaning": "Whether the service is working."
+    "meaning": "The item's state. For the service, whether it is working; for an options-book spread, open, closed, or skipped because it could not be traded."
   },
   "strike": {
     "label": "Strike price",
