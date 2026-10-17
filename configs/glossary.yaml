@@ -718,6 +718,90 @@ terms:
     label: Names
     meaning: The names on the research watchlist, both markets.
 
+  # --- research: ownership filings (SEC EDGAR) ----------------------------------------------------------
+  bought_usd_90d:
+    label: Insiders bought, 90 days
+    meaning: The dollar value of the company's stock its insiders bought on the open market in the past 90 days, from their Form 4 filings.
+    read: Buying with one's own money is rarer than selling and is the more telling of the two. Zero is normal.
+  sold_usd_90d:
+    label: Insiders sold, 90 days
+    meaning: The dollar value of the company's stock its insiders sold on the open market in the past 90 days.
+    read: Most insider selling is routine, to diversify or pay tax, and much of it is planned months ahead. Selling alone says little.
+  buyers_90d:
+    label: Insiders buying
+    meaning: How many different insiders bought on the open market in the past 90 days.
+    read: Several insiders buying at once is read as more telling than one.
+  sellers_90d:
+    label: Insiders selling
+    meaning: How many different insiders sold on the open market in the past 90 days.
+  planned_sold_share_90d:
+    label: Planned in advance
+    term: 10b5-1 share
+    meaning: The share of that selling, by value, the filers said was made under a trading plan set months in advance (Rule 10b5-1).
+    read: Planned sales are scheduled before the insider knows what the quarter holds, so they say less than unplanned ones.
+  last_trade_date:
+    label: Latest insider trade
+    meaning: The date of the newest open-market trade by an insider.
+  holders_over_5pct:
+    label: Holders over 5%
+    meaning: How many holders' latest Schedule 13D or 13G filing still reports 5% or more of the stock.
+  activist_holder:
+    label: Activist holder
+    term: 13D filer
+    meaning: Whether any of those holders filed a 13D, which a holder must use if it may seek to influence the company rather than hold passively.
+  top_holder:
+    label: Largest holder
+    meaning: The holder with the largest stake among those over 5%, as named on its filing.
+  top_holder_percent:
+    label: Largest stake
+    meaning: That holder's stake as a share of the stock outstanding, as reported on its latest filing.
+  trades:
+    label: Insider trades
+    meaning: Open-market trades by the company's insiders, newest first.
+  holders:
+    label: Holders over 5%
+    meaning: The holders whose latest 13D or 13G still reports 5% or more, largest first.
+  transaction_date:
+    label: Traded on
+    meaning: The day the insider's trade took place.
+  filed:
+    label: Filed
+    meaning: The day the filing reached the SEC and became public.
+  owner:
+    label: Insider
+    meaning: The person or entity who traded, as named on the Form 4.
+  role:
+    label: Role
+    meaning: The insider's relation to the company, such as chief executive, director or over-10% owner.
+  trade:
+    label: Trade
+    meaning: Whether the insider bought or sold on the open market.
+  shares_traded:
+    label: Shares
+    meaning: How many shares changed hands in the trade.
+  trade_price:
+    label: Price
+    meaning: The price per share the insider reported for the trade.
+  value_usd:
+    label: Value
+    meaning: Shares times price, in US dollars.
+  planned:
+    label: Planned
+    term: 10b5-1
+    meaning: Whether the insider said the trade was made under a plan set in advance. Blank on filings older than that question.
+  filer:
+    label: Holder
+    meaning: Who filed the stake disclosure, as named on it.
+  form:
+    label: Filing
+    meaning: Which disclosure it is. 13D is for a holder that may seek influence, 13G for a passive one; /A marks an amendment.
+  shares_held:
+    label: Shares held
+    meaning: The shares the holder reported owning.
+  percent:
+    label: Stake
+    meaning: The holding as a share of the stock outstanding, as the filer reported it.
+
   # --- decisions and findings ---------------------------------------------------------------------------
   decisions:
     label: Standing decisions

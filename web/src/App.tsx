@@ -17,6 +17,8 @@ import { IvSkewChart } from "./components/IvSkewChart";
 import { IvSurfaceChart } from "./components/IvSurfaceChart";
 import { ModelHistoryTable } from "./components/ModelHistoryTable";
 import { OptionChainTable } from "./components/OptionChainTable";
+import { OwnershipDetail } from "./components/OwnershipDetail";
+import { OwnershipTable } from "./components/OwnershipTable";
 import { OptionBookCard } from "./components/OptionBookCard";
 import { OptionIdeaCard } from "./components/OptionIdeaCard";
 import { PositioningTable } from "./components/PositioningTable";
@@ -52,6 +54,8 @@ import {
   useIvSurface,
   useOptionIdea,
   useOptionSummary,
+  useOwnership,
+  useOwnershipDetail,
   usePositioning,
   usePositions,
   usePredictions,
@@ -548,8 +552,40 @@ function PositioningTab({ exchange, hasOptions }: { exchange: string; hasOptions
           </p>
         </Section>
       )}
+      {hasOptions ? <OwnershipSections exchange={exchange} /> : null}
       <AttentionSections exchange={exchange} />
       <WatchlistSection exchange={exchange} />
+    </div>
+  );
+}
+
+// Ownership filings are a US requirement: a JSE company files with no US regulator, so the
+// section shows only where the squeeze sections do.
+function OwnershipSections({ exchange }: { exchange: string }) {
+  const ownership = useOwnership(exchange);
+  const [picked, setPicked] = useState<string | null>(null);
+  const top =
+    ownership.data?.rows.slice().sort((a, b) => b.bought_usd_90d - a.bought_usd_90d)[0]?.ticker ?? null;
+  const selected = picked ?? top;
+  const detail = useOwnershipDetail(selected);
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Section
+        title="Who inside the company is buying or selling?"
+        explain="From the filings US law requires: insiders must report each trade within two business days, and anyone holding over 5% must say so. Open-market trades only, not shares received as pay."
+      >
+        {ownership.data ? (
+          <OwnershipTable data={ownership.data} selected={selected} onSelect={setPicked} />
+        ) : (
+          <Placeholder height="h-96" />
+        )}
+      </Section>
+      <Section
+        title={selected ? `Large holders and insider trades — ${selected}` : "Large holders and insider trades"}
+        explain="Holders over 5% as of each one's latest filing, then every open-market insider trade of the past year, newest first. Planned means the insider said the trade was scheduled in advance."
+      >
+        {detail.data ? <OwnershipDetail data={detail.data} /> : <Placeholder height="h-64" />}
+      </Section>
     </div>
   );
 }

@@ -41,6 +41,9 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 | `watchlist` | ticker | The research watchlist (ADR 0007): names the research branch follows that the model does not, synced from `configs/watchlist.yaml` with the market, the kind, the Wikipedia title and a sentence on why each is followed. A universe ticker is refused |
 | `watchlist_prices` | (ticker, date) | Daily adjusted bars for the watchlist's names, from yfinance. Refetched in full each evening so a split or dividend adjustment lands; nothing trains on them. History stays when a name leaves the list |
 | `watchlist_option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | The watchlist's nightly option chains, in the universe's ±20% band, with the same columns as `option_quotes`. US names only. Accumulates forward |
+| `insider_transactions` | (accession, seq) | Trades in a company's stock by its directors, officers and over-10% owners, from Form 4 on SEC EDGAR (ADR 0007): who, their role, the SEC transaction code (P purchase, S sale, others grants, exercises and tax withholding), shares, price, and whether the filer said it was planned in advance (Rule 10b5-1; null on older forms). Insert-only; US stocks only |
+| `holder_filings` | accession | Stakes over 5%, from structured Schedules 13D (may seek influence) and 13G (passive) since December 2024: filer, shares, percent of the class. An amendment under 5% is an exit. Insert-only |
+| `edgar_filings` | accession | Every EDGAR filing the ownership fetch has read and its outcome: stored, about another company (a company's list holds its own stakes in others), or nothing to store. What stops a filing being fetched twice |
 | `option_book_positions` | (book, opened, ticker) | The paper options book's spreads (ADR 0008): one row per name the 21-session share book held at each rebalance — strikes, expiry, cost to open, latest value and what it was valued from (quote, last quote, intrinsic, settled). A name that could not be traded is a `skipped` row with the reason. Rebuilt in full nightly |
 | `held_option_quotes` | (snapshot_date, ticker, expiry, strike, option_type) | Both legs of every open spread in the paper options book, captured each night at any strike (ADR 0008), with the same columns as `option_quotes`. Taken from the same download, so the two agree wherever both hold a contract. Kept apart so the ±20% band in `option_quotes` is unchanged for everything that reads it. Accumulates forward from 2026-10-19 |
 | `option_book_daily` | (book, date) | The options book's value on each snapshot day, starting at 1.0, with its cash and replay/live phase. Rebuilt in full nightly |
@@ -48,9 +51,9 @@ Python, so a DB CHECK would duplicate that and force a migration on every new ma
 
 Every `ticker` column (`prices`, `features`, `predictions`, `option_quotes`) is a foreign
 key to `universe.ticker` (`ON DELETE RESTRICT`), so no derived row can point at a ticker the
-platform doesn't know. `short_interest`, `page_views` and the `watchlist` tables are the deliberate
-exceptions: research tickers must be addable without entering the model's training universe
-(ADR 0007).
+platform doesn't know. `short_interest`, `page_views`, the `watchlist` tables and the ownership
+tables are the deliberate exceptions: research tickers must be addable without entering the
+model's training universe (ADR 0007).
 
 ## `analytics` schema (dbt-managed — see `transform/`)
 

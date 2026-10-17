@@ -335,3 +335,36 @@ models:
           - dbt_utils.expression_is_true:
               arguments:
                 expression: ">= 0"
+
+  - name: fct_ownership
+    description: >
+      Per covered US stock, as of the newest filing: open-market insider buying and selling over
+      90 days, and the holders whose latest 13D/13G still reports 5% or more (ADR 0007).
+    columns:
+      - name: ticker
+        tests: [unique, not_null]
+      - name: followed_by
+        tests: [not_null]
+      - name: planned_sold_share_90d
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "between 0 and 1"
+
+  - name: fct_insider_trades
+    description: >
+      Open-market insider trades from Form 4, bought or sold: the one definition the ownership
+      summary and the per-stock list read (ADR 0007).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [accession, seq]
+
+  - name: fct_large_holders
+    description: >
+      Each filer's latest structured 13D/13G in the past two years that still reports 5% or more;
+      an amendment under 5% is an exit (ADR 0007).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, filer]

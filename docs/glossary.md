@@ -9,6 +9,11 @@ not this one. The dashboard shows the same text when you hover a label.
 `active` · Whether the ticker is still tracked. Inactive tickers keep their history but get no new
 data.
 
+## Activist holder — 13D filer
+
+`activist_holder` · Whether any of those holders filed a 13D, which a holder must use if it may seek
+to influence the company rather than hold passively.
+
 ## Alarm level overall
 
 `share_threshold` · The share of model inputs that must drift before the model is retrained early.
@@ -287,6 +292,15 @@ details are kept.
 
 `expiry` · The last day the option can be used. After it, the option is worth only what it pays out.
 
+## Filed
+
+`filed` · The day the filing reached the SEC and became public.
+
+## Filing
+
+`form` · Which disclosure it is. 13D is for a holder that may seek influence, 13G for a passive one;
+/A marks an amendment.
+
 ## Findings
 
 `findings` · Measurements this project has made, each with its question and what came back.
@@ -323,6 +337,19 @@ holds the strongest forecasts, 5 the weakest.
 
 `history` · One entry per capture day.
 
+## Holder
+
+`filer` · Who filed the stake disclosure, as named on it.
+
+## Holders over 5% (`holders_over_5pct`)
+
+`holders_over_5pct` · How many holders' latest Schedule 13D or 13G filing still reports 5% or more
+of the stock.
+
+## Holders over 5% (`holders`)
+
+`holders` · The holders whose latest 13D or 13G still reports 5% or more, largest first.
+
 ## How fast that changes — gamma, Γ
 
 `gamma` · How much the delta changes for a $1 move in the stock.
@@ -344,6 +371,40 @@ scale as the book.
 
 **How to read it:** At 30% or more, the model is retrained early.
 
+## Insider
+
+`owner` · The person or entity who traded, as named on the Form 4.
+
+## Insider trades
+
+`trades` · Open-market trades by the company's insiders, newest first.
+
+## Insiders bought, 90 days
+
+`bought_usd_90d` · The dollar value of the company's stock its insiders bought on the open market in
+the past 90 days, from their Form 4 filings.
+
+**How to read it:** Buying with one's own money is rarer than selling and is the more telling of the
+two. Zero is normal.
+
+## Insiders buying
+
+`buyers_90d` · How many different insiders bought on the open market in the past 90 days.
+
+**How to read it:** Several insiders buying at once is read as more telling than one.
+
+## Insiders selling
+
+`sellers_90d` · How many different insiders sold on the open market in the past 90 days.
+
+## Insiders sold, 90 days
+
+`sold_usd_90d` · The dollar value of the company's stock its insiders sold on the open market in the
+past 90 days.
+
+**How to read it:** Most insider selling is routine, to diversify or pay tax, and much of it is
+planned months ahead. Selling alone says little.
+
 ## Job
 
 `job_name` · Which scheduled pipeline job failed.
@@ -351,6 +412,15 @@ scale as the book.
 ## Kind
 
 `asset_type` · Whether the ticker is a company's stock or a fund (ETF) that holds many stocks.
+
+## Largest holder
+
+`top_holder` · The holder with the largest stake among those over 5%, as named on its filing.
+
+## Largest stake
+
+`top_holder_percent` · That holder's stake as a share of the stock outstanding, as reported on its
+latest filing.
 
 ## Last traded price
 
@@ -363,6 +433,10 @@ scale as the book.
 ## Latest forecast — 21-day signal
 
 `latest_score` · The model's most recent predicted 21-day return for the stock.
+
+## Latest insider trade
+
+`last_trade_date` · The date of the newest open-market trade by an insider.
 
 ## Latest options capture
 
@@ -562,13 +636,30 @@ description of the fit, not evidence. Live means genuinely out-of-sample.
 
 `phases` · One entry per phase — the replay and the live record.
 
+## Planned — 10b5-1
+
+`planned` · Whether the insider said the trade was made under a plan set in advance. Blank on
+filings older than that question.
+
+## Planned in advance — 10b5-1 share
+
+`planned_sold_share_90d` · The share of that selling, by value, the filers said was made under a
+trading plan set months in advance (Rule 10b5-1).
+
+**How to read it:** Planned sales are scheduled before the insider knows what the quarter holds, so
+they say less than unplanned ones.
+
 ## Points
 
 `points` · One entry per trading day.
 
-## Price
+## Price (`price`)
 
 `price` · The leg's price per share, at the midpoint where quotable. A contract is 100 shares.
+
+## Price (`trade_price`)
+
+`trade_price` · The price per share the insider reported for the trade.
 
 ## Price divisor
 
@@ -720,6 +811,10 @@ Withheld under 20 trading days, where it is noise.
 `risk_budget` · The share of the options book's value each cohort spends on its spreads — the most a
 cohort can lose.
 
+## Role
+
+`role` · The insider's relation to the company, such as chief executive, director or over-10% owner.
+
 ## Rows
 
 `rows` · One entry per stock.
@@ -766,6 +861,14 @@ lost.
 per share of the contract, it behaves like.
 
 **How to read it:** Calls 0 to 1, puts -1 to 0. Near ±0.5 is at the money.
+
+## Shares
+
+`shares_traded` · How many shares changed hands in the trade.
+
+## Shares held
+
+`shares_held` · The shares the holder reported owning.
 
 ## Shares sold short — short interest
 
@@ -817,6 +920,10 @@ the payoff.
 ## Spreads (`positions`)
 
 `positions` · One entry per name in the newest cohort, including any that could not be traded.
+
+## Stake
+
+`percent` · The holding as a share of the stock outstanding, as the filer reported it.
 
 ## Standing decisions
 
@@ -882,6 +989,14 @@ yearly scale.
 
 `total_return` · The book's gain or loss over the whole period.
 
+## Trade
+
+`trade` · Whether the insider bought or sold on the open market.
+
+## Traded on
+
+`transaction_date` · The day the insider's trade took place.
+
 ## Trades every — rebalance interval
 
 `rebalance_days` · How many trading days the book holds its positions before re-forming them.
@@ -901,6 +1016,10 @@ yearly scale.
 ## Usual views a day — 90-day median
 
 `baseline_90d` · The middle value of daily page views over the 90 days before that week.
+
+## Value
+
+`value_usd` · Shares times price, in US dollars.
 
 ## Value now
 

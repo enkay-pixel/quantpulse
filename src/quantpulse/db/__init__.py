@@ -3,8 +3,11 @@
 from quantpulse.db.base import Base
 from quantpulse.db.models import (
     DriftMetric,
+    EdgarFiling,
     Feature,
     HeldOptionQuote,
+    HolderFiling,
+    InsiderTransaction,
     ModelRun,
     OptionBookDay,
     OptionBookPosition,
@@ -25,8 +28,11 @@ from quantpulse.db.session import get_engine, get_session
 __all__ = [
     "Base",
     "DriftMetric",
+    "EdgarFiling",
     "Feature",
     "HeldOptionQuote",
+    "HolderFiling",
+    "InsiderTransaction",
     "ModelRun",
     "OptionBookDay",
     "OptionBookPosition",

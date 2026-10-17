@@ -74,7 +74,8 @@ Four existing constraints apply:
 - A research watchlist beyond the model's universe, such as names with high short interest. This
   needs its own chain capture.
 - Attention, from the Wikipedia pageviews API (free).
-- Ownership and insider activity, from SEC EDGAR filings: Forms 4, 13F and 13D/G (free).
+- Ownership and insider activity, from SEC EDGAR filings: Forms 4, 13F and 13D/G (free). Forms 4
+  and 13D/G built; see the amendment below.
 - Fundamentals, from EDGAR's XBRL company facts (free).
 - The advisor brief: one page per holding or idea, covering the evidence, the case for and against,
   the risks, and questions to ask.
@@ -155,3 +156,37 @@ own, weekday evenings after the close.
 **Marked everywhere it appears.** The marts read both sources through one list of research names,
 and every row says who follows it, the model or the watchlist. The Positioning tab tags watchlist
 names and lists each with its reason.
+
+## Amendment, 2026-10-17: ownership filings from SEC EDGAR
+
+**Two kinds of filing, US stocks only.** Company insiders (directors, officers, over-10% owners)
+must report each trade on Form 4 within two business days, and anyone holding over 5% must disclose
+it on Schedule 13D (if they may seek influence) or 13G (if passive). Both come from EDGAR, free,
+for the universe's US stocks and the watchlist's. A JSE company files with no US regulator, so the
+section does not show there.
+
+- **Open-market trades only count as buying and selling.** Grants, option exercises and shares
+  withheld for tax are pay mechanics. Most insider selling is routine, and much of it is planned
+  months ahead under Rule 10b5-1; the filer's own answer to that question is stored and shown.
+  Buying with one's own money on the open market is the rarer act, and the page reads it that way.
+- **Stakes come from the structured schedules only**, in use since December 2024. Older 13D/G
+  filings are free text, and a percentage read from prose would be wrong too often to show. A
+  holder's latest filing decides: an amendment under 5% is an exit.
+- **13F fund holdings are left out.** Finding one stock's holders means reading every fund
+  manager's filing each quarter, thousands of documents, for a figure 45 days stale.
+
+**A company's filing list is not only about the company.** Probed on 2026-10-17, GameStop's list
+held its own 13D on a stake in another company, and NVIDIA's held 13Gs on its stakes in others;
+read naively, each company would appear as its own largest holder. A filing is kept only when the
+issuer it names is the company whose list it came from. Every filing read is logged with its
+outcome, so none is fetched twice.
+
+**EDGAR asks every automated caller for a contact**, and refuses requests without one. The contact
+is a local setting, `QUANTPULSE_SEC_CONTACT`, kept out of the repository because it is public; the
+fetch fails by name when it is missing, rather than collecting refusals.
+
+**What it showed first:** GameStop's chief executive, Ryan Cohen, bought about $130M of its stock
+on the open market in the two years to October 2026: about $11M in April 2025, $22M in January
+2026 and about $100M from September, while his reported stake rose from 8.3% on 3 September to
+9.1% on 13 October. That is the kind of evidence this branch exists to show, beside its limit: an
+insider's buying says what they chose to do, not what the stock will do.

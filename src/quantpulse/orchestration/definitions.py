@@ -38,7 +38,8 @@ training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion
 # The research branch (ADR 0007) runs apart from the pipeline: nothing it fetches is a model
 # input, so a failure here must never hold up an ingest or a retrain.
 research_job = dg.define_asset_job(
-    "research_job", selection=[qp_assets.short_interest, qp_assets.page_views]
+    "research_job",
+    selection=[qp_assets.short_interest, qp_assets.page_views, qp_assets.ownership],
 )
 
 # The research watchlist (ADR 0007): names the model does not follow, in a job of their own for
@@ -420,6 +421,7 @@ defs = dg.Definitions(
         qp_assets.champion_model,
         qp_assets.short_interest,
         qp_assets.page_views,
+        qp_assets.ownership,
         qp_assets.watchlist,
         qp_assets.watchlist_prices,
         qp_assets.watchlist_chains,

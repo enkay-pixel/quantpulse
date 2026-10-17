@@ -433,6 +433,91 @@ class WatchlistOptionQuote(_QuoteColumns, Base):
     )
 
 
+class EdgarFiling(Base):
+    """Every EDGAR filing the ownership fetch has read, and what came of it (ADR 0007).
+
+    A company's filing list also holds filings it makes about other companies — its own stakes in
+    them — and Form 4s with nothing in common stock. Those are read once, logged here with their
+    outcome, and never fetched again; the next run fetches only accessions not in this table.
+    """
+
+    __tablename__ = "edgar_filings"
+
+    accession: Mapped[str] = mapped_column(String(25), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(16))
+    form: Mapped[str] = mapped_column(String(16))
+    filed: Mapped[dt.date] = mapped_column(Date)
+    outcome: Mapped[str] = mapped_column(String(16))  # 'stored' | 'other issuer' | 'nothing'
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('stored', 'other issuer', 'nothing')", name="edgar_filing_outcome_valid"
+        ),
+        Index("ix_edgar_filings_ticker", "ticker"),
+    )
+
+
+class InsiderTransaction(Base):
+    """One trade in a company's stock by one of its insiders, from a Form 4 on SEC EDGAR (ADR 0007).
+
+    Directors, officers and over-10% owners must report each trade within two business days.
+    `code` is the SEC's transaction code: P an open-market purchase, S an open-market sale, others
+    grants, exercises and tax withholding. `planned` is the filer's own statement that the trade
+    was made under a plan set in advance (Rule 10b5-1); null on forms older than that field.
+    Insert-only by (accession, seq): a filing never changes, and an amendment is its own filing.
+    """
+
+    __tablename__ = "insider_transactions"
+
+    accession: Mapped[str] = mapped_column(String(25), primary_key=True)
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(16))
+    form: Mapped[str] = mapped_column(String(8))
+    filed: Mapped[dt.date] = mapped_column(Date)
+    owner: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(200))
+    planned: Mapped[bool | None] = mapped_column(Boolean)
+    transaction_date: Mapped[dt.date] = mapped_column(Date)
+    code: Mapped[str] = mapped_column(String(2))
+    shares: Mapped[float] = mapped_column(Float)
+    price: Mapped[float | None] = mapped_column(Float)
+    acquired: Mapped[str | None] = mapped_column(String(1))  # 'A' acquired | 'D' disposed
+    shares_after: Mapped[float | None] = mapped_column(Float)
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_insider_transactions_ticker_date", "ticker", "transaction_date"),)
+
+
+class HolderFiling(Base):
+    """A disclosure of a stake over 5% in a company, from a Schedule 13D or 13G (ADR 0007).
+
+    13D is filed by a holder who may seek to influence the company, 13G by a passive one. Only the
+    structured form in use since December 2024 is stored, since a percentage read from free text
+    would too often be wrong. An exit is a filing too: an amendment reporting under 5%.
+    """
+
+    __tablename__ = "holder_filings"
+
+    accession: Mapped[str] = mapped_column(String(25), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(16))
+    form: Mapped[str] = mapped_column(String(16))
+    filed: Mapped[dt.date] = mapped_column(Date)
+    event_date: Mapped[dt.date | None] = mapped_column(Date)
+    filer: Mapped[str] = mapped_column(String(200))
+    shares: Mapped[float | None] = mapped_column(Float)
+    percent: Mapped[float | None] = mapped_column(Float)
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_holder_filings_ticker_filed", "ticker", "filed"),)
+
+
 class PipelineAlert(Base):
     """Pipeline failures, recorded by the Dagster run-failure sensor.
 

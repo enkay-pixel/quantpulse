@@ -188,6 +188,21 @@ export const useGammaProfile = (ticker: string | null) =>
     refetchInterval: 10 * REFRESH_MS,
   });
 
+export const useOwnership = (exchange: string) =>
+  useQuery({
+    queryKey: ["ownership", exchange],
+    queryFn: () => api.ownership(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
+export const useOwnershipDetail = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["ownership-detail", ticker],
+    queryFn: () => api.ownershipDetail(ticker as string),
+    enabled: ticker !== null,
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
 export const useWatchlist = () =>
   useQuery({
     queryKey: ["watchlist"],

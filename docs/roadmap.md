@@ -442,9 +442,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     The Positioning tab (2026-10-16) shows short interest and option hedging exposure for the
     NYSE names already captured, and Wikipedia attention for both markets. A research watchlist
     beyond the model's universe (2026-10-17, GameStop and AMC to start) has its own bars and chain
-    capture. Each further piece is its own decision. The candidates: ownership and insider
-    activity from SEC EDGAR (Forms 4, 13F, 13D/G); and an advisor brief, one page per holding or
-    idea, written to be discussed with a licensed advisor. All of it is free data, and none of
+    capture. Ownership from SEC EDGAR (2026-10-17) adds insider trades (Form 4) and stakes over
+    5% (13D/G) for US stocks; 13F fund holdings are left out, since finding one stock's holders
+    means reading every fund's filing each quarter. Each further piece is its own decision. The
+    candidate left: an advisor brief, one page per holding or idea, written to be discussed with a
+    licensed advisor. All of it is free data, and none of
     it becomes a model input without a pre-registered measurement after the shadow verdict.
 11. **The paper options book** ([ADR 0008](adr/0008-options-book-the-signal-as-spreads.md)) runs
     from 2026-10-19 live; the cohorts before are replay. A cohort is a month, so it takes years to

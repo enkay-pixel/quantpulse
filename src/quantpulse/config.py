@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     quantpulse_option_moneyness: float = 0.2  # keep strikes within ±20% of spot
     quantpulse_risk_free_rate: float = 0.04  # for Black-Scholes Greeks
 
+    #: Who to contact about this tool's requests: SEC EDGAR's fair-access policy requires it in
+    #: the User-Agent. Set in the local .env only, since the repository is public; unset, the
+    #: ownership fetch fails with a message naming this setting.
+    quantpulse_sec_contact: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

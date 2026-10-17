@@ -480,3 +480,53 @@ export interface WatchlistName {
 export interface WatchlistOut {
   names: WatchlistName[];
 }
+
+/** One US stock's insider trading over 90 days and its holders over 5%, from SEC EDGAR. */
+export interface OwnershipRow {
+  ticker: string;
+  followed_by: string;
+  bought_usd_90d: number;
+  sold_usd_90d: number;
+  buyers_90d: number;
+  sellers_90d: number;
+  planned_sold_share_90d: number | null;
+  last_trade_date: string | null;
+  holders_over_5pct: number;
+  activist_holder: boolean;
+  top_holder: string | null;
+  /** In percent, as the filing reports it: 9.1 is 9.1%. */
+  top_holder_percent: number | null;
+}
+
+export interface OwnershipOut {
+  exchange: string;
+  as_of: string | null;
+  rows: OwnershipRow[];
+}
+
+export interface InsiderTrade {
+  transaction_date: string;
+  filed: string;
+  owner: string;
+  role: string;
+  trade: "bought" | "sold";
+  shares_traded: number;
+  trade_price: number;
+  value_usd: number;
+  planned: boolean | null;
+}
+
+export interface HolderStake {
+  filer: string;
+  form: string;
+  filed: string;
+  shares_held: number | null;
+  /** In percent, as the filing reports it. */
+  percent: number;
+}
+
+export interface OwnershipDetailOut {
+  ticker: string;
+  trades: InsiderTrade[];
+  holders: HolderStake[];
+}

@@ -80,7 +80,8 @@ def db_engine(test_db_url: str) -> Iterator[Engine]:
                 "TRUNCATE prices, features, predictions, model_runs, drift_metrics, "
                 "portfolio_snapshots, option_quotes, pipeline_alerts, short_interest, page_views, "
                 "option_book_positions, option_book_daily, held_option_quotes, watchlist, "
-                "watchlist_prices, watchlist_option_quotes, "
+                "watchlist_prices, watchlist_option_quotes, insider_transactions, holder_filings, "
+                "edgar_filings, "
                 "universe "
                 "RESTART IDENTITY CASCADE"
             )
