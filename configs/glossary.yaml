@@ -16,7 +16,7 @@ terms:
   exchange:
     label: Market
     term: exchange
-    meaning: Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE the Johannesburg Stock Exchange.
+    meaning: Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE the Johannesburg Stock Exchange, XLON the London Stock Exchange.
   code:
     label: Market code
     meaning: The exchange's standard four-letter code, such as XNYS or XJSE.

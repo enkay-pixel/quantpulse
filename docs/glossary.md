@@ -545,7 +545,7 @@ genuinely out-of-sample.
 ## Market — exchange
 
 `exchange` · Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE
-the Johannesburg Stock Exchange.
+the Johannesburg Stock Exchange, XLON the London Stock Exchange.
 
 ## Market code
 

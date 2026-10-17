@@ -37,9 +37,14 @@ class FakeWiki:
 
 def test_every_configured_title_loads_as_a_string() -> None:
     titles = load_titles(PROJECT_ROOT / "configs/attention.yaml")
-    assert len(titles) == 68
+    by_market = {
+        "XJSE": [k for k in titles if k.endswith(".JO")],
+        "XLON": [k for k in titles if k.endswith(".L")],
+        "XNYS": [k for k in titles if "." not in k or k == "BRK-B"],
+    }
+    # Every stock in each market has a title; a drop here is a title lost, not a count to update.
+    assert {m: len(v) for m, v in by_market.items()} == {"XJSE": 28, "XLON": 40, "XNYS": 40}
     assert all(isinstance(t, str) and t for t in titles.values())
-    assert any(k.endswith(".JO") for k in titles), "the JSE is missing from the attention map"
 
 
 def test_titles_with_ampersands_and_spaces_survive_the_url() -> None:

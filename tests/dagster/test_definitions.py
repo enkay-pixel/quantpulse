@@ -5,6 +5,7 @@ import datetime as dt
 import pytest
 
 import dagster as dg
+from quantpulse.data.calendar import EXCHANGES
 from quantpulse.orchestration.definitions import defs
 
 
@@ -88,7 +89,7 @@ def test_raw_prices_is_partitioned_by_date_and_exchange() -> None:
     assert set(dims) == {"date", "exchange"}
     assert isinstance(dims["date"], dg.DailyPartitionsDefinition)
     assert dims["date"].timezone == "America/New_York"
-    assert set(dims["exchange"].get_partition_keys()) == {"XNYS", "XJSE"}
+    assert set(dims["exchange"].get_partition_keys()) == set(EXCHANGES)
 
 
 def test_each_market_ingests_in_its_own_timezone() -> None:

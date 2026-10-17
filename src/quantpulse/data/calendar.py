@@ -92,7 +92,19 @@ XJSE = Exchange(
     learning_rate_ceiling=0.02,  # the tuner overshoots on this market; see the finding
 )
 
-EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE)}
+XLON = Exchange(
+    code="XLON",
+    timezone="Europe/London",
+    close_hour=17,  # the session ends 16:30; the first whole hour after it
+    currency="GBp",  # pence: a 1428 quote is £14.28
+    benchmark="ISF.L",  # iShares Core FTSE 100
+    has_options=False,  # no free London chain data
+    display_divisor=100.0,
+    display_symbol="£",
+    quantile_width=0.25,  # 40 names -> 10 per side, matching the other markets
+)
+
+EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE, XLON)}
 DEFAULT_EXCHANGE = XNYS.code
 
 
