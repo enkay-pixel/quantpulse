@@ -4,6 +4,7 @@ from quantpulse.db.base import Base
 from quantpulse.db.models import (
     DriftMetric,
     Feature,
+    HeldOptionQuote,
     ModelRun,
     OptionBookDay,
     OptionBookPosition,
@@ -22,6 +23,7 @@ __all__ = [
     "Base",
     "DriftMetric",
     "Feature",
+    "HeldOptionQuote",
     "ModelRun",
     "OptionBookDay",
     "OptionBookPosition",

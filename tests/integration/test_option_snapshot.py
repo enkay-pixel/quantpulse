@@ -21,7 +21,9 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from quantpulse.data.universe import UniverseEntry, sync_universe
+from quantpulse.db import OptionBookPosition
 from quantpulse.options import ingest
+from quantpulse.options.book import DbMarket, held_contracts
 from quantpulse.options.ingest import OffHoursSnapshotError, snapshot_option_chains
 
 pytestmark = pytest.mark.integration
@@ -54,7 +56,8 @@ def factory(db_engine: Engine, monkeypatch: pytest.MonkeyPatch):  # type: ignore
                     "impliedVolatility": 0.33,
                     "inTheMoney": (strike < 100.0 if kind == "call" else strike > 100.0),
                 }
-                for strike in (95.0, 100.0, 105.0)
+                # 130 lies outside the ±20% band, so only a held contract keeps it.
+                for strike in (95.0, 100.0, 105.0, 130.0)
             ]
         )
 
@@ -187,3 +190,77 @@ def test_the_stamped_date_is_the_exchange_date(factory, monkeypatch: pytest.Monk
             r[0] for r in conn.execute(text("SELECT DISTINCT snapshot_date FROM option_quotes"))
         }
     assert dates == {dt.date(2026, 8, 12)}
+
+
+def _held(engine: Engine) -> set[tuple[str, float, str]]:
+    with engine.connect() as conn:
+        return {
+            (r.ticker, r.strike, r.option_type)
+            for r in conn.execute(
+                text("SELECT ticker, strike, option_type FROM held_option_quotes")
+            )
+        }
+
+
+def test_a_held_contract_is_kept_outside_the_band_and_only_in_its_own_table(factory) -> None:  # type: ignore[no-untyped-def]
+    """The options book's held strikes are kept at any distance from spot, so a spread is never
+    marked at a stale quote just because the stock moved. They go to their own table: the band
+    in `option_quotes` is what the IV surface, positioning and completeness checks all read."""
+    make_session, engine = factory
+    held = {"AAA": {(EXPIRY, 130.0, "call"), (EXPIRY, 105.0, "call")}}
+    snapshot_option_chains(make_session, TICKERS, snapshot_date=SNAP, held=held)
+
+    assert _held(engine) == {("AAA", 130.0, "call"), ("AAA", 105.0, "call")}
+    with engine.connect() as conn:
+        strikes = {r[0] for r in conn.execute(text("SELECT DISTINCT strike FROM option_quotes"))}
+    assert 130.0 not in strikes, "the band must stay the band"
+
+
+def test_a_held_contract_missing_from_the_chain_is_reported_not_invented(
+    factory, caplog: pytest.LogCaptureFixture
+) -> None:  # type: ignore[no-untyped-def]
+    make_session, engine = factory
+    gone = (EXPIRY + dt.timedelta(days=7), 100.0, "put")
+    snapshot_option_chains(make_session, TICKERS, snapshot_date=SNAP, held={"BBB": {gone}})
+    assert _held(engine) == set()
+    assert "held contracts not in the chain" in caplog.text
+
+
+def test_the_book_reads_a_held_strike_the_band_dropped(factory) -> None:  # type: ignore[no-untyped-def]
+    make_session, engine = factory
+    snapshot_option_chains(
+        make_session, TICKERS, snapshot_date=SNAP, held={"AAA": {(EXPIRY, 130.0, "call")}}
+    )
+    legs = DbMarket(engine, "XNYS").legs(
+        [("AAA", EXPIRY, 130.0, "call"), ("AAA", EXPIRY, 100.0, "call")], SNAP, SNAP
+    )
+    assert sorted(legs["strike"]) == [100.0, 130.0], "one from each table, no duplicates"
+
+
+def test_held_contracts_are_both_legs_of_the_open_spreads_only(db_engine: Engine) -> None:
+    def spread(ticker: str, status: str, **kw: object) -> OptionBookPosition:
+        return OptionBookPosition(
+            book="spread_horizon",
+            opened=SNAP,
+            ticker=ticker,
+            exchange="XNYS",
+            side="long",
+            phase="live",
+            status=status,
+            **kw,
+        )
+
+    legs = {"option_type": "call", "expiry": EXPIRY, "long_strike": 100.0, "short_strike": 110.0}
+    with Session(db_engine) as session:
+        sync_universe(session, [UniverseEntry(t, "stock") for t in TICKERS])
+        session.add_all(
+            [
+                spread("AAA", "open", **legs),
+                spread("BBB", "closed", **legs),
+                spread("CCC", "skipped", note="fewer than two liquid strikes"),
+            ]
+        )
+        session.commit()
+        assert held_contracts(session) == {
+            "AAA": {(EXPIRY, 100.0, "call"), (EXPIRY, 110.0, "call")}
+        }

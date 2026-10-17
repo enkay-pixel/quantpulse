@@ -389,15 +389,35 @@ def option_chains() -> dg.MaterializeResult:
     Only markets with `has_options` are snapshotted: no free JSE chain data exists from
     any vendor we can use, so this stays a US-only layer by necessity.
     """
+    from sqlalchemy import func, select
+
+    from quantpulse.data.calendar import market_today
     from quantpulse.data.universe import options_tickers
+    from quantpulse.db import HeldOptionQuote
+    from quantpulse.options.book import held_contracts
     from quantpulse.options.ingest import snapshot_option_chains
 
     with get_session() as session:
         tickers = options_tickers(session)
+        # The paper options book's open spreads, kept at any strike (ADR 0008).
+        held = held_contracts(session)
     if not tickers:
         return dg.MaterializeResult(metadata={"quotes": 0, "note": "no options-bearing market"})
-    rows = snapshot_option_chains(get_session, tickers)  # commits per ticker
-    return dg.MaterializeResult(metadata={"quotes": rows, "tickers": len(tickers)})
+    rows = snapshot_option_chains(get_session, tickers, held=held)  # commits per ticker
+    with get_session() as session:
+        kept = session.scalar(
+            select(func.count())
+            .select_from(HeldOptionQuote)
+            .where(HeldOptionQuote.snapshot_date == market_today())
+        )
+    return dg.MaterializeResult(
+        metadata={
+            "quotes": rows,
+            "tickers": len(tickers),
+            "held_contracts": sum(len(c) for c in held.values()),
+            "held_quotes": kept or 0,
+        }
+    )
 
 
 @dg.asset(group_name="research", kinds={"python", "postgres"})
