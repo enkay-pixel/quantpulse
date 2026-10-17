@@ -16,6 +16,7 @@ class Health(BaseModel):
 
 class UniverseMemberOut(BaseModel):
     ticker: str
+    exchange: str
     asset_type: str
     active: bool
 
@@ -443,6 +444,42 @@ class OwnershipDetailOut(BaseModel):
     ticker: str
     trades: list[InsiderTrade]
     holders: list[HolderStake]
+
+
+class BriefName(BaseModel):
+    ticker: str
+    name: str | None
+    followed_by: str
+
+
+class BriefIndexOut(BaseModel):
+    exchange: str
+    names: list[BriefName]
+
+
+class BriefFact(BaseModel):
+    fact: str
+    value: str
+    note: str | None
+
+
+class BriefOut(BaseModel):
+    """One stock's advisor brief (ADR 0007): the public evidence set out for a conversation with a
+    licensed advisor. Filled from numbers by fixed rules; it assesses and never advises."""
+
+    ticker: str
+    name: str | None
+    exchange: str
+    followed_by: str
+    as_of: dt.date | None
+    summary: str
+    facts: list[BriefFact]
+    for_points: list[str]
+    against_points: list[str]
+    risks: list[str]
+    questions: list[str]
+    limits: list[str]
+    disclaimer: str
 
 
 class AttentionDay(BaseModel):

@@ -32,6 +32,8 @@ import type {
   WatchlistOut,
   OwnershipOut,
   OwnershipDetailOut,
+  BriefIndexOut,
+  BriefOut,
 } from "./types";
 
 /** Same-origin by default: nginx (container) and Vite (dev) both forward /api to the API, so the
@@ -99,6 +101,8 @@ export const api = {
   positioning: (ex: string) =>
     getJson<PositioningOut>(`/research/positioning?exchange=${ex}`),
   watchlist: () => getJson<WatchlistOut>("/research/watchlist"),
+  briefs: (ex: string) => getJson<BriefIndexOut>(`/research/briefs?exchange=${ex}`),
+  brief: (ticker: string) => getJson<BriefOut>(`/research/brief/${encodeURIComponent(ticker)}`),
   ownership: (ex: string) => getJson<OwnershipOut>(`/research/ownership?exchange=${ex}`),
   ownershipDetail: (ticker: string) =>
     getJson<OwnershipDetailOut>(`/research/ownership/${encodeURIComponent(ticker)}`),

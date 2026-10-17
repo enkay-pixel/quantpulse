@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { AlphaBetaCard } from "./components/AlphaBetaCard";
+import { AdvisorBrief } from "./components/AdvisorBrief";
 import { AttentionChart } from "./components/AttentionChart";
 import { AttentionTable } from "./components/AttentionTable";
 import { ChampionRecordCard } from "./components/ChampionRecordCard";
@@ -36,6 +37,8 @@ import {
   useAlphaBeta,
   useAttention,
   useAttentionHistory,
+  useBrief,
+  useBriefIndex,
   useChampions,
   useBooks,
   useCurrentModel,
@@ -606,6 +609,56 @@ function WatchlistSection({ exchange }: { exchange: string }) {
   );
 }
 
+// The advisor brief (ADR 0007): one stock at a time, printable, for a conversation with a licensed
+// advisor. Covers the model's universe and the watchlist for the chosen market.
+function BriefTab({ exchange }: { exchange: string }) {
+  const index = useBriefIndex(exchange);
+  const [picked, setPicked] = useState<string | null>(null);
+  const names = index.data?.names ?? [];
+  const selected = picked && names.some((n) => n.ticker === picked) ? picked : (names[0]?.ticker ?? null);
+  const brief = useBrief(selected);
+  return (
+    <div className="grid gap-4">
+      <section className="card no-print p-4">
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          A brief to take to your advisor
+        </h2>
+        <p className="mb-3 mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+          One page per stock: what the public evidence on these pages shows, the points that lean
+          each way, the risks and the questions to ask. It assesses; it never says what to do. Pick
+          a stock, then print it or save it as a PDF.
+        </p>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <select
+            aria-label="Stock"
+            value={selected ?? ""}
+            onChange={(ev) => setPicked(ev.target.value)}
+            className="rounded border px-2 py-1"
+            style={{ borderColor: "var(--border)", background: "var(--surface-1)", color: "var(--text-primary)" }}
+          >
+            {names.map((n) => (
+              <option key={n.ticker} value={n.ticker}>
+                {n.ticker}
+                {n.name ? ` — ${n.name}` : ""}
+                {n.followed_by === "watchlist" ? " (watchlist)" : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded border px-3 py-1"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          >
+            Print or save as PDF
+          </button>
+        </div>
+      </section>
+      {brief.data ? <AdvisorBrief data={brief.data} /> : <Placeholder height="h-96" />}
+    </div>
+  );
+}
+
 // Project-wide rather than per market: the findings and decisions span both, so this tab
 // ignores the market picker.
 function ResearchTab() {
@@ -680,7 +733,7 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+      <header className="no-print mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold">QuantPulse</h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -708,12 +761,12 @@ export default function App() {
       </header>
 
       {freshness.data ? (
-        <div className="mb-4">
+        <div className="no-print mb-4">
           <FreshnessStrip freshness={freshness.data} />
         </div>
       ) : null}
 
-      <div className="mb-4">
+      <div className="no-print mb-4">
         <Tabs tabs={tabs} active={tab} onSelect={setTab} />
       </div>
 
@@ -729,6 +782,7 @@ export default function App() {
       {tab === "Positioning" && tabs.includes("Positioning") ? (
         <PositioningTab exchange={exchange} hasOptions={market?.has_options ?? true} />
       ) : null}
+      {tab === "Brief" ? <BriefTab exchange={exchange} /> : null}
       {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
       {tab === "Research" ? <ResearchTab /> : null}
     </div>

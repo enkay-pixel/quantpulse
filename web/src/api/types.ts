@@ -8,6 +8,7 @@ export interface Health {
 
 export interface UniverseMember {
   ticker: string;
+  exchange: string;
   asset_type: "stock" | "etf";
   active: boolean;
 }
@@ -529,4 +530,38 @@ export interface OwnershipDetailOut {
   ticker: string;
   trades: InsiderTrade[];
   holders: HolderStake[];
+}
+
+export interface BriefName {
+  ticker: string;
+  name: string | null;
+  followed_by: string;
+}
+
+export interface BriefIndexOut {
+  exchange: string;
+  names: BriefName[];
+}
+
+export interface BriefFact {
+  fact: string;
+  value: string;
+  note: string | null;
+}
+
+/** One stock's advisor brief (ADR 0007): evidence for a conversation with a licensed advisor. */
+export interface BriefOut {
+  ticker: string;
+  name: string | null;
+  exchange: string;
+  followed_by: string;
+  as_of: string | null;
+  summary: string;
+  facts: BriefFact[];
+  for_points: string[];
+  against_points: string[];
+  risks: string[];
+  questions: string[];
+  limits: string[];
+  disclaimer: string;
 }

@@ -27,6 +27,7 @@ audit trail the project rests on.
 
 import datetime as dt
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -47,6 +48,7 @@ from quantpulse.db import (
     UniverseMember,
 )
 from quantpulse.ml.metrics import TRADING_DAYS_PER_YEAR, max_drawdown, sharpe_ratio
+from quantpulse.research.brief import compose, gather
 
 router = APIRouter()
 
@@ -112,7 +114,9 @@ def universe(session: SessionDep) -> list[schemas.UniverseMemberOut]:
     """Every ticker the platform tracks, with its market and whether it is a stock or a fund."""
     members = session.scalars(select(UniverseMember).order_by(UniverseMember.ticker)).all()
     return [
-        schemas.UniverseMemberOut(ticker=m.ticker, asset_type=m.asset_type, active=m.active)
+        schemas.UniverseMemberOut(
+            ticker=m.ticker, exchange=m.exchange, asset_type=m.asset_type, active=m.active
+        )
         for m in members
     ]
 
@@ -873,6 +877,34 @@ def ownership_detail(ticker: str, session: SessionDep) -> schemas.OwnershipDetai
         trades=[schemas.InsiderTrade(**dict(r)) for r in trades or []],
         holders=[schemas.HolderStake(**dict(r)) for r in holders or []],
     )
+
+
+@router.get("/research/briefs", response_model=schemas.BriefIndexOut)
+def brief_index(session: SessionDep, exchange: ExchangeDep) -> schemas.BriefIndexOut:
+    """The stocks one market has a brief for: the model's universe, then the research watchlist."""
+    rows = _mart_rows(
+        session,
+        "SELECT r.ticker, u.name, r.followed_by FROM analytics.stg_research_names r "
+        "LEFT JOIN universe u ON u.ticker = r.ticker WHERE r.exchange = :ex "
+        "ORDER BY r.followed_by, r.ticker",
+        {"ex": exchange},
+    )
+    return schemas.BriefIndexOut(
+        exchange=exchange, names=[schemas.BriefName(**dict(r)) for r in rows or []]
+    )
+
+
+@router.get("/research/brief/{ticker}", response_model=schemas.BriefOut)
+def advisor_brief(ticker: str, session: SessionDep) -> schemas.BriefOut:
+    """One page per stock to take to a licensed advisor: the evidence, the points that lean each
+    way, the risks, questions to ask and what the page cannot know. Assesses; never advises."""
+    evidence = gather(session, ticker)
+    if evidence is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{ticker.upper()} is neither in the model's universe nor on the watchlist",
+        )
+    return schemas.BriefOut(**asdict(compose(evidence)))
 
 
 @router.get("/research/attention", response_model=schemas.AttentionOut)

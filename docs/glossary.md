@@ -14,6 +14,10 @@ data.
 `activist_holder` · Whether any of those holders filed a 13D, which a holder must use if it may seek
 to influence the company rather than hold passively.
 
+## Against it
+
+`against_points` · Points in the evidence that lean towards a negative view of the stock.
+
 ## Alarm level overall
 
 `share_threshold` · The share of model inputs that must drift before the model is retrained early.
@@ -360,6 +364,16 @@ of the stock.
 
 `id` · An identifier for this item.
 
+## In its favour
+
+`for_points` · Points in the evidence that lean towards a positive view of the stock.
+
+**How to read it:** Each is a reading of evidence, not a reason to buy.
+
+## In short
+
+`summary` · The brief in one paragraph, how many points lean each way and how many risks to raise.
+
 ## Index fund value
 
 `benchmark_equity` · What buying the market's index fund and holding it would be worth, on the same
@@ -472,6 +486,10 @@ the Johannesburg Stock Exchange.
 
 `code` · The exchange's standard four-letter code, such as XNYS or XJSE.
 
+## Measure
+
+`fact` · What the line measures.
+
 ## Measurements
 
 `metrics` · The candidate's scores on the data it was tested on, such as ranking accuracy and Sharpe
@@ -554,6 +572,10 @@ both starting at 1.0 on the options book's first day.
 **How to read it:** 0 means it does not follow the market at all, which is the design here; 1 means
 it moves one-for-one.
 
+## Name
+
+`name` · The company's name, where the universe file records it.
+
 ## Names
 
 `names` · The names on the research watchlist, both markets.
@@ -561,6 +583,10 @@ it moves one-for-one.
 ## Normal day's trading — average dollar volume
 
 `adv_usd_20d` · The average dollar value traded per day over the last 20 trading days.
+
+## Not advice
+
+`disclaimer` · What the brief is and is not.
 
 ## Note
 
@@ -734,6 +760,11 @@ put.
 
 `question` · What the investigation set out to answer.
 
+## Questions for your advisor
+
+`questions` · Questions the evidence raises that only someone who knows your circumstances can
+answer.
+
 ## Rank
 
 `rank` · The stock's position when every stock in the market is sorted by the model's forecast. 1 is
@@ -810,6 +841,10 @@ Withheld under 20 trading days, where it is noise.
 
 `risk_budget` · The share of the options book's value each cohort spends on its spreads — the most a
 cohort can lose.
+
+## Risks to raise
+
+`risks` · Ways a position in the stock could hurt that are worth discussing before any decision.
 
 ## Role
 
@@ -969,6 +1004,10 @@ open, closed, or skipped because it could not be traded.
 `realized` · How much the stocks actually moved over the 21 trading days that followed, on the same
 yearly scale.
 
+## The evidence
+
+`facts` · Each measure the brief draws on, with its value and how to read it.
+
 ## Ticker
 
 `ticker` · The stock's symbol on its exchange. JSE symbols end in .JO.
@@ -1017,9 +1056,13 @@ yearly scale.
 
 `baseline_90d` · The middle value of daily page views over the 90 days before that week.
 
-## Value
+## Value (`value_usd`)
 
 `value_usd` · Shares times price, in US dollars.
+
+## Value (`value`)
+
+`value` · The measure's value for this stock.
 
 ## Value now
 
@@ -1048,6 +1091,10 @@ expired.
 ## Volume
 
 `volume` · How many shares (or option contracts) traded that day.
+
+## What this cannot tell you
+
+`limits` · The gaps and delays in the evidence, and what no public data can know.
 
 ## When
 

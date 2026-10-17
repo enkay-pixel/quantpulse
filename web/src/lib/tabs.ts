@@ -1,4 +1,12 @@
-export const TABS = ["Overview", "Evidence", "Options", "Positioning", "Model & Book", "Research"];
+export const TABS = [
+  "Overview",
+  "Evidence",
+  "Options",
+  "Positioning",
+  "Brief",
+  "Model & Book",
+  "Research",
+];
 
 /** Tabs that read option chains, which only some markets have. They are hidden rather than shown
  * empty: an empty tab reads as a bug, a missing one as a deliberate limit. Positioning is not one

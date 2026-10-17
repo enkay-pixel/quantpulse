@@ -203,6 +203,21 @@ export const useOwnershipDetail = (ticker: string | null) =>
     refetchInterval: 10 * REFRESH_MS,
   });
 
+export const useBriefIndex = (exchange: string) =>
+  useQuery({
+    queryKey: ["briefs", exchange],
+    queryFn: () => api.briefs(exchange),
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
+export const useBrief = (ticker: string | null) =>
+  useQuery({
+    queryKey: ["brief", ticker],
+    queryFn: () => api.brief(ticker as string),
+    enabled: ticker !== null,
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
 export const useWatchlist = () =>
   useQuery({
     queryKey: ["watchlist"],
