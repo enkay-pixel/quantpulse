@@ -414,9 +414,9 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    *The schedule stays as it is: nothing shows weekly is harmful, and nothing now shows it
    helps. Reopen with tuning in the loop and a true weekly stride, the two things this
    simplified.* See [Does retraining buy anything?](findings/retrain-value.md#crediting-the-gate-2026-09-01).
-4. **Screenshots** — `make screenshots` regenerates all six README images from the running stack
+4. **Screenshots** — `make screenshots` regenerates all nine README images from the running stack
    (headless Chrome at 1440 px and 2x, then trims the empty background below each tab, so no
-   height has to be measured by hand). Last regenerated 2026-10-15. Rerun when the dashboard
+   height has to be measured by hand). Last regenerated 2026-10-17. Rerun when the dashboard
    changes shape or the live record reaches a milestone worth showing, and review the images
    before committing them: they show whatever the dashboard shows at that moment.
 5. **Re-run the forward variance risk premium as windows from other regimes accrue.** Measured

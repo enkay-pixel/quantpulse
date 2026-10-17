@@ -14,6 +14,7 @@ import argparse
 import subprocess
 import sys
 import tempfile
+import urllib.request
 from pathlib import Path
 
 from PIL import Image
@@ -29,15 +30,19 @@ MARGIN = 48
 #: which is what keeps a long tab under the repository's 500 KB limit on added files.
 PALETTE = 256
 
-#: (file, market, tab) — the images the README shows.
+#: (file, query, tab) — the images the README shows. The query picks the market, and for the
+#: brief, the stock: GameStop shows a watchlist name, insider buying and the evidence leaning both
+#: ways on one page.
 SHOTS = [
-    ("dashboard.png", "XNYS", "overview"),
-    ("evidence-tab.png", "XNYS", "evidence"),
-    ("options-tab.png", "XNYS", "options"),
-    ("positioning-tab.png", "XNYS", "positioning"),
-    ("model-book-tab.png", "XNYS", "model-book"),
-    ("research-tab.png", "XNYS", "research"),
-    ("jse-evidence.png", "XJSE", "evidence"),
+    ("dashboard.png", "market=XNYS", "overview"),
+    ("evidence-tab.png", "market=XNYS", "evidence"),
+    ("options-tab.png", "market=XNYS", "options"),
+    ("positioning-tab.png", "market=XNYS", "positioning"),
+    ("fundamentals-tab.png", "market=XNYS", "fundamentals"),
+    ("brief-tab.png", "market=XNYS&brief=GME", "brief"),
+    ("model-book-tab.png", "market=XNYS", "model-book"),
+    ("research-tab.png", "market=XNYS", "research"),
+    ("jse-evidence.png", "market=XJSE", "evidence"),
 ]
 
 
@@ -55,7 +60,7 @@ def content_height(image: Image.Image, tolerance: int = 6) -> int:
     return 0
 
 
-def shoot(market: str, tab: str, out: Path, budget_ms: int) -> int:
+def shoot(query: str, tab: str, out: Path, budget_ms: int) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw.png"
         subprocess.run(
@@ -68,7 +73,7 @@ def shoot(market: str, tab: str, out: Path, budget_ms: int) -> int:
                 f"--window-size={WIDTH},{TALL}",
                 f"--virtual-time-budget={budget_ms}",
                 f"--screenshot={raw}",
-                f"{DASHBOARD}/?market={market}#{tab}",
+                f"{DASHBOARD}/?{query}#{tab}",
             ],
             check=True,
             capture_output=True,
@@ -77,14 +82,31 @@ def shoot(market: str, tab: str, out: Path, budget_ms: int) -> int:
         with Image.open(raw) as image:
             height = content_height(image)
             if height == 0:
-                raise RuntimeError(f"{market} #{tab} rendered nothing — is the stack up?")
+                raise RuntimeError(f"?{query} #{tab} rendered nothing — is the stack up?")
             if height >= image.height:
-                raise RuntimeError(f"{market} #{tab} is taller than {TALL}px; raise TALL")
+                raise RuntimeError(f"?{query} #{tab} is taller than {TALL}px; raise TALL")
             trimmed = image.crop((0, 0, image.width, min(image.height, height + MARGIN)))
             trimmed.convert("RGB").quantize(
                 colors=PALETTE, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE
             ).save(out, optimize=True)
             return height // SCALE
+
+
+def dashboard_answers(url: str = DASHBOARD) -> str | None:
+    """Why the dashboard cannot be shot, or None when it serves the app.
+
+    Asked once before any shot: Chrome saves its own error page as happily as the dashboard, so a
+    stopped or stuck web container otherwise produces a full set of images of "This page isn't
+    working", each with real content height.
+    """
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            body = response.read(4096).decode("utf-8", "replace")
+    except Exception as exc:
+        return f"{url} did not answer ({type(exc).__name__}: {exc})"
+    if "<title>QuantPulse" not in body:
+        return f"{url} answered, but not with the dashboard"
+    return None
 
 
 def main() -> int:
@@ -99,12 +121,16 @@ def main() -> int:
     if args.only and args.only not in {name for name, _, _ in SHOTS}:
         print(f"{args.only} is not one of the README's screenshots", file=sys.stderr)
         return 1
+    problem = dashboard_answers()
+    if problem:
+        print(f"{problem} — start the stack (`make up`) and try again", file=sys.stderr)
+        return 1
     args.out.mkdir(parents=True, exist_ok=True)
-    for name, market, tab in SHOTS:
+    for name, query, tab in SHOTS:
         if args.only and name != args.only:
             continue
-        css_height = shoot(market, tab, args.out / name, args.budget_ms)
-        print(f"{name}: {market} #{tab}, {WIDTH}x{css_height}")
+        css_height = shoot(query, tab, args.out / name, args.budget_ms)
+        print(f"{name}: ?{query} #{tab}, {WIDTH}x{css_height}")
     return 0
 
 
