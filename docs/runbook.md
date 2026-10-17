@@ -397,6 +397,23 @@ under-covered is a permanent hole in the dataset — re-running tomorrow would j
 snapshot tomorrow. (This is not hypothetical: 2026-07-20 captured 5 of 50 tickers before
 being interrupted, and those 45 are gone.) If you see a thin day, fix it *that day*.
 
+## Container health and base images
+
+Every service declares a health check that proves it works, not just that its process runs:
+Postgres answers, the API and MLflow serve `/health`, the Dagster webserver serves `/server_info`,
+the daemon's scheduler has a recent heartbeat (`dagster-daemon liveness-check`), and nginx
+serves the dashboard. `make up` waits on all six, and Docker Desktop shows a failing one as
+unhealthy. This exists because on 2026-10-17 the web container showed "Up" for minutes while
+nginx sat stuck before starting, and only a set of blank README screenshots revealed it. A unit
+test fails if a service is added without a check.
+
+The Docker Hub base images (python, node, nginx) are pinned by tag and digest, so a rebuild of
+the same tag upstream cannot change what is built; Dependabot proposes new digests monthly. A
+python digest bump changes the image the weekly retrain runs in, usually by a patch release
+(3.12.14 to 3.12.15 was waiting on 2026-10-17). Merge it like any dependency patch, but not in
+the days before the shadow verdict is read. The mlflow image is pinned by exact version only: a
+digest beside its tag would make `check_tool_pins.py` check a tag Docker ignores.
+
 ## Resource headroom
 
 The `resource_report` asset runs with the daily processing job and reports **runway in

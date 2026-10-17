@@ -432,7 +432,8 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
    (fundamentals, cross-asset), alternative targets, or an ensemble. Measure first.
 8. **Deferred dependency majors** — typescript / eslint / recharts carry documented
    Dependabot ignore rules; python-3.14 base image declined (dbt-common/PEP 649); dbt
-   `tests:` → `data_tests:` rename when the tooling requires it.
+   `tests:` → `data_tests:` rename when the tooling requires it. Base images are pinned by
+   digest since 2026-10-17, so Dependabot's monthly docker PRs carry new digests too.
 9. **Databricks Free Edition companion repo** — the same pipeline expressed in
    PySpark/Delta as a separate portfolio piece. Spark was deliberately *not* used here:
    the data is far too small to justify it, and being able to say so is the stronger
