@@ -156,6 +156,16 @@ the right to sell them.
 
 `type` · Which kind of check the condition is.
 
+## Class
+
+`share_class` · Which class of the company's stock the stake is in, as the filing names it. A
+company with several classes, such as Berkshire's A and B shares, is filed on per class.
+
+## Class of that stake
+
+`top_holder_class` · Which class of stock the largest stake is in. It may not be the class this
+ticker trades.
+
 ## Close
 
 `close` · The last traded price of the day, adjusted for dividends and splits.

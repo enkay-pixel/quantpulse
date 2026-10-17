@@ -408,6 +408,7 @@ class OwnershipRow(BaseModel):
     activist_holder: bool
     top_holder: str | None
     top_holder_percent: float | None
+    top_holder_class: str | None
 
 
 class OwnershipOut(BaseModel):
@@ -438,6 +439,7 @@ class HolderStake(BaseModel):
     filed: dt.date
     shares_held: float | None
     percent: float
+    share_class: str | None
 
 
 class OwnershipDetailOut(BaseModel):

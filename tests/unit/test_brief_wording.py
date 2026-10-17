@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from quantpulse.research.brief import Evidence, _price_evidence, compose
+from quantpulse.research.brief import Evidence, _price_evidence, compose, share_class
 
 AS_OF = dt.date(2026, 10, 16)
 
@@ -139,3 +139,42 @@ def test_price_evidence_reads_returns_volatility_and_the_fall_from_the_high() ->
     assert e.from_high == pytest.approx(80 / 125 - 1)
     assert e.returns["1m"] == pytest.approx(80 / closes[-22] - 1)
     assert e.volatility is not None and e.volatility > 0.1
+
+
+def test_the_summary_counts_risks_in_plain_words() -> None:
+    quiet = Evidence(ticker="KO", exchange="XNYS", followed_by="model")
+    assert "no risk stands out beyond those of owning any single stock" in compose(quiet).summary
+    one = dataclasses.replace(quiet, volatility=0.9)
+    assert "1 risk is worth raising" in compose(one).summary
+    assert "risks are worth raising" in compose(_loaded()).summary
+
+
+def test_the_summary_says_which_way_points_lean_without_a_zero_count() -> None:
+    against = compose(
+        _loaded(
+            model_rank=39, short_pct_float=0.01, bought_usd_90d=0.0, buyers_90d=0, sold_usd_90d=0.0
+        )
+    )
+    assert "1 point in the evidence leans against it and none in its favour" in against.summary
+    both = compose(_loaded())
+    assert "points in the evidence lean in its favour and 1 against it" in both.summary
+    assert "0 point" not in against.summary + both.summary
+
+
+def test_a_stock_at_its_high_says_so_rather_than_zero_percent() -> None:
+    brief = compose(Evidence(ticker="KO", exchange="XNYS", followed_by="model", from_high=-0.001))
+    assert {f.fact: f.value for f in brief.facts}["Below its 12-month high"] == "At its high"
+
+
+def test_a_stake_names_its_class_where_the_company_has_several() -> None:
+    assert share_class("Class A Common Stock, Par Value $5.00 per share") == "Class A"
+    assert share_class("Common Stock") is None
+    brief = compose(
+        _loaded(
+            top_holder="Warren E. Buffett",
+            top_holder_percent=38.2,
+            top_holder_class="Class A Common Stock, Par Value $5.00 per share",
+        )
+    )
+    facts = {f.fact: f.value for f in brief.facts}
+    assert facts["Largest holder over 5%"] == "Warren E. Buffett, 38.2% of Class A"

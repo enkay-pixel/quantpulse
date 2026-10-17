@@ -50,12 +50,17 @@ def form4(
 
 
 def schedule13d(
-    name: str, percent: float, shares: float, issuer: int, event: str = "10/13/2026"
+    name: str,
+    percent: float,
+    shares: float,
+    issuer: int,
+    event: str = "10/13/2026",
+    share_class: str = "Class A Common Stock",
 ) -> str:
     return f"""<?xml version="1.0" encoding="UTF-8"?><edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13D" xmlns:com="http://www.sec.gov/edgar/common">
 <headerData><submissionType>SCHEDULE 13D/A</submissionType></headerData>
 <formData>
-  <coverPageHeader><dateOfEvent>{event}</dateOfEvent><issuerInfo><issuerCIK>{issuer:010d}</issuerCIK><issuerName>GameStop Corp.</issuerName></issuerInfo></coverPageHeader>
+  <coverPageHeader><securitiesClassTitle>{share_class}</securitiesClassTitle><dateOfEvent>{event}</dateOfEvent><issuerInfo><issuerCIK>{issuer:010d}</issuerCIK><issuerName>GameStop Corp.</issuerName></issuerInfo></coverPageHeader>
   <reportingPersons><reportingPersonInfo>
     <reportingPersonName>{name}</reportingPersonName>
     <aggregateAmountOwned>{shares}</aggregateAmountOwned>

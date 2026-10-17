@@ -151,6 +151,25 @@ def test_an_unreadable_document_is_fetched_again_next_run(
     assert _count(db_engine, "holder_filings") == 4
 
 
+def test_a_stake_stored_before_its_class_was_recorded_gets_it_on_the_next_run(
+    db_engine: Engine, session_factory: Callable[[], Any]
+) -> None:
+    refresh_ownership(session_factory, ["GME"], FakeEdgar(), TODAY)
+    with db_engine.begin() as conn:
+        conn.execute(text("UPDATE holder_filings SET share_class = NULL"))
+    report = refresh_ownership(session_factory, ["GME"], FakeEdgar(), TODAY)
+    assert report.classes_filled == 2, "the two 13Ds name a class; the 13Gs here do not"
+    with db_engine.connect() as conn:
+        classes = dict(
+            conn.execute(text("SELECT accession, share_class FROM holder_filings")).all()
+        )
+    assert classes["0002-26-000003"] == "Class A Common Stock"
+    assert classes["0002-26-000004"] == "", "a 13G naming no class is marked, not retried"
+    again = FakeEdgar()
+    refresh_ownership(session_factory, ["GME"], again, TODAY)
+    assert not [c for c in again.calls if "Archives" in c]
+
+
 def test_every_list_failing_is_an_error_but_one_ticker_without_a_cik_is_not(
     session_factory: Callable[[], Any],
 ) -> None:

@@ -13,7 +13,8 @@ latest as (
         h.is_13d,
         h.filed,
         h.shares as shares_held,
-        h.percent
+        h.percent,
+        h.share_class
     from {{ ref('stg_holder_filings') }} as h
     cross join anchor as a
     where h.filed > a.as_of - 730
