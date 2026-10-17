@@ -1,5 +1,8 @@
 # Runbook
 
+**In short:** How to start, stop and check the system, and what to do when something breaks, written
+as commands to run.
+
 ## Daily operation
 
 ```bash

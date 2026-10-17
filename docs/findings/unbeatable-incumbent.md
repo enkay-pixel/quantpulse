@@ -1,5 +1,9 @@
 # Why nothing can beat the NYSE incumbent (2026-08-23)
 
+**In short:** Five new New York models were rejected because the champion had been trained on a much
+shorter price history that happened to suit the test period — an unfair comparison, not skill. It
+was demoted.
+
 Five consecutive retrains were rejected on the NYSE. The incumbent re-scores at **IC 0.1777**
 on the shared holdout while every fresh candidate lands near 0.060. The cause is not skill.
 

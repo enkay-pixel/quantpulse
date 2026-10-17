@@ -1,5 +1,9 @@
 # Baseline comparison result (2026-08-14)
 
+**In short:** On the Johannesburg market, a one-line rule — favour the stocks that rose most over
+three months — ranks stocks better than the model; in New York the model wins. Since then no new
+model is promoted unless it beats that rule.
+
 `quantpulse baseline` scores every competitor on one shared holdout, cut exactly as the
 promotion gate would cut it, through the same `pipeline.score_holdout`. Momentum and reversal
 are fitted on nothing at all; ridge is fitted on the training window; the champion is only

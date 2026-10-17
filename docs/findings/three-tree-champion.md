@@ -1,5 +1,8 @@
 # Why the champion has three trees (2026-08-23)
 
+**In short:** The step that decides when the model stops growing carries no information about how it
+will do on new data: it does no better than stopping at random.
+
 > **Re-measured 2026-09-01 across 49 rolling origins.** Every figure below was taken across
 > three or five *seeds* on **one holdout**, which says how much refitting moves that window's
 > number and not whether the effect holds. Rolling the origin, **the two curves do not

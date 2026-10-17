@@ -2,6 +2,9 @@
 
 **Status**: accepted · **Date**: 2026-07-18
 
+**In short:** Two earlier prototypes were replaced by this one project, keeping their best ideas and
+dropping heavy models and cloud deployment, so it runs free on one laptop.
+
 ## Context
 
 Two earlier projects coexisted in the monorepo: `advanced_ml_investing` (a 519-line research

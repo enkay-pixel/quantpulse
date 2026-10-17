@@ -136,6 +136,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   or a relative link that points nowhere, so the rule does not rely on being remembered.
   A published docs site is declined (see the list at the end): GitHub's rendering is the public
   copy, and Obsidian is the local editor.
+- **Readable without a guide** (owner's standing requirement): every ADR, finding and reference
+  page opens with an `**In short:**` line in plain words; every dashboard header and stat
+  label is a `<Term>` from `configs/glossary.yaml` (`make glossary` after editing it); every
+  panel has an `explain` line; every API field and endpoint is described. Tests enforce all
+  four — write the plain version first, technical detail after.
 - Commits: imperative subject, body explains why, trailer
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Pre-commit hooks installed —
   incl. gitleaks (222 rules) over every staged diff, since this repo is public and a

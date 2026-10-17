@@ -1,5 +1,9 @@
 # Does retraining buy anything? (2026-09-01)
 
+**In short:** Retraining every week does not produce a better model on average, and the promotion
+gate rarely changes which model is used, so the weekly schedule is neither shown to help nor shown
+to hurt.
+
 The [staleness curve](model-staleness.md) measures how a *frozen* model decays. That is not
 the question the retrain cadence turns on. The cadence question is comparative: at a given
 moment, is a model trained on everything available now better than the one trained some days

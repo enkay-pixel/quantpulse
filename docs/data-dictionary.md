@@ -1,5 +1,8 @@
 # Data dictionary — `market` database
 
+**In short:** What every table holds and where it comes from. For what a term on the dashboard or in
+the API means, see the [glossary](glossary.md).
+
 > **Three databases share this Postgres server.** Only `market` (schemas `public` +
 > `analytics`) is ours — defined by Alembic migrations and `src/quantpulse/db/models.py`.
 > The `mlflow` and `dagster` databases are owned by those tools and **must not be modified

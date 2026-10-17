@@ -2,6 +2,9 @@
 
 **Status**: accepted · **Date**: 2026-07-18
 
+**In short:** Why these tools: Dagster runs the daily pipeline, MLflow tracks models, Postgres holds
+the data, and a FastAPI service feeds a React dashboard.
+
 ## Context
 
 The platform needs scheduled/reactive orchestration, experiment tracking, serving, and a dashboard —

@@ -2,6 +2,9 @@
 
 **Status**: accepted · **Date**: 2026-10-13
 
+**In short:** A stored price is never overwritten: gaps are filled, and once a model has trained on
+a day, that day is fixed, so past models can be re-run exactly.
+
 ## Context
 
 `prices` is the base every feature, label, model and book is built from, and it is written by

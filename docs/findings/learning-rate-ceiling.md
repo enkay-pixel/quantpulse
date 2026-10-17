@@ -1,5 +1,9 @@
 # A per-market learning-rate ceiling (2026-09-17)
 
+**In short:** In September new models got worse because the tuner picked settings that looked good
+in its own checks and failed on new data. Capping one setting fixed it in Johannesburg but not New
+York, so the cap applies there only.
+
 Candidates on both markets looked to be degrading together through September. They were not,
 and the markets turned out to need opposite answers. This records how that was established and
 why XJSE now searches learning rates only up to 0.02 while XNYS keeps 0.2.

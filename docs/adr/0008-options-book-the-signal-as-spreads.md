@@ -2,6 +2,9 @@
 
 **Status**: accepted · **Date**: 2026-10-16
 
+**In short:** The model's monthly picks held on paper through limited-risk option spreads instead of
+shares, priced at what trading would really get, to see over time whether options beat shares.
+
 ## Context
 
 The platform's paper books hold shares. The owner asked whether options could join them, as a

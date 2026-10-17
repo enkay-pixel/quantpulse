@@ -1,5 +1,9 @@
 # Can a fixed configuration replace the tuner? (pre-registered 2026-09-28)
 
+**In short:** One fixed set of model settings did no worse than weekly tuning on either market, at a
+sixtieth of the computing. It is being confirmed on fresh data (the shadow run) before anything
+switches.
+
 **Measured 2026-10-04; everything above Results was on `main` before the run started**,
 following the rule in [How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it)
 that a pre-registration committed to a feature branch is erased by the squash merge.

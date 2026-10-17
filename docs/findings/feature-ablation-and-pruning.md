@@ -1,5 +1,8 @@
 # Feature ablation result (2026-08-22)
 
+**In short:** Removing any one of the model's 13 inputs makes no difference that can be told apart
+from noise, so none is shown to help or to hurt. One earlier result was withdrawn when re-measured.
+
 `quantpulse ablation` refits without each feature in turn and with each feature alone, on
 the same holdout the gate uses. Hyperparameters are held at defaults rather than retuned per
 subset, so the "full model" below is a freshly fitted default-parameter model, **not the
