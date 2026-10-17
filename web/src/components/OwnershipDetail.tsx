@@ -1,5 +1,5 @@
 import type { OwnershipDetailOut } from "../api/types";
-import { formatDate, formatMoney, formatPercent, formatUsdCompact } from "../lib/format";
+import { formatDate, formatMoney, formatPercent, formatUsdCompact, shareClass } from "../lib/format";
 import { Term } from "./Term";
 
 const TH = "px-3 py-2 font-medium";
@@ -26,7 +26,14 @@ export function OwnershipDetail({ data }: { data: OwnershipDetailOut }) {
                   {h.form.replace("SCHEDULE ", "")}
                 </td>
                 <td className="px-3 py-1.5">{formatDate(h.filed)}</td>
-                <td className="px-3 py-1.5 text-right tabular">{formatPercent(h.percent / 100, 1)}</td>
+                <td className="px-3 py-1.5 text-right tabular">
+                  {formatPercent(h.percent / 100, 1)}
+                  {shareClass(h.share_class) ? (
+                    <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                      of {shareClass(h.share_class)}
+                    </span>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -798,6 +798,12 @@ terms:
   shares_held:
     label: Shares held
     meaning: The shares the holder reported owning.
+  share_class:
+    label: Class
+    meaning: Which class of the company's stock the stake is in, as the filing names it. A company with several classes, such as Berkshire's A and B shares, is filed on per class.
+  top_holder_class:
+    label: Class of that stake
+    meaning: Which class of stock the largest stake is in. It may not be the class this ticker trades.
   percent:
     label: Stake
     meaning: The holding as a share of the stock outstanding, as the filer reported it.

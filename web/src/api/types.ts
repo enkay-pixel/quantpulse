@@ -497,6 +497,8 @@ export interface OwnershipRow {
   top_holder: string | null;
   /** In percent, as the filing reports it: 9.1 is 9.1%. */
   top_holder_percent: number | null;
+  /** The filing's class title; see shareClass(). */
+  top_holder_class: string | null;
 }
 
 export interface OwnershipOut {
@@ -524,6 +526,7 @@ export interface HolderStake {
   shares_held: number | null;
   /** In percent, as the filing reports it. */
   percent: number;
+  share_class: string | null;
 }
 
 export interface OwnershipDetailOut {

@@ -1,5 +1,5 @@
 import type { OwnershipOut, OwnershipRow } from "../api/types";
-import { formatDate, formatPercent, formatUsdCompact } from "../lib/format";
+import { formatDate, formatPercent, formatUsdCompact, shareClass } from "../lib/format";
 import { Term } from "./Term";
 import { WatchTag } from "./WatchTag";
 
@@ -109,6 +109,7 @@ export function OwnershipTable({
                         {row.top_holder}{" "}
                         <span className="tabular" style={{ color: "var(--text-muted)" }}>
                           {formatPercent((row.top_holder_percent ?? 0) / 100, 1)}
+                          {shareClass(row.top_holder_class) ? ` of ${shareClass(row.top_holder_class)}` : ""}
                         </span>
                         {row.activist_holder ? (
                           <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>

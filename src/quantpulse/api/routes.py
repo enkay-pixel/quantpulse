@@ -840,7 +840,8 @@ def ownership(session: SessionDep, exchange: ExchangeDep) -> schemas.OwnershipOu
         session,
         "SELECT ticker, followed_by, as_of, bought_usd_90d, sold_usd_90d, buyers_90d, sellers_90d, "
         "planned_sold_share_90d, last_trade_date, holders_over_5pct, activist_holder, top_holder, "
-        "top_holder_percent FROM analytics.fct_ownership WHERE exchange = :ex ORDER BY ticker",
+        "top_holder_percent, top_holder_class FROM analytics.fct_ownership "
+        "WHERE exchange = :ex ORDER BY ticker",
         {"ex": exchange},
     )
     if not rows:
@@ -868,7 +869,8 @@ def ownership_detail(ticker: str, session: SessionDep) -> schemas.OwnershipDetai
     )
     holders = _mart_rows(
         session,
-        "SELECT filer, form, filed, shares_held, percent FROM analytics.fct_large_holders "
+        "SELECT filer, form, filed, shares_held, percent, share_class "
+        "FROM analytics.fct_large_holders "
         "WHERE ticker = :t ORDER BY percent DESC",
         {"t": ticker},
     )

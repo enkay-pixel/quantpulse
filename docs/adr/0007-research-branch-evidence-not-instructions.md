@@ -182,6 +182,11 @@ read naively, each company would appear as its own largest holder. A filing is k
 issuer it names is the company whose list it came from. Every filing read is logged with its
 outcome, so none is fetched twice.
 
+**A stake is in one class of stock.** Checked against the live page the same day, Berkshire showed
+Warren Buffett at 38.2%: his filing reports 38.2% of Class A, while the universe tracks Class B.
+Each stake now carries the class its filing names, and the page and the brief show it beside the
+percentage wherever a company has more than one.
+
 **EDGAR asks every automated caller for a contact**, and refuses requests without one. The contact
 is a local setting, `QUANTPULSE_SEC_CONTACT`, kept out of the repository because it is public; the
 fetch fails by name when it is missing, rather than collecting refusals.

@@ -511,6 +511,9 @@ class HolderFiling(Base):
     filer: Mapped[str] = mapped_column(String(200))
     shares: Mapped[float | None] = mapped_column(Float)
     percent: Mapped[float | None] = mapped_column(Float)
+    #: The class the stake is in, as the filing names it. A company with several classes is filed
+    #: on per class, so a percentage means nothing without it. Empty when the filing names none.
+    share_class: Mapped[str | None] = mapped_column(String(200))
     ingested_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

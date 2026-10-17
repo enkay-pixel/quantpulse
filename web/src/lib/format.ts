@@ -62,3 +62,11 @@ export function formatUsdCompact(value: number | null | undefined): string {
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
   return `${sign}$${abs.toFixed(0)}`;
 }
+
+/** "Class A" from a stake filing's class title, or null for a company with one class of stock.
+ * Where a company has several, a stake is filed per class, and a percentage read against the
+ * wrong class (Berkshire's A, not the B this page tracks) overstates it many times over. */
+export function shareClass(title: string | null | undefined): string | null {
+  const match = /\bclass\s+([A-Z])\b/i.exec(title ?? "");
+  return match ? `Class ${match[1].toUpperCase()}` : null;
+}

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { OwnershipRow } from "../api/types";
 import { OwnershipDetail } from "../components/OwnershipDetail";
 import { OwnershipTable, ownershipVerdict } from "../components/OwnershipTable";
+import { shareClass } from "../lib/format";
 
 function row(over: Partial<OwnershipRow>): OwnershipRow {
   return {
@@ -19,6 +20,7 @@ function row(over: Partial<OwnershipRow>): OwnershipRow {
     activist_holder: false,
     top_holder: "Vanguard Capital Management",
     top_holder_percent: 7.48,
+    top_holder_class: "Common Stock",
     ...over,
   };
 }
@@ -66,7 +68,7 @@ describe("OwnershipDetail", () => {
       <OwnershipDetail
         data={{
           ticker: "GME",
-          holders: [{ filer: "Cohen Ryan", form: "SCHEDULE 13D/A", filed: "2026-10-13", shares_held: 4.6e7, percent: 9.1 }],
+          holders: [{ filer: "Cohen Ryan", form: "SCHEDULE 13D/A", filed: "2026-10-13", shares_held: 4.6e7, percent: 9.1, share_class: "Class A Common Stock" }],
           trades: [
             {
               transaction_date: "2026-10-12",
@@ -89,5 +91,36 @@ describe("OwnershipDetail", () => {
     render(<OwnershipDetail data={{ ticker: "X", holders: [], trades: [] }} />);
     expect(screen.getByText(/No holder has a current filing/)).toBeInTheDocument();
     expect(screen.getByText(/No open-market insider trade/)).toBeInTheDocument();
+  });
+});
+
+describe("shareClass", () => {
+  it("names the class where a company has several, and nothing where it has one", () => {
+    expect(shareClass("Class A Common Stock, Par Value $5.00 per share")).toBe("Class A");
+    expect(shareClass("Class B common stock")).toBe("Class B");
+    expect(shareClass("Common Stock")).toBeNull();
+    expect(shareClass(null)).toBeNull();
+  });
+
+  it("puts the class beside a stake, so Berkshire's A shares do not read as its B", () => {
+    render(
+      <OwnershipTable
+        data={{
+          exchange: "XNYS",
+          as_of: "2026-10-16",
+          rows: [
+            row({
+              ticker: "BRK-B",
+              top_holder: "Warren E. Buffett",
+              top_holder_percent: 38.2,
+              top_holder_class: "Class A Common Stock, Par Value $5.00 per share",
+            }),
+          ],
+        }}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(within(screen.getByTestId("ownership-BRK-B")).getByText(/38\.2% of Class A/)).toBeInTheDocument();
   });
 });

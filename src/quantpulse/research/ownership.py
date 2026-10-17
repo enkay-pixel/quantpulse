@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from defusedxml import ElementTree as SafeET
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -176,7 +176,8 @@ def _strip_namespaces(root: ET.Element) -> ET.Element:
 
 
 def parse_schedule13(xml: str) -> dict[str, Any] | None:
-    """The first reporting person, their shares and their percent of the class, from a structured
+    """The first reporting person, their shares and their percent of the class — and which class,
+    since a company with several (Berkshire's A and B) is filed on per class — from a structured
     Schedule 13D or 13G. The first cover page names the principal filer; later ones are members of
     the same group reporting the same stake."""
     root = _strip_namespaces(SafeET.fromstring(xml))
@@ -215,7 +216,17 @@ def parse_schedule13(xml: str) -> dict[str, Any] | None:
             event_date = dt.datetime.strptime(event, "%m/%d/%Y").date()
         except ValueError:
             event_date = None
-    return {"filer": name[:200], "percent": percent, "shares": shares, "event_date": event_date}
+    share_class = next(
+        (n.text.strip() for n in root.iter("securitiesClassTitle") if n.text and n.text.strip()),
+        None,
+    )
+    return {
+        "filer": name[:200],
+        "percent": percent,
+        "shares": shares,
+        "event_date": event_date,
+        "share_class": share_class[:200] if share_class else None,
+    }
 
 
 def issuer_cik(xml: str) -> int | None:
@@ -240,6 +251,7 @@ class OwnershipReport:
     trades: int = 0
     holder_filings: int = 0
     other_issuer: int = 0
+    classes_filled: int = 0
     no_cik: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
 
@@ -343,11 +355,49 @@ def refresh_ownership(
                     )
                     .on_conflict_do_nothing()
                 )
+    with session_factory() as session:
+        report.classes_filled = fill_share_classes(session, http, ciks)
     if listed == 0 and len(report.no_cik) < len(tickers):
         raise NoOwnershipReturned(
             f"No filing list could be read for any of {len(tickers)} tickers: {report.failed}"
         )
     return report
+
+
+def fill_share_classes(session: Session, http: Http, ciks: dict[str, int]) -> int:
+    """Read the share class of stake filings stored before it was recorded.
+
+    Each such filing is read once more. One that names no class is marked empty, so it is not read
+    again; one that fails to read is left for the next run.
+    """
+    missing = session.execute(
+        select(HolderFiling.accession, HolderFiling.ticker).where(
+            HolderFiling.share_class.is_(None)
+        )
+    ).all()
+    filled = 0
+    for accession, ticker in missing:
+        cik = ciks.get(ticker.upper())
+        share_class = ""
+        if cik is not None:
+            try:
+                # Only structured filings are stored, and their document always has this name.
+                xml = http.get_text(
+                    ARCHIVE_URL.format(
+                        cik=cik, accession=accession.replace("-", ""), document="primary_doc.xml"
+                    )
+                )
+                share_class = (parse_schedule13(xml) or {}).get("share_class") or ""
+            except Exception:
+                logger.warning("Share class not read for %s (%s)", accession, ticker, exc_info=True)
+                continue  # left null, so the next run tries again
+        session.execute(
+            update(HolderFiling)
+            .where(HolderFiling.accession == accession)
+            .values(share_class=share_class)
+        )
+        filled += bool(share_class)
+    return filled
 
 
 def _insert_trades(
@@ -371,7 +421,16 @@ def _insert_holder(
     if parsed is None:
         return 0
     stmt = pg_insert(HolderFiling).values(
-        {**parsed, "ticker": ticker, "accession": accession, "form": form, "filed": filed}
+        {
+            **parsed,
+            # Empty rather than null when the filing names no class: null marks a row stored
+            # before the class was recorded, which the next fetch fills.
+            "share_class": parsed["share_class"] or "",
+            "ticker": ticker,
+            "accession": accession,
+            "form": form,
+            "filed": filed,
+        }
     )
     session.execute(stmt.on_conflict_do_nothing())
     return 1

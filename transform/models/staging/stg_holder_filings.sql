@@ -8,5 +8,6 @@ select
     event_date,
     filer,
     shares,
-    percent
+    percent,
+    nullif(share_class, '') as share_class
 from {{ source('market', 'holder_filings') }}

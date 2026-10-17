@@ -55,6 +55,7 @@ def test_a_13d_and_a_13g_give_the_principal_filer_and_stake_through_their_namesp
         "percent": 9.1,
         "shares": 46227436,
         "event_date": dt.date(2026, 10, 13),
+        "share_class": "Class A Common Stock",
     }
     g = parse_schedule13(
         schedule13g("Vanguard Capital Management", 7.48, 1099168953, issuer=320193)

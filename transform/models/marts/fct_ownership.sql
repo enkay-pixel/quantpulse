@@ -42,7 +42,8 @@ holders as (
         count(*) as holders_over_5pct,
         bool_or(is_13d) as activist_holder,
         (array_agg(filer order by percent desc))[1] as top_holder,
-        max(percent) as top_holder_percent
+        max(percent) as top_holder_percent,
+        (array_agg(share_class order by percent desc))[1] as top_holder_class
     from {{ ref('fct_large_holders') }}
     group by ticker
 )
@@ -61,7 +62,8 @@ select
     coalesce(h.holders_over_5pct, 0) as holders_over_5pct,
     coalesce(h.activist_holder, false) as activist_holder,
     h.top_holder,
-    h.top_holder_percent
+    h.top_holder_percent,
+    h.top_holder_class
 from covered as c
 inner join {{ ref('stg_research_names') }} as r on c.ticker = r.ticker
 cross join anchor as a

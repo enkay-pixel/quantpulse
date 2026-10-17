@@ -12,6 +12,7 @@ reader's circumstances, which only they and their advisor know.
 
 import datetime as dt
 import math
+import re
 from dataclasses import dataclass, field
 from itertools import pairwise
 from typing import Any
@@ -80,6 +81,7 @@ class Evidence:
     planned_sold_share_90d: float | None = None
     top_holder: str | None = None
     top_holder_percent: float | None = None
+    top_holder_class: str | None = None
     activist_holder: bool = False
     option_spread: str | None = None
 
@@ -124,6 +126,16 @@ def _usd(v: float) -> str:
 
 def _date(d: dt.date) -> str:
     return f"{d.day} {d:%b %Y}"
+
+
+def share_class(title: str | None) -> str | None:
+    """ "Class A" from a filing's class title, or None for a company with one class of stock.
+
+    The class matters only where there are several: Berkshire's largest holder reports 38% of
+    Class A, which is not the Class B the universe tracks.
+    """
+    match = re.search(r"\bclass\s+([A-Z])\b", title or "", re.IGNORECASE)
+    return f"Class {match.group(1).upper()}" if match else None
 
 
 def _rank_text(e: Evidence) -> str | None:
@@ -184,7 +196,13 @@ def compose(e: Evidence) -> Brief:
                 "a fall of that size within a year would be ordinary for it."
             )
     if e.from_high is not None:
-        facts.append(Fact("Below its 12-month high", _pct(e.from_high, 0, signed=False)))
+        at_high = e.from_high > -0.005
+        facts.append(
+            Fact(
+                "Below its 12-month high",
+                "At its high" if at_high else _pct(e.from_high, 0, signed=False),
+            )
+        )
         if e.from_high <= DEEP_FALL:
             risks.append(
                 f"It is {_pct(-e.from_high, 0, signed=False)} below its 12-month high. A fallen "
@@ -359,7 +377,12 @@ def compose(e: Evidence) -> Brief:
         facts.append(
             Fact(
                 "Largest holder over 5%",
-                f"{e.top_holder}, {e.top_holder_percent:.1f}%",
+                f"{e.top_holder}, {e.top_holder_percent:.1f}%"
+                + (
+                    f" of {share_class(e.top_holder_class)}"
+                    if share_class(e.top_holder_class)
+                    else ""
+                ),
                 "Filed a 13D: may seek to influence the company."
                 if e.activist_holder
                 else "From its latest 13D or 13G filing.",
@@ -380,22 +403,33 @@ def compose(e: Evidence) -> Brief:
         "company will report next."
     )
 
-    lean = (
-        f"{len(pros)} point{'s' if len(pros) != 1 else ''} in the evidence lean in its favour and "
-        f"{len(cons)} against"
-        if pros or cons
-        else "Nothing in the evidence here leans clearly either way"
-    )
+    def points(n: int) -> str:
+        return f"{n} point in the evidence leans" if n == 1 else f"{n} points in the evidence lean"
+
+    if pros and cons:
+        lean = f"{points(len(pros))} in its favour and {len(cons)} against it"
+    elif pros:
+        lean = f"{points(len(pros))} in its favour and none against it"
+    elif cons:
+        lean = f"{points(len(cons))} against it and none in its favour"
+    else:
+        lean = "Nothing in the evidence here leans clearly either way"
     price = (
         f"{e.ticker} closed at {ex.display_symbol}{e.close / ex.display_divisor:,.2f} on "
         f"{_date(e.as_of)}, {_pct(e.returns.get('12m'), 0)} over the past year. "
         if e.close is not None and e.as_of is not None and e.returns.get("12m") is not None
         else ""
     )
+    raise_ = (
+        "no risk stands out beyond those of owning any single stock"
+        if not risks
+        else "1 risk is worth raising"
+        if len(risks) == 1
+        else f"{len(risks)} risks are worth raising"
+    )
     summary = (
-        f"{price}{lean}, and {len(risks)} risk{'s' if len(risks) != 1 else ''} are worth raising. "
-        "This is a list of what the public evidence shows, for a conversation with a licensed "
-        "advisor; it does not say what to do."
+        f"{price}{lean}, and {raise_}. This is a list of what the public evidence shows, for a "
+        "conversation with a licensed advisor; it does not say what to do."
     )
     return Brief(
         ticker=e.ticker,
@@ -544,7 +578,8 @@ def gather(session: Session, ticker: str) -> Evidence | None:
     own = _one(
         session,
         "SELECT bought_usd_90d, buyers_90d, sold_usd_90d, planned_sold_share_90d, top_holder, "
-        "top_holder_percent, activist_holder FROM analytics.fct_ownership WHERE ticker = :t",
+        "top_holder_percent, top_holder_class, activist_holder FROM analytics.fct_ownership "
+        "WHERE ticker = :t",
         t=ticker,
     )
     if own:
@@ -554,6 +589,7 @@ def gather(session: Session, ticker: str) -> Evidence | None:
         e.planned_sold_share_90d = own["planned_sold_share_90d"]
         e.top_holder = own["top_holder"]
         e.top_holder_percent = own["top_holder_percent"]
+        e.top_holder_class = own["top_holder_class"]
         e.activist_holder = bool(own["activist_holder"])
     spread = _one(
         session,

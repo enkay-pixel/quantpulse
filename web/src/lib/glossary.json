@@ -834,6 +834,10 @@
     "label": "Insiders selling",
     "meaning": "How many different insiders sold on the open market in the past 90 days."
   },
+  "share_class": {
+    "label": "Class",
+    "meaning": "Which class of the company's stock the stake is in, as the filing names it. A company with several classes, such as Berkshire's A and B shares, is filed on per class."
+  },
   "share_drifted": {
     "label": "Inputs drifted",
     "meaning": "The share of the 13 model inputs whose shift from training is above 0.20.",
@@ -997,6 +1001,10 @@
   "top_holder": {
     "label": "Largest holder",
     "meaning": "The holder with the largest stake among those over 5%, as named on its filing."
+  },
+  "top_holder_class": {
+    "label": "Class of that stake",
+    "meaning": "Which class of stock the largest stake is in. It may not be the class this ticker trades."
   },
   "top_holder_percent": {
     "label": "Largest stake",
