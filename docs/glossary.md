@@ -152,6 +152,9 @@ the right to sell them.
 
 `fcf_margin` · Free cash flow as a share of revenue, over the same months.
 
+**How to read it:** For banks and brokers it says little, since their operating cash moves with
+their lending and trading.
+
 ## Cash yield — free-cash-flow yield
 
 `fcf_yield` · Free cash flow as a share of market value.
@@ -281,7 +284,8 @@ trading it would take every short seller to buy back.
 `debt_to_equity` · Long-term debt divided by shareholders' equity.
 
 **How to read it:** Higher means more borrowed against what the owners have in. Banks borrow by
-design, so compare them only with banks.
+design, so compare them only with banks. Empty where equity is negative, as at McDonald's after
+years of buying back its shares.
 
 ## Decided
 
@@ -369,6 +373,9 @@ holds the strongest forecasts, 5 the weakest.
 
 `free_cash_flow` · Cash from running the business less what was spent on equipment and buildings,
 over twelve months or the last fiscal year.
+
+**How to read it:** For banks and brokers it says little, since their operating cash moves with
+their lending and trading.
 
 ## Free cash flow through
 
@@ -950,8 +957,7 @@ last fiscal year against the one before when no later quarter is filed.
 `revenue_ttm` · What the company sold over the last twelve months it has reported, from its 10-K and
 10-Q filings.
 
-**How to read it:** Where the company files revenue only yearly, as banks do, this is its last
-fiscal year.
+**How to read it:** Where a company files revenue only yearly, this is its last fiscal year.
 
 ## Risked per cohort
 
