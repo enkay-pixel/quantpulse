@@ -574,7 +574,9 @@ function OwnershipSections({ exchange }: { exchange: string }) {
   const selected = picked ?? top;
   const detail = useOwnershipDetail(selected);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    // One column: the table has six columns and a holder name in the last, which a half-width card
+    // squeezed into wrapped fragments.
+    <div className="grid gap-4">
       <Section
         title="Who inside the company is buying or selling?"
         explain="From the filings US law requires: insiders must report each trade within two business days, and anyone holding over 5% must say so. Open-market trades only, not shares received as pay."
@@ -644,7 +646,10 @@ function FundamentalsTab({ exchange, hasFilings }: { exchange: string; hasFiling
 // advisor. Covers the model's universe and the watchlist for the chosen market.
 function BriefTab({ exchange }: { exchange: string }) {
   const index = useBriefIndex(exchange);
-  const [picked, setPicked] = useState<string | null>(null);
+  // `?brief=GME` opens that stock's brief, so a brief can be linked to and shot for the README.
+  const [picked, setPicked] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get("brief")?.toUpperCase() ?? null,
+  );
   const names = index.data?.names ?? [];
   const selected = picked && names.some((n) => n.ticker === picked) ? picked : (names[0]?.ticker ?? null);
   const brief = useBrief(selected);

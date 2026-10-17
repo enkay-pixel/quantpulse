@@ -20,20 +20,21 @@ promotion; everything before that is an in-sample replay, kept separate on purpo
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
-| Live sessions | 62 (2026-07-20 to 2026-10-14) | 58 (2026-07-23 to 2026-10-14) |
-| Total return | **+3.52%** | **+1.00%** |
-| Sharpe | **+1.28** | **+0.59** |
-| Max drawdown | −3.23% | −2.23% |
-| Alpha (annualized) | +11.5% ± 23.3% | +0.7% ± 16.4% |
-| Alpha t-statistic | **+0.49** | **+0.04** |
-| Information ratio | 0.00 | −0.06 |
-| Beta / R² | −0.07 / 0.004 | −0.04 / 0.006 |
-| Win rate | 53.2% | 48.3% |
+| Live sessions | 63 (2026-07-20 to 2026-10-15) | 59 (2026-07-23 to 2026-10-15) |
+| Total return | **+1.77%** | **+1.40%** |
+| Sharpe | **+0.65** | **+0.80** |
+| Max drawdown | −4.16% | −2.23% |
+| Alpha (annualized) | +4.7% ± 24.0% | +2.4% ± 16.2% |
+| Alpha t-statistic | **+0.19** | **+0.15** |
+| Information ratio | −0.47 | −0.26 |
+| Beta / R² | −0.08 / 0.005 | −0.03 / 0.004 |
+| Win rate | 52.4% | 49.2% |
 
 **Neither market has produced a result yet.** After three months live, both books are up, the
-NYSE by 3.5% and the JSE by 1.0%, and neither is distinguishable from zero. Each alpha's standard
-error is larger than the estimate: t of +0.49 and +0.04, against the ~2 that would separate
-either from noise. On the JSE the champion's own forward skill is about zero
+NYSE by 1.8% and the JSE by 1.4%, and neither is distinguishable from zero. Each alpha's standard
+error is larger than the estimate: t of +0.19 and +0.15, against the ~2 that would separate
+either from noise. The NYSE book was up 3.5% two sessions earlier, which is how much a few days
+move a figure this young. On the JSE the champion's own forward skill is about zero
 ([scored against momentum](docs/findings/champion-vs-momentum.md)), and the standing decision to
 keep running it comes up for review at 60 live sessions, around 2026-10-20.
 
@@ -42,9 +43,9 @@ the sign". Two months later the same alpha is positive. A sign is only a sign on
 own error bar, and neither has. The annualized figures are a few percent of total return scaled
 up to a year, not a rate anything has sustained.
 
-Beta −0.07 and −0.04, with R² below 0.01, confirm both books are genuinely market-neutral, so
-whatever these returns are, they are not disguised market exposure. The information ratio sits
-near zero on both markets even though both made money: it is benchmark-relative and not
+Beta −0.08 and −0.03, with R² below 0.01, confirm both books are genuinely market-neutral, so
+whatever these returns are, they are not disguised market exposure. The information ratio is
+negative on both markets even though both made money: it is benchmark-relative and not
 beta-adjusted, so a market-neutral book that sits out a rising index scores badly on it by
 construction. Alpha and the information ratio answer different questions and are expected to
 disagree here.
@@ -62,7 +63,8 @@ the incident log, and the ADRs.
 ![QuantPulse dashboard](docs/assets/dashboard.png)
 
 <details>
-<summary><b>More screenshots</b> — Evidence, Options, Positioning, Model &amp; Book, and Research tabs</summary>
+<summary><b>More screenshots</b> — Evidence, Options, Positioning, Fundamentals, Brief,
+Model &amp; Book, and Research tabs</summary>
 
 ## Evidence — does the model actually have skill?
 
@@ -70,7 +72,7 @@ the incident log, and the ADRs.
 
 The CAPM decomposition is what makes the record readable: **a low beta and near-zero R²
 confirm the book is genuinely market-neutral**, so comparing its raw return to SPY was never
-the right test. The screenshots (taken 2026-10-15) show the live phase — 61 sessions out of
+the right test. The screenshots (taken 2026-10-17) show the live phase — 63 sessions out of
 sample on the NYSE — where alpha's error band still spans zero, and the panel says so rather
 than leaving the headline number to speak. The same decomposition for both markets is in the
 table at the top of this page.
@@ -111,8 +113,41 @@ most-shorted of the 40 stocks was ADBE, at 5.1% of its float; GameStop's was abo
 strike chart shows where a name's hedging exposure sits against its price. Below that, for both
 markets, is **attention**: each stock's daily Wikipedia views against its usual level. That is the
 one research measure the JSE has free. GameStop's reached 42× its usual on 28 January 2021, but
-only 2.1× on the 22nd, when its price had already tripled. The page measures fuel and attention,
-not timing, and it assesses the evidence rather than advising on it.
+only 2.1× on the 22nd, when its price had already tripled.
+
+Between them, for US stocks, is **ownership** from the filings US law requires: insiders' trades
+in their own company's stock (Form 4) and every holder over 5% (Schedules 13D and 13G). Only
+open-market trades count as buying or selling, and each stake is shown with its share class, so
+Warren Buffett's 38.2% of Berkshire's Class A does not read as a stake in the Class B shares
+tracked here. The newest finding is on the page: GameStop's chief executive bought about $100M of
+its stock between September and mid-October 2026. The last section lists the **research
+watchlist**, names followed beyond the model's universe with the reason for each, starting with
+GameStop and AMC; they appear in every table above with a watchlist tag and never feed the model.
+The page measures fuel, attention and ownership, not timing, and it assesses the evidence rather
+than advising on it.
+
+## Fundamentals — how the businesses are doing
+
+![Fundamentals tab](docs/assets/fundamentals-tab.png)
+
+Each US company's last twelve reported months, from the figures it files with the SEC: revenue
+and its growth, operating and cash margins, price to earnings and debt to equity. Twelve months is
+the last fiscal year plus this year so far, less the same months a year earlier, and every ratio
+divides figures over the same months. Where a figure cannot be trusted it is left empty rather
+than shown: market value for a company with several share classes and no current count for all
+of them, debt to equity against negative equity, and Exxon, whose annual figures are not in the
+SEC's tagged data. How each of those was found is in
+[ADR 0007](docs/adr/0007-research-branch-evidence-not-instructions.md).
+
+## Brief — one page per stock, to take to an advisor
+
+![Brief tab](docs/assets/brief-tab.png)
+
+Everything above, set out for one stock: the evidence, the points that lean each way, the risks,
+questions only an advisor who knows you can answer, and what the page cannot know. Each sentence
+comes from a fixed rule over the numbers, and a test fails if any sentence the brief can produce
+tells the reader to buy, sell or hold. GameStop's, shown here, has insiders' buying in its favour
+and falling revenue against it. It prints on its own, and `?brief=GME` links straight to it.
 
 ## Model &amp; Book — every champion/challenger decision, and the current paper positions
 
@@ -135,9 +170,9 @@ when one fires.
 Switching to XJSE re-scopes everything: **beta is measured against STX40.JO** (not SPY —
 comparing a JSE book to the S&P would measure the rand, not the strategy), the Options tab
 is gone (no free JSE chain data), and the numbers are the JSE champion's. Its in-sample
-replay looked strong — alpha +16%, IR 0.42, all three books positive — but live, over 57
-sessions to 2026-10-13, its alpha is +1.45% ± 16.6% a year (the current champion is up 1.4%
-over its 55): nothing it could claim in either direction.
+replay looked strong — alpha +16%, IR 0.42, all three books positive — but live, over 59
+sessions to 2026-10-15, its alpha is +2.4% ± 16.2% a year (the current champion is up 1.7%
+over its 57): nothing it could claim in either direction.
 
 There is a sharper caveat than that. `quantpulse baseline` scores every champion against
 simple rules on the same holdout, and on the JSE **a plain 63-day momentum rule beats the
@@ -191,6 +226,11 @@ flowchart LR
   history forward** from the first run. A clearly-disclaimered panel also illustrates how the
   model's directional view *would* translate into a defined-risk spread — an illustration, never
   advice.
+- **Research branch, kept apart from the model** — short interest, option hedging, Wikipedia
+  attention, insider trades and 5% stakes, company fundamentals and a research watchlist, all from
+  free sources, set out per stock in a printable advisor brief
+  ([ADR 0007](docs/adr/0007-research-branch-evidence-not-instructions.md)). None of it is a model
+  input, and every page assesses rather than advises.
 - **Measured honestly** — a CAPM decomposition splits the return into the part that is just the
   market moving (beta) and the part that isn't (alpha), reported alongside the information ratio,
   because comparing raw return to SPY says nothing about a portfolio built to be market-neutral. The

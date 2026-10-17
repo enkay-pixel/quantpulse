@@ -31,3 +31,15 @@ def test_the_proxy_resolves_the_api_per_request() -> None:
     nginx = (ROOT / "docker/nginx.conf").read_text()
     assert re.search(r"resolver 127\.0\.0\.11", nginx), "no per-request resolver"
     assert "set $api" in nginx, "upstream is a literal, resolved once at startup"
+
+
+def test_the_dashboard_starts_without_the_network_on_a_pinned_image() -> None:
+    """The nginx image's IPv6 start-up step can hang on a package-index download with no timeout,
+    and did, leaving the dashboard unstarted. It is removed, and the base is a version tag so a
+    rebuild cannot swap the image underneath."""
+    dockerfile = (ROOT / "docker" / "web.Dockerfile").read_text()
+    serve = [line for line in dockerfile.splitlines() if line.startswith("FROM nginx")]
+    assert serve and all(re.match(r"FROM nginx:\d+\.\d+\.\d+-alpine$", line) for line in serve), (
+        serve
+    )
+    assert "rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh" in dockerfile
