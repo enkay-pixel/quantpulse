@@ -19,7 +19,18 @@ with live as (
         days_to_expiry,
         open_interest,
         gamma * open_interest * 100 * underlying_close * underlying_close * 0.01 as gamma_usd_1pct
-    from {{ ref('stg_option_quotes') }}
+    from (
+        -- The model's universe and the research watchlist, captured in the same band.
+        select
+            snapshot_date, ticker, strike, option_type, underlying_close, days_to_expiry,
+            open_interest, gamma, implied_volatility
+        from {{ ref('stg_option_quotes') }}
+        union all
+        select
+            snapshot_date, ticker, strike, option_type, underlying_close, days_to_expiry,
+            open_interest, gamma, implied_volatility
+        from {{ ref('stg_watchlist_option_quotes') }}
+    ) as quotes
     where
         days_to_expiry >= 1
         and implied_volatility > 0.01

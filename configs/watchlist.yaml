@@ -1,0 +1,25 @@
+# Research branch (ADR 0007): names the research branch follows that the model does not.
+#
+# Each gets daily bars, a nightly option chain where its market lists options, short interest and
+# Wikipedia attention, in tables of their own, and shows on the Positioning tab marked as a
+# watchlist name. None of it is ever a model input, a paper-book holding or a training row: a name
+# already in configs/universe.yaml is refused.
+#
+# Each entry:
+#   ticker      the Yahoo symbol
+#   exchange    XNYS (any US listing) or XJSE
+#   asset_type  stock or etf
+#   wikipedia   the English Wikipedia article, exactly as its title reads (optional; see the
+#               notes in configs/attention.yaml on why it must be the canonical title)
+#   why         one sentence on why it is followed, shown beside it on the dashboard
+names:
+  - ticker: GME
+    exchange: XNYS
+    asset_type: stock
+    wikipedia: GameStop
+    why: The 2021 short squeeze, the worked example in ADR 0007.
+  - ticker: AMC
+    exchange: XNYS
+    asset_type: stock
+    wikipedia: AMC Theatres
+    why: The other 2021 squeeze name, for comparison with GameStop.

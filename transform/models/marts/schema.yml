@@ -306,6 +306,9 @@ models:
     columns:
       - name: exchange
         tests: [not_null]
+      - name: followed_by
+        description: Who follows the name, the model (its universe) or the research watchlist.
+        tests: [not_null]
       - name: call_gamma_share_of_adv
         description: Call dollar gamma per 1% move over 20-session average dollar volume.
       - name: short_known_from

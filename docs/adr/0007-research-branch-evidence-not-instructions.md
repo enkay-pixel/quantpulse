@@ -133,3 +133,25 @@ sets the past week's mean against the median of the 90 days before it.
 Attention crossed 3× only after the price had more than tripled, and peaked with it. On this
 evidence, attention confirms a move rather than warning of one. The page says so beside every
 reading, and no claim that it leads returns is made without a pre-registered test.
+
+## Amendment, 2026-10-17: the research watchlist
+
+**Names beyond the model's universe get the same measures.** `configs/watchlist.yaml` lists names to
+follow, each with a sentence on why. GameStop and AMC start it, as the two 2021 squeeze names to
+compare against. Each name gets:
+
+- Daily bars in `watchlist_prices`, refetched in full each evening so a split lands. Nothing trains
+  on them, so the rule that fixes a trained-on day (ADR 0006) does not apply.
+- A nightly chain in `watchlist_option_quotes`, in the universe's band, behind the same post-close
+  gate. This was the extension's precondition: the universe's capture covers its own names only.
+- Its short interest and page views, in the existing research tables.
+
+**Kept out of the model by construction.** The model's tables keep their foreign key to the
+universe, so a watchlist name cannot reach them, and the sync refuses a name that is in the
+universe, so no ticker is followed twice. The capture has its own table, so the universe's
+completeness checks and the options book read only the model's names. `watchlist_job` runs on its
+own, weekday evenings after the close.
+
+**Marked everywhere it appears.** The marts read both sources through one list of research names,
+and every row says who follows it, the model or the watchlist. The Positioning tab tags watchlist
+names and lists each with its reason.

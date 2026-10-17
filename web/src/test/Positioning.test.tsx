@@ -9,11 +9,13 @@ import {
   shortBand,
   shortInterestVerdict,
 } from "../components/PositioningTable";
+import { WatchlistCard } from "../components/WatchlistCard";
 
 function row(over: Partial<PositioningRow>): PositioningRow {
   return {
     ticker: "AAPL",
     asset_type: "stock",
+    followed_by: "model",
     spot: 100,
     call_oi: 1000,
     put_oi: 800,
@@ -131,5 +133,37 @@ describe("GammaProfileChart", () => {
     );
     expect(screen.getByText("Calls, above the axis")).toBeInTheDocument();
     expect(screen.getByText("Puts, below the axis")).toBeInTheDocument();
+  });
+});
+
+describe("the research watchlist", () => {
+  it("tags a watchlist name in the positioning table and leaves the model's names untagged", () => {
+    render(
+      <PositioningTable
+        data={{
+          exchange: "XNYS",
+          snapshot_date: "2026-10-16",
+          rows: [row({}), row({ ticker: "GME", followed_by: "watchlist" })],
+        }}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(within(screen.getByTestId("positioning-GME")).getByText("watchlist")).toBeInTheDocument();
+    expect(within(screen.getByTestId("positioning-AAPL")).queryByText("watchlist")).toBeNull();
+  });
+
+  it("lists each name with why it is followed, and says how to add one when empty", () => {
+    const { unmount } = render(
+      <WatchlistCard
+        names={[
+          { ticker: "GME", exchange: "XNYS", asset_type: "stock", why: "The 2021 squeeze.", wikipedia: "GameStop" },
+        ]}
+      />,
+    );
+    expect(within(screen.getByTestId("watch-GME")).getByText("The 2021 squeeze.")).toBeInTheDocument();
+    unmount();
+    render(<WatchlistCard names={[]} />);
+    expect(screen.getByText(/configs\/watchlist\.yaml/)).toBeInTheDocument();
   });
 });

@@ -188,6 +188,13 @@ export const useGammaProfile = (ticker: string | null) =>
     refetchInterval: 10 * REFRESH_MS,
   });
 
+export const useWatchlist = () =>
+  useQuery({
+    queryKey: ["watchlist"],
+    queryFn: () => api.watchlist(),
+    refetchInterval: 10 * REFRESH_MS,
+  });
+
 export const useAttention = (exchange: string) =>
   useQuery({
     queryKey: ["attention", exchange],

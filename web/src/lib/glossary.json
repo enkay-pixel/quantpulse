@@ -319,6 +319,11 @@
     "label": "Findings",
     "meaning": "Measurements this project has made, each with its question and what came back."
   },
+  "followed_by": {
+    "label": "Followed by",
+    "meaning": "Who follows the name. \"model\" means it is in the model's universe; \"watchlist\" means only the research pages follow it.",
+    "read": "A watchlist name never feeds the model, its forecasts or the paper books."
+  },
   "gamma": {
     "label": "How fast that changes",
     "meaning": "How much the delta changes for a $1 move in the stock.",
@@ -534,6 +539,10 @@
   "n_days": {
     "label": "Trading days",
     "meaning": "How many trading days the figures cover."
+  },
+  "names": {
+    "label": "Names",
+    "meaning": "The names on the research watchlist, both markets."
   },
   "net_debit": {
     "label": "Cost to open",
@@ -936,6 +945,14 @@
     "label": "Share of the book",
     "meaning": "How much of the book's value sits in this position. Negative means a short sale.",
     "term": "weight"
+  },
+  "why": {
+    "label": "Why it is followed",
+    "meaning": "One sentence, from the watchlist file, on why the name is on the watchlist."
+  },
+  "wikipedia": {
+    "label": "Wikipedia article",
+    "meaning": "The article whose page views stand for public attention to the name, if it has one."
   },
   "win_rate": {
     "label": "Days up",

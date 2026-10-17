@@ -28,7 +28,8 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `monitoring/drift.py` · `orchestration/` (Dagster defs + dagster-dbt) · `api/` · `cli.py`
 - `src/quantpulse/research/` ([ADR 0007](docs/adr/0007-research-branch-evidence-not-instructions.md)):
   evidence for forming a view, kept apart from the model — own tables (`short_interest`,
-  `page_views`; no FK to `universe`), own job (`research_job`), never a model input. Pages assess;
+  `page_views`, `watchlist*`; no FK to `universe`), own jobs (`research_job`, `watchlist_job`),
+  never a model input. `configs/watchlist.yaml` adds names beyond the universe. Pages assess;
   they never say what to buy or sell. `fct_gamma_by_strike` / `fct_positioning` (NYSE only: the JSE
   publishes no free short interest or chains) and `fct_attention` (both markets) feed the
   Positioning tab. `configs/attention.yaml` titles must be canonical: the page-view API does not

@@ -11,6 +11,7 @@ With spot 100, each contract's figure is gamma x OI x 10,000, which keeps the ar
 
 import datetime as dt
 from collections.abc import Callable, Iterator
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -21,7 +22,14 @@ from sqlalchemy.orm import Session
 from quantpulse.api.app import create_app
 from quantpulse.api.deps import engine_dep, session_dep
 from quantpulse.data.universe import UniverseEntry, sync_universe
-from quantpulse.db import OptionQuote, Price, ShortInterest
+from quantpulse.db import (
+    OptionQuote,
+    Price,
+    ShortInterest,
+    WatchlistName,
+    WatchlistOptionQuote,
+    WatchlistPrice,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -38,8 +46,9 @@ def _quote(
     oi: int,
     gamma: float,
     iv: float = 0.30,
-) -> OptionQuote:
-    return OptionQuote(
+    model: type = OptionQuote,
+) -> Any:
+    return model(
         snapshot_date=SNAPSHOT,
         ticker=ticker,
         expiry=SNAPSHOT + dt.timedelta(days=days),
@@ -92,6 +101,31 @@ def _seed(engine: Engine) -> None:
                 _quote("SPY", 100.0, "call", days=5, oi=100, gamma=0.04),  # 40,000
             ]
         )
+        # A research-watchlist name: not in the universe, so in tables of its own.
+        session.add(
+            WatchlistName(
+                ticker="GME",
+                exchange="XNYS",
+                asset_type="stock",
+                why="The 2021 short squeeze.",
+                wikipedia="GameStop",
+            )
+        )
+        for day in pd.bdate_range(end=SNAPSHOT, periods=20):
+            session.add(
+                WatchlistPrice(
+                    ticker="GME",
+                    date=day.date(),
+                    open=SPOT,
+                    high=SPOT,
+                    low=SPOT,
+                    close=SPOT,
+                    volume=VOLUME,
+                )
+            )
+        session.add(
+            _quote("GME", 100.0, "call", days=10, oi=3000, gamma=0.05, model=WatchlistOptionQuote)
+        )  # 1,500,000
         session.add_all(
             [
                 # Known before the snapshot: this is what the snapshot day could see.
@@ -127,7 +161,8 @@ def client(test_db_url: str, dbt_build: Callable[..., None]) -> Iterator[TestCli
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE prices, option_quotes, short_interest, universe RESTART IDENTITY CASCADE"
+                "TRUNCATE prices, option_quotes, short_interest, universe, watchlist, "
+                "watchlist_prices, watchlist_option_quotes RESTART IDENTITY CASCADE"
             )
         )
     _seed(engine)
@@ -212,3 +247,28 @@ def test_profile_lists_each_strike_with_calls_and_puts_apart(client: TestClient)
 def test_a_market_without_chains_is_empty_not_an_error(client: TestClient) -> None:
     body = client.get("/research/positioning", params={"exchange": "XJSE"}).json()
     assert body == {"exchange": "XJSE", "snapshot_date": None, "rows": []}
+
+
+def test_a_watchlist_name_is_measured_alike_and_marked_as_the_watchlists(
+    client: TestClient,
+) -> None:
+    """The research watchlist (ADR 0007): a name outside the universe gets the same measures, from
+    its own chains and bars, and says it is followed by the watchlist, not the model."""
+    rows = {r["ticker"]: r for r in client.get("/research/positioning").json()["rows"]}
+    assert rows["GME"]["followed_by"] == "watchlist"
+    assert rows["AAPL"]["followed_by"] == "model"
+    assert rows["GME"]["call_gamma_usd_1pct"] == pytest.approx(1_500_000)
+    assert rows["GME"]["call_gamma_share_of_adv"] == pytest.approx(1_500_000 / 1e8)
+
+
+def test_the_watchlist_endpoint_says_why_each_name_is_followed(client: TestClient) -> None:
+    names = client.get("/research/watchlist").json()["names"]
+    assert names == [
+        {
+            "ticker": "GME",
+            "exchange": "XNYS",
+            "asset_type": "stock",
+            "why": "The 2021 short squeeze.",
+            "wikipedia": "GameStop",
+        }
+    ]

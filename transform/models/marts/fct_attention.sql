@@ -48,6 +48,7 @@ baseline as (
 select
     r.ticker,
     u.exchange,
+    u.followed_by,
     r.date,
     r.article,
     r.views,
@@ -57,4 +58,4 @@ select
         as attention_ratio
 from recent as r
 left join baseline as b on r.ticker = b.ticker and r.date = b.date
-left join {{ ref('stg_universe') }} as u on r.ticker = u.ticker
+left join {{ ref('stg_research_names') }} as u on r.ticker = u.ticker

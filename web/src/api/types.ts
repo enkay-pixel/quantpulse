@@ -353,6 +353,8 @@ export interface ForwardVrpOut {
 export interface PositioningRow {
   ticker: string;
   asset_type: string;
+  /** "model" for the universe's names, "watchlist" for the research watchlist's. */
+  followed_by: string;
   spot: number;
   call_oi: number;
   put_oi: number;
@@ -395,6 +397,7 @@ export interface GammaProfileOut {
  * views against the median of the 90 days before it. Both markets. */
 export interface AttentionRow {
   ticker: string;
+  followed_by: string;
   article: string;
   date: string;
   views_7d: number;
@@ -463,4 +466,17 @@ export interface OptionBookOut {
   days: OptionBookDay[];
   cohorts: OptionBookCohort[];
   positions: OptionBookPosition[];
+}
+
+/** A name the research branch follows that the model does not (ADR 0007). */
+export interface WatchlistName {
+  ticker: string;
+  exchange: string;
+  asset_type: string;
+  why: string;
+  wikipedia: string | null;
+}
+
+export interface WatchlistOut {
+  names: WatchlistName[];
 }

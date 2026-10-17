@@ -29,6 +29,7 @@ import { LiveStats, emptyReason } from "./components/LiveStats";
 import { StatCard } from "./components/StatCard";
 import { Tabs } from "./components/Tabs";
 import { TrackRecordCard } from "./components/TrackRecordCard";
+import { WatchlistCard } from "./components/WatchlistCard";
 import {
   useAlphaBeta,
   useAttention,
@@ -57,6 +58,7 @@ import {
   useQuintiles,
   useRisk,
   useTrackRecord,
+  useWatchlist,
 } from "./hooks/useApi";
 import { ExchangePicker } from "./components/ExchangePicker";
 import { useExchange } from "./hooks/useExchange";
@@ -547,7 +549,24 @@ function PositioningTab({ exchange, hasOptions }: { exchange: string; hasOptions
         </Section>
       )}
       <AttentionSections exchange={exchange} />
+      <WatchlistSection exchange={exchange} />
     </div>
+  );
+}
+
+function WatchlistSection({ exchange }: { exchange: string }) {
+  const watchlist = useWatchlist();
+  return (
+    <Section
+      title="Followed beyond the model"
+      explain="Names these research pages follow that the model does not, and why each is followed. They appear in the tables above with a watchlist tag, and none of them feeds the model, its forecasts or its paper books."
+    >
+      {watchlist.data ? (
+        <WatchlistCard names={watchlist.data.names.filter((n) => n.exchange === exchange)} />
+      ) : (
+        <Placeholder height="h-24" />
+      )}
+    </Section>
   );
 }
 

@@ -9,6 +9,7 @@ import { visibleTabs } from "../lib/tabs";
 function row(over: Partial<AttentionRow>): AttentionRow {
   return {
     ticker: "NPN.JO",
+    followed_by: "model",
     article: "Naspers",
     date: "2026-10-15",
     views_7d: 280,

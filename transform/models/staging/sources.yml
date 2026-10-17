@@ -87,3 +87,27 @@ sources:
           - dbt_utils.unique_combination_of_columns:
               arguments:
                 combination_of_columns: [ticker, date]
+      - name: watchlist
+        description: >
+          The research watchlist (ADR 0007), synced from configs/watchlist.yaml: names the
+          research branch follows that the model does not. Never a universe ticker.
+        meta:
+          dagster:
+            asset_key: watchlist
+        columns:
+          - name: ticker
+            tests: [unique, not_null]
+      - name: watchlist_prices
+        description: Daily adjusted bars for the watchlist's names, refetched in full each evening.
+        meta:
+          dagster:
+            asset_key: watchlist_prices
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [ticker, date]
+      - name: watchlist_option_quotes
+        description: The watchlist's nightly option chains, in the universe's band.
+        meta:
+          dagster:
+            asset_key: watchlist_chains

@@ -29,6 +29,7 @@ import type {
   GammaProfileOut,
   OptionBookOut,
   PositioningOut,
+  WatchlistOut,
 } from "./types";
 
 /** Same-origin by default: nginx (container) and Vite (dev) both forward /api to the API, so the
@@ -95,6 +96,7 @@ export const api = {
   optionBook: (ex: string) => getJson<OptionBookOut>(`/options/book?exchange=${ex}`),
   positioning: (ex: string) =>
     getJson<PositioningOut>(`/research/positioning?exchange=${ex}`),
+  watchlist: () => getJson<WatchlistOut>("/research/watchlist"),
   attention: (ex: string) =>
     getJson<AttentionOut>(`/research/attention?exchange=${ex}`),
   attentionHistory: (ticker: string) =>

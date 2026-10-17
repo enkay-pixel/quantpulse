@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     quantpulse_universe_file: Path = Path("configs/universe.yaml")
     quantpulse_decisions_file: Path = Path("configs/decisions.yaml")
     quantpulse_attention_file: Path = Path("configs/attention.yaml")
+    quantpulse_watchlist_file: Path = Path("configs/watchlist.yaml")
     quantpulse_glossary_file: Path = Path("configs/glossary.yaml")
     quantpulse_findings_index: Path = Path("docs/findings/README.md")
     #: Where the weekly shadow job saves its verdict, when the process can see it. The API reads

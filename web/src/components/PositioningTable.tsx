@@ -9,6 +9,7 @@ import {
   formatUsdCompact,
 } from "../lib/format";
 import { Term } from "./Term";
+import { WatchTag } from "./WatchTag";
 
 /** Commonly cited bands for short interest as a share of float. They describe how much fuel a
  * short squeeze would have, not whether one is coming; the page says so beside them. */
@@ -107,6 +108,7 @@ function Row({
           {selected ? "▸ " : ""}
           {row.ticker}
         </button>
+        <WatchTag followedBy={row.followed_by} />
       </td>
       <Cell>
         {formatPercent(row.short_pct_float, 1)}

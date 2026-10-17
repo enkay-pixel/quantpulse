@@ -41,6 +41,13 @@ research_job = dg.define_asset_job(
     "research_job", selection=[qp_assets.short_interest, qp_assets.page_views]
 )
 
+# The research watchlist (ADR 0007): names the model does not follow, in a job of their own for
+# the same reason, after the close so their chains carry the evening's marks.
+watchlist_job = dg.define_asset_job(
+    "watchlist_job",
+    selection=[qp_assets.watchlist, qp_assets.watchlist_prices, qp_assets.watchlist_chains],
+)
+
 # The paper options book (ADR 0008) runs apart too: it reads the evening's share book and option
 # chains, and nothing downstream of the model reads it.
 options_book_job = dg.define_asset_job("options_book_job", selection=[qp_assets.option_book])
@@ -126,6 +133,23 @@ research_schedule = dg.ScheduleDefinition(
     name="daily_research_schedule",
     default_status=dg.DefaultScheduleStatus.RUNNING,
 )
+
+
+# Weekday evenings, New York time: after the close, so the chains carry the evening's marks, and
+# before the universe's ingest, so the processing run's dbt build includes them. A day the market
+# is shut is skipped, as the ingest schedules do, rather than refused by the post-close gate.
+@dg.schedule(
+    job=watchlist_job,
+    cron_schedule="30 17 * * 1-5",
+    execution_timezone="America/New_York",
+    name="daily_watchlist_schedule",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
+)
+def watchlist_schedule(context: dg.ScheduleEvaluationContext) -> dg.RunRequest | dg.SkipReason:
+    day = market_today("XNYS")
+    if not is_trading_day(day, "XNYS"):
+        return dg.SkipReason(f"{day} is not a NYSE session")
+    return dg.RunRequest(run_key=f"watchlist-{day}")
 
 
 # Weekday evenings, New York time, after the processing run has rebuilt the share books.
@@ -396,6 +420,9 @@ defs = dg.Definitions(
         qp_assets.champion_model,
         qp_assets.short_interest,
         qp_assets.page_views,
+        qp_assets.watchlist,
+        qp_assets.watchlist_prices,
+        qp_assets.watchlist_chains,
         qp_assets.option_book,
         transform_dbt_assets,
     ],
@@ -407,12 +434,20 @@ defs = dg.Definitions(
         qp_assets.champion_registry_agrees,
         qp_assets.resource_headroom,
     ],
-    jobs=[ingest_job, process_job, training_job, research_job, options_book_job],
+    jobs=[
+        ingest_job,
+        process_job,
+        training_job,
+        research_job,
+        watchlist_job,
+        options_book_job,
+    ],
     schedules=[
         *ingest_schedules,
         process_schedule,
         training_schedule,
         research_schedule,
+        watchlist_schedule,
         options_book_schedule,
     ],
     sensors=[

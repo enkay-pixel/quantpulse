@@ -70,3 +70,32 @@ models:
     columns:
       - name: views
         tests: [not_null]
+
+  - name: stg_watchlist
+    description: The research watchlist, one row per name (ADR 0007).
+    columns:
+      - name: ticker
+        tests: [unique, not_null]
+
+  - name: stg_watchlist_prices
+    description: Daily bars for the watchlist's current names, with their market.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, date]
+
+  - name: stg_watchlist_option_quotes
+    description: The watchlist's option chains for its current names, shaped like stg_option_quotes.
+
+  - name: stg_research_names
+    description: >
+      Every name the research branch covers and who follows it, the model or the watchlist. A
+      ticker appears once: the watchlist sync refuses a universe ticker.
+    columns:
+      - name: ticker
+        tests: [unique, not_null]
+      - name: followed_by
+        tests:
+          - accepted_values:
+              arguments:
+                values: [model, watchlist]
