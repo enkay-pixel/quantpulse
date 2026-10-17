@@ -41,8 +41,13 @@ CONCEPTS: tuple[tuple[str, str, str], ...] = (
     ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax", "USD"),
     ("us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax", "USD"),
     ("us-gaap", "SalesRevenueNet", "USD"),
+    # Banks' revenue: net of the interest they pay (Wells Fargo, Goldman Sachs).
+    ("us-gaap", "RevenuesNetOfInterestExpense", "USD"),
     ("us-gaap", "OperatingIncomeLoss", "USD"),
     ("us-gaap", "NetIncomeLoss", "USD"),
+    # Net profit under other names: Caterpillar, Mastercard and Broadcom file one of these instead.
+    ("us-gaap", "NetIncomeLossAvailableToCommonStockholdersBasic", "USD"),
+    ("us-gaap", "ProfitLoss", "USD"),
     ("us-gaap", "EarningsPerShareDiluted", "USD/shares"),
     ("us-gaap", "NetCashProvidedByUsedInOperatingActivities", "USD"),
     ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment", "USD"),

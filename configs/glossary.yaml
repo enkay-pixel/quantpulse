@@ -816,7 +816,7 @@ terms:
     label: Revenue, 12 months
     term: trailing twelve months
     meaning: What the company sold over the last twelve months it has reported, from its 10-K and 10-Q filings.
-    read: Where the company files revenue only yearly, as banks do, this is its last fiscal year.
+    read: Where a company files revenue only yearly, this is its last fiscal year.
   revenue_growth:
     label: Revenue growth
     meaning: Revenue this fiscal year so far against the same months a year earlier, or the last fiscal year against the one before when no later quarter is filed.
@@ -833,6 +833,7 @@ terms:
   free_cash_flow:
     label: Free cash flow
     meaning: Cash from running the business less what was spent on equipment and buildings, over twelve months or the last fiscal year.
+    read: For banks and brokers it says little, since their operating cash moves with their lending and trading.
   free_cash_flow_through:
     label: Free cash flow through
     meaning: The end of the period the free cash flow covers.
@@ -848,6 +849,7 @@ terms:
     label: Cash margin
     term: free-cash-flow margin
     meaning: Free cash flow as a share of revenue, over the same months.
+    read: For banks and brokers it says little, since their operating cash moves with their lending and trading.
   eps_ttm:
     label: Earnings per share, 12 months
     term: diluted EPS
@@ -861,7 +863,7 @@ terms:
   debt_to_equity:
     label: Debt to equity
     meaning: Long-term debt divided by shareholders' equity.
-    read: Higher means more borrowed against what the owners have in. Banks borrow by design, so compare them only with banks.
+    read: Higher means more borrowed against what the owners have in. Banks borrow by design, so compare them only with banks. Empty where equity is negative, as at McDonald's after years of buying back its shares.
   market_cap:
     label: Market value
     term: market capitalization

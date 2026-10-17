@@ -6,8 +6,10 @@ What has to hold, each from something the live data showed:
 - twelve months = last fiscal year + this year so far - the same months a year earlier;
 - the tag a company uses now wins over one it dropped (Apple), and two tags filed together for
   different things resolve to the broader one every period (Berkshire);
-- a ratio divides figures over the same months, so annual-only revenue (banks) is not set
-  against a later profit;
+- a ratio divides figures over the same months, so revenue filed only yearly is not set against a
+  later profit;
+- a line whose newest year is long past (Wells Fargo's dropped tag) is left out, not shown as
+  current, and debt to equity is empty against negative equity (McDonald's);
 - market value needs a current whole-company share count, or it is left empty.
 """
 
@@ -136,7 +138,7 @@ def client(test_db_url: str, dbt_build: Callable[..., None]) -> Iterator[TestCli
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE financial_facts, prices, universe RESTART IDENTITY CASCADE"))
     with Session(engine) as session:
-        sync_universe(session, [UniverseEntry(t, "stock") for t in ("AAA", "BBB", "CCC")])
+        sync_universe(session, [UniverseEntry(t, "stock") for t in ("AAA", "BBB", "CCC", "DDD")])
         session.commit()
     with Session(engine) as session:
         facts = [
@@ -180,15 +182,20 @@ def client(test_db_url: str, dbt_build: Callable[..., None]) -> Iterator[TestCli
                 "2020-03-01",
                 "k19b",
             ),
-            # CCC, a bank: revenue only yearly, profit quarterly.
+            # CCC: revenue filed only yearly, profit quarterly.
             _f("CCC", "Revenues", *FY, 100, "2026-02-01", "k25c"),
             _f("CCC", "Revenues", "2024-01-01", "2024-12-31", 90, "2026-02-01", "k25c"),
             _f("CCC", "NetIncomeLoss", *FY, 30, "2026-02-01", "k25c"),
             _f("CCC", "NetIncomeLoss", *YTD, 20, "2026-07-31", "q26c"),
             _f("CCC", "NetIncomeLoss", *PRIOR_YTD, 15, "2026-07-31", "q26c"),
+            # DDD: a revenue tag dropped years ago, and equity below zero.
+            _f("DDD", "Revenues", "2020-01-01", "2020-12-31", 500, "2021-02-01", "k20d"),
+            _f("DDD", "NetIncomeLoss", *FY, 40, "2026-02-01", "k25d"),
+            _f("DDD", "LongTermDebt", None, "2025-12-31", 80, "2026-02-01", "k25d"),
+            _f("DDD", "StockholdersEquity", None, "2025-12-31", -5, "2026-02-01", "k25d"),
         ]
         session.add_all(facts)
-        for ticker in ("AAA", "BBB", "CCC"):
+        for ticker in ("AAA", "BBB", "CCC", "DDD"):
             day = pd.Timestamp("2026-10-16").date()
             session.add(
                 Price(
@@ -252,6 +259,15 @@ def test_a_ratio_never_sets_this_years_profit_against_last_years_revenue(
     assert ccc["revenue_growth"] == pytest.approx(100 / 90 - 1)
     assert ccc["net_income_ttm"] == pytest.approx(35)
     assert ccc["net_margin"] == pytest.approx(30 / 100), "fiscal year against fiscal year"
+
+
+def test_a_long_dropped_line_is_left_out_and_negative_equity_has_no_ratio(
+    client: TestClient,
+) -> None:
+    ddd = _rows(client)["DDD"]
+    assert ddd["revenue_ttm"] is None, "2020 revenue is not this company's current revenue"
+    assert ddd["net_income_ttm"] == pytest.approx(40)
+    assert ddd["debt_to_equity"] is None
 
 
 def test_the_brief_reads_the_business_figures(client: TestClient) -> None:

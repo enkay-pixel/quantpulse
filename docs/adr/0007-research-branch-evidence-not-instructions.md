@@ -243,9 +243,22 @@ where they can be trusted, price ratios. They show on a Fundamentals tab and in 
 - **Twelve months needs arithmetic.** The trailing figure is the last fiscal year plus this year so
   far less the same months a year earlier, the standard method and the only one available for cash
   flow, which is filed year to date.
-- **Banks file revenue only yearly.** JPMorgan's net margin divided twelve months of profit to June
-  by the calendar year's revenue. Every ratio now uses figures over the same months: twelve months
-  against twelve months, or fiscal year against fiscal year.
+- **Banks tag revenue net of interest.** JPMorgan files `Revenues` only yearly, and its quarters
+  under `RevenuesNetOfInterestExpense`; Wells Fargo and Goldman Sachs use only the latter. Before
+  that tag was read, JPMorgan's net margin divided twelve months of profit to June by the calendar
+  year's revenue. The tag is read now, and every ratio uses figures over the same months anyway —
+  twelve months against twelve months, or fiscal year against fiscal year — so a line a company
+  files only yearly cannot do it again.
+- **Profit under other names.** Caterpillar, Mastercard and Broadcom file net profit as
+  `ProfitLoss` or as profit available to common shareholders, so those are read too, the latter
+  first where both are filed.
+- **A dropped tag leaves stale figures.** Wells Fargo's last `Revenues` was for 2020, and its
+  twelve-month revenue read 2020's beside 2026 profit. A line whose newest year ends more than 400
+  days before the company's newest figures is now left out.
+- **Negative equity.** McDonald's equity is below zero after years of buying back its shares, and
+  debt to equity read −39. It is left empty when equity is not positive.
+- **Exxon cannot be built from this source.** Its annual figures are not in EDGAR's facts document,
+  only some quarters, so its row stays empty rather than guessed.
 - **Net profit can mislead.** Alphabet's second quarter of 2026 shows $112B of net profit on $120B of
   revenue, from revaluing stakes it holds. The page leads with operating margin and says so.
 - **Market value needs a current whole-company share count.** Alphabet reports none, and

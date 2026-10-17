@@ -8,10 +8,13 @@ select
             'Revenues',
             'RevenueFromContractWithCustomerExcludingAssessedTax',
             'RevenueFromContractWithCustomerIncludingAssessedTax',
-            'SalesRevenueNet'
+            'SalesRevenueNet',
+            'RevenuesNetOfInterestExpense'
         ) then 'revenue'
         when concept = 'OperatingIncomeLoss' then 'operating_income'
-        when concept = 'NetIncomeLoss' then 'net_income'
+        when concept in (
+            'NetIncomeLoss', 'NetIncomeLossAvailableToCommonStockholdersBasic', 'ProfitLoss'
+        ) then 'net_income'
         when concept = 'EarningsPerShareDiluted' then 'eps_diluted'
         when concept = 'NetCashProvidedByUsedInOperatingActivities' then 'operating_cash_flow'
         when concept in (

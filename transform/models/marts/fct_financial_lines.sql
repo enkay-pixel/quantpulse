@@ -37,6 +37,10 @@ ranked as (
                     when 'RevenueFromContractWithCustomerExcludingAssessedTax' then 2
                     when 'RevenueFromContractWithCustomerIncludingAssessedTax' then 3
                     when 'SalesRevenueNet' then 4
+                    when 'RevenuesNetOfInterestExpense' then 5
+                    when 'NetIncomeLoss' then 1
+                    when 'NetIncomeLossAvailableToCommonStockholdersBasic' then 2
+                    when 'ProfitLoss' then 3
                     when 'LongTermDebt' then 1
                     when 'LongTermDebtNoncurrent' then 2
                     when 'PaymentsToAcquirePropertyPlantAndEquipment' then 1

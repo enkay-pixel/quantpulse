@@ -3,15 +3,19 @@
 --
 -- Twelve months = the latest fiscal year, plus this fiscal year so far, minus the same months a
 -- year earlier: the standard trailing figure, and the only one available for cash flow, which is
--- reported year-to-date. Where no later quarter is filed (banks file revenue only yearly) it is
+-- reported year-to-date. Where no later quarter is filed for a line, it is
 -- the fiscal year itself, and `through` says how old it is.
 --
 -- Growth compares this fiscal year so far with the same months a year earlier, or the latest
 -- fiscal year with the one before when no later quarter exists.
 --
+-- A line whose newest fiscal year ends more than 400 days before the company's newest figures is
+-- left out: a company that stopped using a tag would otherwise show years-old figures beside
+-- current ones (Wells Fargo's last `Revenues` was 2020).
+--
 -- A ratio of two lines uses figures covering the same months: twelve months against twelve months
--- when both reach the same quarter, otherwise fiscal year against fiscal year. A bank that files
--- revenue only yearly would otherwise have this year's profit divided by last year's revenue.
+-- when both reach the same quarter, otherwise fiscal year against fiscal year. A line filed only
+-- yearly would otherwise have this year's profit divided by last year's revenue.
 --
 -- Market value needs a share count for the whole company. A company with several share classes
 -- reports none (Alphabet) or a stale one (Berkshire, 2011), so market value, price to sales and
@@ -21,12 +25,20 @@ with lines as (
     select * from {{ ref('fct_financial_lines') }}
 ),
 
-annual as (
-    select distinct on (ticker, line)
-        ticker, line, period_start, period_end, value
+newest as (
+    select ticker, max(period_end) as through, max(filed) as filed
     from lines
-    where duration_days between 350 and 380
-    order by ticker, line, period_end desc
+    where line <> 'shares_outstanding'
+    group by ticker
+),
+
+annual as (
+    select distinct on (l.ticker, l.line)
+        l.ticker, l.line, l.period_start, l.period_end, l.value
+    from lines as l
+    inner join newest as n on l.ticker = n.ticker
+    where l.duration_days between 350 and 380 and l.period_end >= n.through - 400
+    order by l.ticker, l.line, l.period_end desc
 ),
 
 prior_annual as (
@@ -89,18 +101,12 @@ flows as (
 ),
 
 balances as (
-    select distinct on (ticker, line)
-        ticker, line, period_end, value
-    from lines
-    where duration_days = 0
-    order by ticker, line, period_end desc
-),
-
-newest as (
-    select ticker, max(period_end) as through, max(filed) as filed
-    from lines
-    where line <> 'shares_outstanding'
-    group by ticker
+    select distinct on (l.ticker, l.line)
+        l.ticker, l.line, l.period_end, l.value
+    from lines as l
+    inner join newest as n on l.ticker = n.ticker
+    where l.duration_days = 0 and (l.line = 'shares_outstanding' or l.period_end >= n.through - 400)
+    order by l.ticker, l.line, l.period_end desc
 ),
 
 closes as (
@@ -181,7 +187,8 @@ select
     w.cash,
     w.long_term_debt,
     w.equity,
-    w.long_term_debt / nullif(w.equity, 0) as debt_to_equity,
+    -- Against negative equity (McDonald's, after years of buybacks) the ratio means nothing.
+    case when w.equity > 0 then w.long_term_debt / w.equity end as debt_to_equity,
     c.close,
     c.close * w.shares_outstanding as market_cap,
     case when w.eps_diluted_ttm > 0 then c.close / w.eps_diluted_ttm end as pe_ratio,
