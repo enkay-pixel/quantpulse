@@ -214,7 +214,12 @@ def test_the_research_branch_runs_apart_from_the_pipeline() -> None:
     model depends on — a vendor hiccup there would otherwise hold up an ingest or a retrain."""
     research = defs.resolve_job_def("research_job")
     research_keys = {k.to_user_string() for k in research.asset_layer.selected_asset_keys}
-    assert research_keys == {"short_interest", "page_views"}
+    assert research_keys == {
+        "short_interest",
+        "page_views",
+        "insider_transactions",
+        "holder_filings",
+    }
     for name in ("ingest_job", "process_job", "training_job"):
         keys = {
             k.to_user_string() for k in defs.resolve_job_def(name).asset_layer.selected_asset_keys

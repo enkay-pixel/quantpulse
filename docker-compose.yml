@@ -5,6 +5,8 @@ x-app-env: &app-env
   DAGSTER_PG_URL: postgresql+psycopg2://${POSTGRES_USER:-quantpulse}:${POSTGRES_PASSWORD:-quantpulse}@postgres:5432/dagster
   MLFLOW_TRACKING_URI: http://mlflow:5000
   QUANTPULSE_UNIVERSE_FILE: /app/configs/universe.yaml
+  # SEC EDGAR requires a contact in each request. The value lives in the local .env only.
+  QUANTPULSE_SEC_CONTACT: ${QUANTPULSE_SEC_CONTACT:-}
   # dbt profile (transform/profiles.yml) reads these:
   DBT_HOST: postgres
   POSTGRES_USER: ${POSTGRES_USER:-quantpulse}

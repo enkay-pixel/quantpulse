@@ -14,7 +14,7 @@ constantly and mostly does not execute an asset at all. Same convention, same re
 """
 
 import datetime as dt
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import dagster as dg
@@ -462,6 +462,39 @@ def page_views() -> dg.MaterializeResult:
             "skipped_titles": ", ".join(f"{t} ({s})" for t, s in report.skipped.items()) or "none",
             "failed": ", ".join(f"{t} ({r})" for t, r in report.failed.items()) or "none",
         }
+    )
+
+
+@dg.multi_asset(
+    specs=[
+        dg.AssetSpec("insider_transactions", group_name="research", kinds={"python", "postgres"}),
+        dg.AssetSpec("holder_filings", group_name="research", kinds={"python", "postgres"}),
+    ]
+)
+def ownership() -> Iterator[dg.MaterializeResult]:
+    """Insider trades (Form 4) and stakes over 5% (Schedules 13D and 13G) from SEC EDGAR, for the
+    US stocks the research pages cover (ADR 0007). One pass fills both tables, since one filing
+    list per company names both kinds.
+
+    Insert-only by accession, so a morning with no new filing stores nothing and is not a failure.
+    Fails, naming the setting, when no SEC contact is configured: EDGAR refuses requests without
+    one, so running anyway would only collect refusals.
+    """
+    from quantpulse.research.ownership import ownership_tickers, refresh_ownership
+
+    with get_session() as session:
+        tickers = ownership_tickers(session)
+    report = refresh_ownership(get_session, tickers)
+    shared: dict[str, str | int] = {
+        "tickers": report.tickers,
+        "no_cik": ", ".join(report.no_cik) or "none",
+        "failed": ", ".join(f"{t} ({r})" for t, r in report.failed.items()) or "none",
+    }
+    yield dg.MaterializeResult(
+        asset_key="insider_transactions", metadata={**shared, "new_trades": report.trades}
+    )
+    yield dg.MaterializeResult(
+        asset_key="holder_filings", metadata={**shared, "new_filings": report.holder_filings}
     )
 
 

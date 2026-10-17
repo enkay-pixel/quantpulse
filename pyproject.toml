@@ -23,6 +23,8 @@ dependencies = [
     "exchange-calendars>=4.5",
     "tenacity>=8.3",
     "httpx>=0.27",
+    # SEC filings are XML from outside the project: parsed with entity expansion refused.
+    "defusedxml>=0.7.1",
     # ML
     "scipy>=1.13",
     "lightgbm>=4.7.0",
@@ -125,6 +127,7 @@ module = [
     "exchange_calendars.*",
     "joblib.*",
     "mlflow.*",
+    "defusedxml.*",
 ]
 ignore_missing_imports = true
 

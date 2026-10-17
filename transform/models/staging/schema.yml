@@ -99,3 +99,12 @@ models:
           - accepted_values:
               arguments:
                 values: [model, watchlist]
+
+  - name: stg_insider_transactions
+    description: Insider trades from Form 4 with their dollar value; code P is a purchase, S a sale.
+    columns:
+      - name: code
+        tests: [not_null]
+
+  - name: stg_holder_filings
+    description: Structured 13D/13G stake disclosures; is_13d marks a holder who may seek influence.

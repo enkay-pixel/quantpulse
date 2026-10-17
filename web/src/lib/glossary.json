@@ -7,6 +7,11 @@
     "label": "Active",
     "meaning": "Whether the ticker is still tracked. Inactive tickers keep their history but get no new data."
   },
+  "activist_holder": {
+    "label": "Activist holder",
+    "meaning": "Whether any of those holders filed a 13D, which a holder must use if it may seek to influence the company rather than hold passively.",
+    "term": "13D filer"
+  },
   "adv_usd_20d": {
     "label": "Normal day's trading",
     "meaning": "The average dollar value traded per day over the last 20 trading days.",
@@ -136,9 +141,19 @@
     "label": "Books",
     "meaning": "One entry per version of the paper book."
   },
+  "bought_usd_90d": {
+    "label": "Insiders bought, 90 days",
+    "meaning": "The dollar value of the company's stock its insiders bought on the open market in the past 90 days, from their Form 4 filings.",
+    "read": "Buying with one's own money is rarer than selling and is the more telling of the two. Zero is normal."
+  },
   "breakeven": {
     "label": "Breakeven price",
     "meaning": "The stock price at expiry where the structure neither gains nor loses."
+  },
+  "buyers_90d": {
+    "label": "Insiders buying",
+    "meaning": "How many different insiders bought on the open market in the past 90 days.",
+    "read": "Several insiders buying at once is read as more telling than one."
   },
   "call_gamma_near_share": {
     "label": "Call hedging expiring within a month",
@@ -315,6 +330,14 @@
     "label": "Model inputs",
     "meaning": "One entry per model input, with its shift from training."
   },
+  "filed": {
+    "label": "Filed",
+    "meaning": "The day the filing reached the SEC and became public."
+  },
+  "filer": {
+    "label": "Holder",
+    "meaning": "Who filed the stake disclosure, as named on it."
+  },
   "findings": {
     "label": "Findings",
     "meaning": "Measurements this project has made, each with its question and what came back."
@@ -323,6 +346,10 @@
     "label": "Followed by",
     "meaning": "Who follows the name. \"model\" means it is in the model's universe; \"watchlist\" means only the research pages follow it.",
     "read": "A watchlist name never feeds the model, its forecasts or the paper books."
+  },
+  "form": {
+    "label": "Filing",
+    "meaning": "Which disclosure it is. 13D is for a holder that may seek influence, 13G for a passive one; /A marks an amendment."
   },
   "gamma": {
     "label": "How fast that changes",
@@ -341,6 +368,14 @@
   "history": {
     "label": "History",
     "meaning": "One entry per capture day."
+  },
+  "holders": {
+    "label": "Holders over 5%",
+    "meaning": "The holders whose latest 13D or 13G still reports 5% or more, largest first."
+  },
+  "holders_over_5pct": {
+    "label": "Holders over 5%",
+    "meaning": "How many holders' latest Schedule 13D or 13G filing still reports 5% or more of the stock."
   },
   "holdout_ic": {
     "label": "Ranking accuracy",
@@ -401,6 +436,10 @@
   "last_price": {
     "label": "Last traded price",
     "meaning": "The price of the most recent trade in the contract."
+  },
+  "last_trade_date": {
+    "label": "Latest insider trade",
+    "meaning": "The date of the newest open-market trade by an insider."
   },
   "latest_close": {
     "label": "Latest close",
@@ -583,6 +622,14 @@
     "label": "All days",
     "meaning": "The figures over the whole history."
   },
+  "owner": {
+    "label": "Insider",
+    "meaning": "The person or entity who traded, as named on the Form 4."
+  },
+  "percent": {
+    "label": "Stake",
+    "meaning": "The holding as a share of the stock outstanding, as the filer reported it."
+  },
   "phase": {
     "label": "Phase",
     "meaning": "Replay means figures from before the model went live, which it may have been fitted on — a description of the fit, not evidence. Live means genuinely out-of-sample.",
@@ -591,6 +638,17 @@
   "phases": {
     "label": "Phases",
     "meaning": "One entry per phase — the replay and the live record."
+  },
+  "planned": {
+    "label": "Planned",
+    "meaning": "Whether the insider said the trade was made under a plan set in advance. Blank on filings older than that question.",
+    "term": "10b5-1"
+  },
+  "planned_sold_share_90d": {
+    "label": "Planned in advance",
+    "meaning": "The share of that selling, by value, the filers said was made under a trading plan set months in advance (Rule 10b5-1).",
+    "read": "Planned sales are scheduled before the insider knows what the quarter holds, so they say less than unplanned ones.",
+    "term": "10b5-1 share"
   },
   "points": {
     "label": "Points",
@@ -708,6 +766,10 @@
     "label": "Risked per cohort",
     "meaning": "The share of the options book's value each cohort spends on its spreads — the most a cohort can lose."
   },
+  "role": {
+    "label": "Role",
+    "meaning": "The insider's relation to the company, such as chief executive, director or over-10% owner."
+  },
   "rolling_sharpe_63d": {
     "label": "Return per unit of risk, past 3 months",
     "meaning": "The Sharpe ratio over the most recent 63 trading days, recomputed each day.",
@@ -731,6 +793,10 @@
     "read": "Higher means the model expects the stock to do better than the others. It is a research output, not advice.",
     "term": "21-day signal"
   },
+  "sellers_90d": {
+    "label": "Insiders selling",
+    "meaning": "How many different insiders sold on the open market in the past 90 days."
+  },
   "share_drifted": {
     "label": "Inputs drifted",
     "meaning": "The share of the 13 model inputs whose shift from training is above 0.20.",
@@ -744,6 +810,10 @@
     "label": "Alarm level overall",
     "meaning": "The share of model inputs that must drift before the model is retrained early."
   },
+  "shares_held": {
+    "label": "Shares held",
+    "meaning": "The shares the holder reported owning."
+  },
   "shares_return": {
     "label": "Same names held as shares",
     "meaning": "What the monthly share book, holding the same stocks over the same window, made or lost."
@@ -752,6 +822,10 @@
     "label": "Shares sold short",
     "meaning": "Shares borrowed and sold, not yet bought back. Short sellers lose as the price rises.",
     "term": "short interest"
+  },
+  "shares_traded": {
+    "label": "Shares",
+    "meaning": "How many shares changed hands in the trade."
   },
   "sharpe": {
     "label": "Return per unit of risk",
@@ -804,6 +878,11 @@
     "label": "Captured on",
     "meaning": "The trading day whose after-close option prices were recorded.",
     "term": "snapshot date"
+  },
+  "sold_usd_90d": {
+    "label": "Insiders sold, 90 days",
+    "meaning": "The dollar value of the company's stock its insiders sold on the open market in the past 90 days.",
+    "read": "Most insider selling is routine, to diversify or pay tax, and much of it is planned months ahead. Selling alone says little."
   },
   "spot": {
     "label": "Stock price",
@@ -874,6 +953,14 @@
     "label": "Title",
     "meaning": "A short name for the item."
   },
+  "top_holder": {
+    "label": "Largest holder",
+    "meaning": "The holder with the largest stake among those over 5%, as named on its filing."
+  },
+  "top_holder_percent": {
+    "label": "Largest stake",
+    "meaning": "That holder's stake as a share of the stock outstanding, as reported on its latest filing."
+  },
   "total_return": {
     "label": "Total return",
     "meaning": "The book's gain or loss over the whole period."
@@ -883,9 +970,25 @@
     "meaning": "How much the book's return differs from the index's, as a yearly standard deviation.",
     "term": "tracking error"
   },
+  "trade": {
+    "label": "Trade",
+    "meaning": "Whether the insider bought or sold on the open market."
+  },
+  "trade_price": {
+    "label": "Price",
+    "meaning": "The price per share the insider reported for the trade."
+  },
+  "trades": {
+    "label": "Insider trades",
+    "meaning": "Open-market trades by the company's insiders, newest first."
+  },
   "trained_at": {
     "label": "Trained",
     "meaning": "When the model was fitted."
+  },
+  "transaction_date": {
+    "label": "Traded on",
+    "meaning": "The day the insider's trade took place."
   },
   "turnover": {
     "label": "Share traded",
@@ -904,6 +1007,10 @@
   "url": {
     "label": "Link",
     "meaning": "Where to read the full write-up."
+  },
+  "value_usd": {
+    "label": "Value",
+    "meaning": "Shares times price, in US dollars."
   },
   "variant": {
     "label": "Book",

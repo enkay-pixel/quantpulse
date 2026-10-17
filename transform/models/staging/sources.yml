@@ -111,3 +111,24 @@ sources:
         meta:
           dagster:
             asset_key: watchlist_chains
+      - name: insider_transactions
+        description: >
+          Insider trades from Form 4 filings on SEC EDGAR, one row per trade (research branch,
+          ADR 0007). Insert-only by accession and sequence.
+        meta:
+          dagster:
+            asset_key: insider_transactions
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [accession, seq]
+      - name: holder_filings
+        description: >
+          Structured Schedule 13D/13G disclosures of stakes over 5% (research branch, ADR 0007).
+          Insert-only by accession.
+        meta:
+          dagster:
+            asset_key: holder_filings
+        columns:
+          - name: accession
+            tests: [unique, not_null]

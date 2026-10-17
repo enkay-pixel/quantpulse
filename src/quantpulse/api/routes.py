@@ -825,6 +825,56 @@ def watchlist(session: SessionDep) -> schemas.WatchlistOut:
     return schemas.WatchlistOut(names=[schemas.WatchlistName(**dict(r)) for r in rows or []])
 
 
+@router.get("/research/ownership", response_model=schemas.OwnershipOut)
+def ownership(session: SessionDep, exchange: ExchangeDep) -> schemas.OwnershipOut:
+    """Insider buying and selling over the past 90 days, and holders over 5%, per US stock.
+
+    From SEC EDGAR filings: Form 4 for insiders' trades, Schedules 13D and 13G for large stakes.
+    A JSE company files with no US regulator, so that market's list is empty.
+    """
+    rows = _mart_rows(
+        session,
+        "SELECT ticker, followed_by, as_of, bought_usd_90d, sold_usd_90d, buyers_90d, sellers_90d, "
+        "planned_sold_share_90d, last_trade_date, holders_over_5pct, activist_holder, top_holder, "
+        "top_holder_percent FROM analytics.fct_ownership WHERE exchange = :ex ORDER BY ticker",
+        {"ex": exchange},
+    )
+    if not rows:
+        return schemas.OwnershipOut(exchange=exchange, as_of=None, rows=[])
+    return schemas.OwnershipOut(
+        exchange=exchange,
+        as_of=rows[0]["as_of"],
+        rows=[schemas.OwnershipRow(**{k: v for k, v in r.items() if k != "as_of"}) for r in rows],
+    )
+
+
+@router.get("/research/ownership/{ticker}", response_model=schemas.OwnershipDetailOut)
+def ownership_detail(ticker: str, session: SessionDep) -> schemas.OwnershipDetailOut:
+    """One stock's open-market insider trades over the past year, newest first, and the holders
+    whose latest 13D or 13G still reports 5% or more, largest first."""
+    ticker = ticker.upper()
+    trades = _mart_rows(
+        session,
+        "SELECT transaction_date, filed, owner, role, trade, shares_traded, trade_price, "
+        "value_usd, planned FROM analytics.fct_insider_trades WHERE ticker = :t AND "
+        "transaction_date > "
+        "(SELECT max(filed) FROM analytics.fct_insider_trades) - 365 "
+        "ORDER BY transaction_date DESC, accession, seq LIMIT 50",
+        {"t": ticker},
+    )
+    holders = _mart_rows(
+        session,
+        "SELECT filer, form, filed, shares_held, percent FROM analytics.fct_large_holders "
+        "WHERE ticker = :t ORDER BY percent DESC",
+        {"t": ticker},
+    )
+    return schemas.OwnershipDetailOut(
+        ticker=ticker,
+        trades=[schemas.InsiderTrade(**dict(r)) for r in trades or []],
+        holders=[schemas.HolderStake(**dict(r)) for r in holders or []],
+    )
+
+
 @router.get("/research/attention", response_model=schemas.AttentionOut)
 def attention(session: SessionDep, exchange: ExchangeDep) -> schemas.AttentionOut:
     """Each stock's public attention on its newest day, for one market — the research branch's

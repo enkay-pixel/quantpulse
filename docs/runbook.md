@@ -46,6 +46,7 @@ Durations measured 2026-09-19 over the preceding nine days.
 | 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |
 | 01:00 Tue–Sat | processing | 4–7 min | recovered by the catch-up sensor |
 | 07:00 daily | backup | about a minute | skipped for that day |
+| 13:00 Mon–Fri | research: short interest, attention, ownership filings | a minute or two | caught up by the next run, which fetches whatever it has not stored |
 | 15:00 Saturday | retrain | under a minute | re-run on return, unless killed mid-run |
 
 The launchd checks in [Host agents](#host-agents-launchd) are reports: a skipped one loses
@@ -424,6 +425,26 @@ A name already in `configs/universe.yaml` fails the run by name, and a unit test
 that. Removing a name takes it off the pages but keeps its history. Chains are captured only
 after the US close, like the universe's.
 
+## Ownership filings from SEC EDGAR
+
+The Positioning tab's ownership section reads insider trades (Form 4) and stakes over 5%
+(Schedules 13D and 13G) for the US stocks the research pages cover. EDGAR is free, but it refuses
+automated requests that do not name a contact, so the fetch needs one setting in the local `.env`,
+which is gitignored:
+
+```bash
+QUANTPULSE_SEC_CONTACT=you@example.com
+```
+
+Compose passes it to the containers; restart the Dagster services after setting it. Without it the
+morning `research_job` fails its ownership step, naming the setting. The first run reads two years
+of filings, about 10 minutes for the universe; later runs read only filings not yet in
+`edgar_filings`, a few seconds. To run it by hand:
+
+```bash
+docker compose exec dagster-daemon quantpulse ownership
+```
+
 ## Data retention
 
 Only one thing here is on a rolling window, and it is deliberate.
@@ -436,6 +457,7 @@ Only one thing here is on a rolling window, and it is deliberate.
 | `option_book_positions`, `option_book_daily` | Rebuilt nightly | Derived in full from the share book and the chains each evening (`quantpulse options-book` rebuilds by hand), so deleting them loses nothing. |
 | `watchlist_option_quotes` | **Never delete** | Live-only chains, like `option_quotes`: an evening not captured cannot be bought back. Small: a few names. |
 | `watchlist`, `watchlist_prices` | Synced and refetched nightly | The list comes from `configs/watchlist.yaml`, and the bars are refetched in full each evening, so deleting them loses nothing. |
+| `insider_transactions`, `holder_filings`, `edgar_filings` | Never delete | Re-fetchable from EDGAR in principle, but the first fill takes minutes and `edgar_filings` is what stops a filing being read twice. Small: a few thousand rows a year. |
 | `page_views` | Never delete | Re-fetchable from Wikimedia back to 2015 in principle, but small (~70 rows a day) and the record the attention page reads. |
 | `prices` | Never delete | Backfillable in principle, but it is the base every other table is derived from, and it grows ~50 rows/day. |
 | `features`, `predictions`, `portfolio_snapshots` | Never delete | Recomputable from prices, but they are what the replay curve is built from, and together they grow under 30 KB/day. Deleting them costs the dashboard its history to reclaim nothing. |

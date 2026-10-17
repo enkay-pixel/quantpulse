@@ -391,6 +391,60 @@ class WatchlistOut(BaseModel):
     names: list[WatchlistName]
 
 
+class OwnershipRow(BaseModel):
+    """One US stock's insider trading over 90 days and its holders over 5% (ADR 0007), from SEC
+    EDGAR. Open-market trades only: grants, exercises and tax withholding are pay, not decisions."""
+
+    ticker: str
+    followed_by: str = "model"
+    bought_usd_90d: float
+    sold_usd_90d: float
+    buyers_90d: int
+    sellers_90d: int
+    planned_sold_share_90d: float | None
+    last_trade_date: dt.date | None
+    holders_over_5pct: int
+    activist_holder: bool
+    top_holder: str | None
+    top_holder_percent: float | None
+
+
+class OwnershipOut(BaseModel):
+    exchange: str
+    as_of: dt.date | None
+    rows: list[OwnershipRow]
+
+
+class InsiderTrade(BaseModel):
+    """One open-market trade by an insider, as reported on Form 4."""
+
+    transaction_date: dt.date
+    filed: dt.date
+    owner: str
+    role: str
+    trade: str  # 'bought' | 'sold'
+    shares_traded: float
+    trade_price: float
+    value_usd: float
+    planned: bool | None
+
+
+class HolderStake(BaseModel):
+    """A holder whose latest Schedule 13D or 13G still reports 5% or more."""
+
+    filer: str
+    form: str
+    filed: dt.date
+    shares_held: float | None
+    percent: float
+
+
+class OwnershipDetailOut(BaseModel):
+    ticker: str
+    trades: list[InsiderTrade]
+    holders: list[HolderStake]
+
+
 class AttentionDay(BaseModel):
     date: dt.date
     views: int

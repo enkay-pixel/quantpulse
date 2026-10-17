@@ -103,6 +103,15 @@ through `stg_research_names`, and every row says who follows it (`followed_by`: 
 `watchlist`). A universe ticker is refused, and none of these tables has a path to a feature, a
 prediction or a paper book.
 
+**Ownership** comes from SEC EDGAR, for US stocks only: insider trades from Form 4 into
+`insider_transactions`, and stakes over 5% from structured Schedules 13D and 13G into
+`holder_filings`, fetched by `research_job` each weekday morning. Every filing read is logged in
+`edgar_filings` with its outcome, so none is fetched twice, and a filing is kept only when the
+issuer it names is the company whose list it came from: a company's list also holds its own stakes
+in other companies. `fct_insider_trades` keeps open-market trades only, `fct_large_holders` each
+filer's latest stake still at 5% or more, and `fct_ownership` sums both per stock. EDGAR needs a
+contact in each request, set as `QUANTPULSE_SEC_CONTACT` in the local `.env` only.
+
 ## Paper options book
 
 The model's forecasts held through options instead of shares
