@@ -319,6 +319,7 @@ class PositioningRow(BaseModel):
 
     ticker: str
     asset_type: str
+    followed_by: str = "model"
     spot: float
     call_oi: int
     put_oi: int
@@ -362,6 +363,7 @@ class AttentionRow(BaseModel):
     views against the median of the 90 days before it."""
 
     ticker: str
+    followed_by: str = "model"
     article: str
     date: dt.date
     views_7d: float
@@ -373,6 +375,20 @@ class AttentionOut(BaseModel):
     exchange: str
     as_of: dt.date | None
     rows: list[AttentionRow]
+
+
+class WatchlistName(BaseModel):
+    """A name the research branch follows that the model does not (ADR 0007)."""
+
+    ticker: str
+    exchange: str
+    asset_type: str
+    why: str
+    wikipedia: str | None
+
+
+class WatchlistOut(BaseModel):
+    names: list[WatchlistName]
 
 
 class AttentionDay(BaseModel):

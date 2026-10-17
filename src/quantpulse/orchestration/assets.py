@@ -422,16 +422,16 @@ def option_chains() -> dg.MaterializeResult:
 
 @dg.asset(group_name="research", kinds={"python", "postgres"})
 def short_interest() -> dg.MaterializeResult:
-    """Short interest for the names with option chains (ADR 0007) — the research branch.
+    """Short interest for the names with option chains and the watchlist's US names (ADR 0007).
 
     Nothing downstream of the model reads it: it feeds the positioning page, never a feature.
     Insert-only, so a run that finds no new settlement date stores nothing and is not a failure.
     """
-    from quantpulse.data.universe import options_tickers
     from quantpulse.research.short_interest import fetch_short_interest, insert_short_interest
+    from quantpulse.research.watchlist import short_interest_tickers
 
     with get_session() as session:
-        tickers = options_tickers(session)
+        tickers = short_interest_tickers(session)
     if not tickers:
         return dg.MaterializeResult(metadata={"new_rows": 0, "note": "no options-bearing market"})
     rows = fetch_short_interest(tickers)
@@ -450,10 +450,10 @@ def page_views() -> dg.MaterializeResult:
     the newest stored. A title that has become a redirect is skipped and named in the metadata,
     because its count would be wrong rather than missing.
     """
-    from quantpulse.config import get_settings
-    from quantpulse.research.attention import load_titles, refresh_page_views
+    from quantpulse.research.attention import refresh_page_views
+    from quantpulse.research.watchlist import attention_titles
 
-    report = refresh_page_views(get_session, load_titles(get_settings().quantpulse_attention_file))
+    report = refresh_page_views(get_session, attention_titles())
     return dg.MaterializeResult(
         metadata={
             "fetched": report.fetched,
@@ -462,6 +462,49 @@ def page_views() -> dg.MaterializeResult:
             "skipped_titles": ", ".join(f"{t} ({s})" for t, s in report.skipped.items()) or "none",
             "failed": ", ".join(f"{t} ({r})" for t, r in report.failed.items()) or "none",
         }
+    )
+
+
+@dg.asset(group_name="research", kinds={"python", "postgres"})
+def watchlist() -> dg.MaterializeResult:
+    """Sync configs/watchlist.yaml into the `watchlist` table — the research watchlist (ADR 0007).
+
+    Names the research branch follows that the model does not. A name already in the universe
+    fails the run, since following it twice would blur which numbers belong to the model.
+    """
+    from quantpulse.research.watchlist import load_watchlist, sync_watchlist
+
+    with get_session() as session:
+        result = sync_watchlist(session, load_watchlist())
+    return dg.MaterializeResult(
+        metadata={"names": result["names"], "removed": ", ".join(result["removed"]) or "none"}
+    )
+
+
+@dg.asset(deps=[watchlist], group_name="research", kinds={"python", "postgres"})
+def watchlist_prices() -> dg.MaterializeResult:
+    """Daily bars for the watchlist's names, refetched in full so adjustments are picked up."""
+    from quantpulse.research.watchlist import load_watchlist, refresh_watchlist_prices
+
+    names = load_watchlist()
+    with get_session() as session:
+        rows = refresh_watchlist_prices(session, names)
+    return dg.MaterializeResult(metadata={"names": len(names), "bars": rows})
+
+
+@dg.asset(deps=[watchlist], group_name="research", kinds={"python", "postgres"})
+def watchlist_chains() -> dg.MaterializeResult:
+    """The watchlist's option chains, in the universe's band, for the Positioning tab.
+
+    Like the universe's capture, refused before the close and failed when no name returns a
+    chain at all, since an evening's marks cannot be fetched again later.
+    """
+    from quantpulse.research.watchlist import capture_watchlist_chains, load_watchlist
+
+    names = load_watchlist()
+    rows = capture_watchlist_chains(get_session, names)  # commits per name
+    return dg.MaterializeResult(
+        metadata={"optioned_names": sum(n.has_options for n in names), "quotes": rows}
     )
 
 

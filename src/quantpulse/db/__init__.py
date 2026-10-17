@@ -16,6 +16,9 @@ from quantpulse.db.models import (
     Price,
     ShortInterest,
     UniverseMember,
+    WatchlistName,
+    WatchlistOptionQuote,
+    WatchlistPrice,
 )
 from quantpulse.db.session import get_engine, get_session
 
@@ -35,6 +38,9 @@ __all__ = [
     "Price",
     "ShortInterest",
     "UniverseMember",
+    "WatchlistName",
+    "WatchlistOptionQuote",
+    "WatchlistPrice",
     "get_engine",
     "get_session",
 ]

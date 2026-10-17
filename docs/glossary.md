@@ -291,6 +291,13 @@ details are kept.
 
 `findings` · Measurements this project has made, each with its question and what came back.
 
+## Followed by
+
+`followed_by` · Who follows the name. "model" means it is in the model's universe; "watchlist" means
+only the research pages follow it.
+
+**How to read it:** A watchlist name never feeds the model, its forecasts or the paper books.
+
 ## Forecast group — signal quintile
 
 `signal_quintile` · Each day the stocks are split into five equal groups by the model's forecast. 1
@@ -472,6 +479,10 @@ both starting at 1.0 on the options book's first day.
 
 **How to read it:** 0 means it does not follow the market at all, which is the design here; 1 means
 it moves one-for-one.
+
+## Names
+
+`names` · The names on the research watchlist, both markets.
 
 ## Normal day's trading — average dollar volume
 
@@ -927,9 +938,17 @@ expired.
 
 `rationale` · How the model's forecast maps to the structure, in words.
 
-## Wikipedia article
+## Why it is followed
+
+`why` · One sentence, from the watchlist file, on why the name is on the watchlist.
+
+## Wikipedia article (`article`)
 
 `article` · The article whose page views stand for public attention to the company.
+
+## Wikipedia article (`wikipedia`)
+
+`wikipedia` · The article whose page views stand for public attention to the name, if it has one.
 
 ## Worst fall — max drawdown
 

@@ -9,6 +9,8 @@
 -- Short interest is joined as of `known_from`, never by settlement date, so no day shows a figure
 -- that was not yet public. Average volume uses the 20 sessions ending on the snapshot day, and is
 -- null until a ticker has 20, or when that day's bar is missing.
+--
+-- Covers the model's universe and the research watchlist; `followed_by` says which.
 with gamma as (
     select
         snapshot_date,
@@ -29,7 +31,11 @@ dollar_volume as (
         date,
         avg(close * volume) over w as adv_usd_20d,
         count(*) over w as sessions
-    from {{ ref('stg_prices') }}
+    from (
+        select ticker, date, close, volume from {{ ref('stg_prices') }}
+        union all
+        select ticker, date, close, volume from {{ ref('stg_watchlist_prices') }}
+    ) as bars
     window w as (partition by ticker order by date rows between 19 preceding and current row)
 )
 
@@ -37,6 +43,7 @@ select
     g.ticker,
     u.exchange,
     u.asset_type,
+    u.followed_by,
     g.snapshot_date,
     g.spot,
     g.call_oi,
@@ -56,7 +63,7 @@ select
     s.days_to_cover,
     s.shares_short::float / nullif(s.shares_short_prior, 0) - 1 as short_change
 from gamma as g
-inner join {{ ref('stg_universe') }} as u on g.ticker = u.ticker
+inner join {{ ref('stg_research_names') }} as u on g.ticker = u.ticker
 left join dollar_volume as v on g.ticker = v.ticker and g.snapshot_date = v.date
 left join lateral (
     select

@@ -440,9 +440,9 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
 
 10. **The research branch, after the positioning page** ([ADR 0007](adr/0007-research-branch-evidence-not-instructions.md)).
     The Positioning tab (2026-10-16) shows short interest and option hedging exposure for the
-    NYSE names already captured, and Wikipedia attention for both markets. Each further piece is
-    its own decision. The candidates: a research watchlist beyond the model's universe, such as
-    names with high short interest, which needs its own chain capture; ownership and insider
+    NYSE names already captured, and Wikipedia attention for both markets. A research watchlist
+    beyond the model's universe (2026-10-17, GameStop and AMC to start) has its own bars and chain
+    capture. Each further piece is its own decision. The candidates: ownership and insider
     activity from SEC EDGAR (Forms 4, 13F, 13D/G); and an advisor brief, one page per holding or
     idea, written to be discussed with a licensed advisor. All of it is free data, and none of
     it becomes a model input without a pre-registered measurement after the shadow verdict.

@@ -728,7 +728,8 @@ def forward_vrp(session: SessionDep, exchange: ExchangeDep) -> schemas.ForwardVr
 
 
 _POSITIONING_COLUMNS = (
-    "ticker, asset_type, spot, call_oi, put_oi, call_gamma_usd_1pct, put_gamma_usd_1pct, "
+    "ticker, asset_type, followed_by, spot, call_oi, put_oi, call_gamma_usd_1pct, "
+    "put_gamma_usd_1pct, "
     "call_gamma_near_share, adv_usd_20d, call_gamma_share_of_adv, put_gamma_share_of_adv"
 )
 
@@ -808,14 +809,31 @@ def gamma_profile(ticker: str, session: SessionDep) -> schemas.GammaProfileOut:
     )
 
 
+@router.get("/research/watchlist", response_model=schemas.WatchlistOut)
+def watchlist(session: SessionDep) -> schemas.WatchlistOut:
+    """The names the research branch follows beyond the model's universe, and why each is followed.
+
+    They appear on the Positioning tab beside the universe's names, marked as watchlist names.
+    None is ever a model input.
+    """
+    rows = _mart_rows(
+        session,
+        "SELECT ticker, exchange, asset_type, why, wikipedia FROM analytics.stg_watchlist "
+        "ORDER BY exchange, ticker",
+        {},
+    )
+    return schemas.WatchlistOut(names=[schemas.WatchlistName(**dict(r)) for r in rows or []])
+
+
 @router.get("/research/attention", response_model=schemas.AttentionOut)
 def attention(session: SessionDep, exchange: ExchangeDep) -> schemas.AttentionOut:
     """Each stock's public attention on its newest day, for one market — the research branch's
     measure that covers the JSE as well as the NYSE."""
     rows = _mart_rows(
         session,
-        "SELECT DISTINCT ON (ticker) ticker, article, date, views_7d, baseline_90d, "
-        "attention_ratio FROM analytics.fct_attention WHERE exchange = :ex "
+        "SELECT DISTINCT ON (ticker) ticker, coalesce(followed_by, 'model') AS followed_by, "
+        "article, date, views_7d, baseline_90d, attention_ratio FROM analytics.fct_attention "
+        "WHERE exchange = :ex "
         "ORDER BY ticker, date DESC",
         {"ex": exchange},
     )

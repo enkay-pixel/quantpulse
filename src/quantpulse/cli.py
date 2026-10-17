@@ -190,16 +190,16 @@ def _options_snapshot(force: bool = False) -> None:
 
 def _short_interest() -> None:
     """Fetch and store short interest by hand — what `research_job` does each weekday morning."""
-    from quantpulse.data.universe import options_tickers
     from quantpulse.db import get_session
     from quantpulse.research.short_interest import (
         NoShortInterestReturned,
         fetch_short_interest,
         insert_short_interest,
     )
+    from quantpulse.research.watchlist import short_interest_tickers
 
     with get_session() as session:
-        tickers = options_tickers(session)
+        tickers = short_interest_tickers(session)
     if not tickers:
         logger.error("No tickers — run `quantpulse sync-universe` first")
         sys.exit(1)
@@ -221,18 +221,12 @@ def _short_interest() -> None:
 def _page_views() -> None:
     """Fetch Wikipedia page views by hand — what `research_job` does each weekday morning, and
     the way to run the first backfill outside the daemon."""
-    from quantpulse.config import get_settings
     from quantpulse.db import get_session
-    from quantpulse.research.attention import (
-        NoPageViewsReturned,
-        load_titles,
-        refresh_page_views,
-    )
+    from quantpulse.research.attention import NoPageViewsReturned, refresh_page_views
+    from quantpulse.research.watchlist import attention_titles
 
     try:
-        report = refresh_page_views(
-            get_session, load_titles(get_settings().quantpulse_attention_file)
-        )
+        report = refresh_page_views(get_session, attention_titles())
     except NoPageViewsReturned as exc:
         logger.error("%s", exc)
         sys.exit(1)
@@ -244,6 +238,33 @@ def _page_views() -> None:
         report.skipped or "none",
         report.failed or "none",
     )
+
+
+def _watchlist() -> None:
+    """Sync the research watchlist and refresh its bars, and its chains after the close — what
+    `watchlist_job` does each weekday evening."""
+    from quantpulse.data.calendar import is_post_close
+    from quantpulse.db import get_session
+    from quantpulse.research.watchlist import (
+        WatchlistError,
+        capture_watchlist_chains,
+        load_watchlist,
+        refresh_watchlist_prices,
+        sync_watchlist,
+    )
+
+    try:
+        names = load_watchlist()
+        with get_session() as session:
+            logger.info("Watchlist: %s", sync_watchlist(session, names))
+            logger.info("Bars: %d", refresh_watchlist_prices(session, names))
+    except WatchlistError as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
+    if is_post_close():
+        logger.info("Chains: %d quotes", capture_watchlist_chains(get_session, names))
+    else:
+        logger.info("Chains skipped: they are captured only after the US close")
 
 
 def _options_book() -> None:
@@ -1155,6 +1176,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     sub.add_parser("page-views", help="Fetch Wikipedia page views for both markets (research)")
     sub.add_parser("options-book", help="Rebuild the paper options book (ADR 0008)")
+    sub.add_parser("watchlist", help="Sync the research watchlist and refresh its data")
     options_snapshot = sub.add_parser(
         "options-snapshot", help="Snapshot live option chains for the universe"
     )
@@ -1278,6 +1300,8 @@ def main(argv: list[str] | None = None) -> None:
         _page_views()
     elif args.command == "options-book":
         _options_book()
+    elif args.command == "watchlist":
+        _watchlist()
     elif args.command == "sensitivity":
         _sensitivity()
     elif args.command == "baseline":

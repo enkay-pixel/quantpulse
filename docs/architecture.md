@@ -94,6 +94,15 @@ per stock (titles in `configs/attention.yaml`, checked canonical on every run, b
 does not count redirects), and `fct_attention` sets the past week against the usual level. The
 Positioning tab shows on both markets, with the squeeze sections only where their data exists.
 
+The **research watchlist** extends both measures beyond the model's universe. `configs/watchlist.yaml`
+lists names to follow, each with a sentence on why; `watchlist_job` (weekday evenings, 17:30 New
+York time) syncs them into `watchlist`, refetches their bars into `watchlist_prices` and captures
+their chains, in the universe's band, into `watchlist_option_quotes`. The morning `research_job`
+adds their short interest and page views to the existing tables. The marts read both sources
+through `stg_research_names`, and every row says who follows it (`followed_by`: `model` or
+`watchlist`). A universe ticker is refused, and none of these tables has a path to a feature, a
+prediction or a paper book.
+
 ## Paper options book
 
 The model's forecasts held through options instead of shares

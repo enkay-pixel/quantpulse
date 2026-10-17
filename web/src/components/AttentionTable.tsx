@@ -1,6 +1,7 @@
 import type { AttentionOut, AttentionRow } from "../api/types";
 import { formatDate, formatNumber } from "../lib/format";
 import { Term } from "./Term";
+import { WatchTag } from "./WatchTag";
 
 /** This page's convention for "unusual": three times the usual level. A convention, not a
  * statistical test — the page states it as one. */
@@ -114,6 +115,7 @@ export function AttentionTable({
                       {isSelected ? "▸ " : ""}
                       {row.ticker}
                     </button>
+                    <WatchTag followedBy={row.followed_by} />
                   </td>
                   <td className="px-3 py-1.5 text-right tabular">{perDay(row.views_7d)}</td>
                   <td className="px-3 py-1.5 text-right tabular" style={{ color: "var(--text-muted)" }}>

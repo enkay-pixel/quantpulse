@@ -1,5 +1,9 @@
 """The Definitions module must always load — this is what the webserver/daemon import."""
 
+import datetime as dt
+
+import pytest
+
 import dagster as dg
 from quantpulse.orchestration.definitions import defs
 
@@ -231,3 +235,34 @@ def test_the_options_book_runs_in_its_own_job() -> None:
             k.to_user_string() for k in defs.resolve_job_def(name).asset_layer.selected_asset_keys
         }
         assert "option_book" not in others, name
+
+
+def test_the_watchlist_runs_in_its_own_evening_job() -> None:
+    """ADR 0007: the watchlist's names are never model inputs, so their fetch rides in no job the
+    model depends on."""
+    keys = {
+        k.to_user_string()
+        for k in defs.resolve_job_def("watchlist_job").asset_layer.selected_asset_keys
+    }
+    assert keys == {"watchlist", "watchlist_prices", "watchlist_chains"}
+    for name in ("ingest_job", "process_job", "training_job", "options_book_job"):
+        others = {
+            k.to_user_string() for k in defs.resolve_job_def(name).asset_layer.selected_asset_keys
+        }
+        assert not keys & others, name
+
+
+def test_the_watchlist_schedule_skips_a_day_the_market_is_shut(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped, as the ingest schedules skip, rather than run into the post-close gate and fail."""
+    from quantpulse.orchestration import definitions
+
+    schedule = defs.resolve_schedule_def("daily_watchlist_schedule")
+    with dg.build_schedule_context() as context:
+        monkeypatch.setattr(definitions, "market_today", lambda *a, **k: dt.date(2026, 11, 26))
+        assert "not a NYSE session" in (schedule.evaluate_tick(context).skip_message or "")
+        monkeypatch.setattr(definitions, "market_today", lambda *a, **k: dt.date(2026, 11, 27))
+        assert [r.run_key for r in schedule.evaluate_tick(context).run_requests or []] == [
+            "watchlist-2026-11-27"
+        ]

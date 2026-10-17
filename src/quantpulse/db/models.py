@@ -367,6 +367,72 @@ class HeldOptionQuote(_QuoteColumns, Base):
     )
 
 
+class WatchlistName(Base):
+    """A name the research branch follows that the model does not (ADR 0007).
+
+    Synced from configs/watchlist.yaml. A name in the universe is refused, so nothing here can
+    reach a feature, a prediction or a paper book: those tables keep their foreign key to the
+    universe, and the watchlist's prices and chains have tables of their own.
+    """
+
+    __tablename__ = "watchlist"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    exchange: Mapped[str] = mapped_column(String(8))
+    asset_type: Mapped[str] = mapped_column(String(8))  # 'stock' | 'etf'
+    why: Mapped[str] = mapped_column(String(300))
+    wikipedia: Mapped[str | None] = mapped_column(String(200))
+    added_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("asset_type IN ('stock', 'etf')", name="watchlist_asset_type_valid"),
+    )
+
+
+class WatchlistPrice(Base):
+    """Daily adjusted bars for the watchlist's names, from the same vendor as `prices`.
+
+    Refetched in full each evening, so a split or dividend adjustment is picked up: nothing
+    trains on these, so the rule that fixes a trained-on day (ADR 0006) does not apply. No
+    foreign key, so a name's history survives its removal from the watchlist.
+    """
+
+    __tablename__ = "watchlist_prices"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    open: Mapped[float] = mapped_column(Float)
+    high: Mapped[float] = mapped_column(Float)
+    low: Mapped[float] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float)
+    volume: Mapped[int] = mapped_column(BigInteger)
+    ingested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "close > 0 AND open > 0 AND high > 0 AND low > 0", name="watchlist_prices_positive"
+        ),
+        CheckConstraint("high >= low", name="watchlist_high_gte_low"),
+    )
+
+
+class WatchlistOptionQuote(_QuoteColumns, Base):
+    """The watchlist's option chains, captured each evening in the same ±20% band as the universe's.
+
+    Its own table, so the universe's chains, their completeness checks and the options book read
+    only the model's names.
+    """
+
+    __tablename__ = "watchlist_option_quotes"
+    __table_args__ = (
+        CheckConstraint("option_type IN ('call', 'put')", name="watchlist_option_type_valid"),
+    )
+
+
 class PipelineAlert(Base):
     """Pipeline failures, recorded by the Dagster run-failure sensor.
 

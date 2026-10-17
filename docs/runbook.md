@@ -42,6 +42,7 @@ Durations measured 2026-09-19 over the preceding nine days.
 |---|---|---|---|
 | 19:30 Mon–Fri | JSE ingest | seconds | recovered by the catch-up sensor |
 | ~22:10–22:35 Mon–Fri | options snapshot | 3–11 min | **recoverable only until 06:00** |
+| 23:30 Mon–Fri | research watchlist: bars and chains | under a minute | that evening's watchlist chains are not captured; bars catch up the next evening |
 | 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |
 | 01:00 Tue–Sat | processing | 4–7 min | recovered by the catch-up sensor |
 | 07:00 daily | backup | about a minute | skipped for that day |
@@ -408,6 +409,21 @@ all of it `option_quotes`. Everything else adds ~50 rows/day per table. That is 
 **2 GB/year against 277 GB free** — decades of runway. If the check ever fires, the fix is
 almost always to raise a cap, not to delete data.
 
+## Following a name beyond the model
+
+The Positioning tab covers the model's universe and the research watchlist. To follow another
+name, add it to `configs/watchlist.yaml` with its market, its kind, its Wikipedia article if it
+has one, and a sentence on why; the next evening's `watchlist_job` picks it up, and the morning
+`research_job` adds its short interest and attention. To run the evening part by hand:
+
+```bash
+docker compose exec dagster-daemon quantpulse watchlist
+```
+
+A name already in `configs/universe.yaml` fails the run by name, and a unit test fails before
+that. Removing a name takes it off the pages but keeps its history. Chains are captured only
+after the US close, like the universe's.
+
 ## Data retention
 
 Only one thing here is on a rolling window, and it is deliberate.
@@ -418,6 +434,8 @@ Only one thing here is on a rolling window, and it is deliberate.
 | `option_quotes` | **Never delete** | Irreplaceable. yfinance serves live chains only, and historical chains cost thousands a year. A day deleted is a day that cannot be bought back at any price. |
 | `short_interest` | **Never delete** | The vendor shows only the latest two settlements, so history accrues forward like the chains. Tiny: ~50 rows a month. |
 | `option_book_positions`, `option_book_daily` | Rebuilt nightly | Derived in full from the share book and the chains each evening (`quantpulse options-book` rebuilds by hand), so deleting them loses nothing. |
+| `watchlist_option_quotes` | **Never delete** | Live-only chains, like `option_quotes`: an evening not captured cannot be bought back. Small: a few names. |
+| `watchlist`, `watchlist_prices` | Synced and refetched nightly | The list comes from `configs/watchlist.yaml`, and the bars are refetched in full each evening, so deleting them loses nothing. |
 | `page_views` | Never delete | Re-fetchable from Wikimedia back to 2015 in principle, but small (~70 rows a day) and the record the attention page reads. |
 | `prices` | Never delete | Backfillable in principle, but it is the base every other table is derived from, and it grows ~50 rows/day. |
 | `features`, `predictions`, `portfolio_snapshots` | Never delete | Recomputable from prices, but they are what the replay curve is built from, and together they grow under 30 KB/day. Deleting them costs the dashboard its history to reclaim nothing. |
