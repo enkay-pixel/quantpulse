@@ -297,7 +297,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   level up. Do not "fix" the stall by enlarging the budget; it was measured and it buys nothing.
   Note also that the informed trials are what pull the learning rate up (XNYS mean 0.0403 vs
   0.0151 for blind draws), which is what
-  [the ceiling](docs/findings/learning-rate-ceiling.md) caps on XJSE.
+  [the ceiling](docs/findings/learning-rate-ceiling.md) caps on XJSE and XLON.
   A second round (2026-09-27, XNYS at 36 origins) strengthened the gate to t +4.64 on 28/36
   origins, and a third settled why. **Refit the same parameters with only the seed changed and
   their holdout scores correlate at just 0.13 on XJSE and 0.33 on XNYS** — so roughly an eighth

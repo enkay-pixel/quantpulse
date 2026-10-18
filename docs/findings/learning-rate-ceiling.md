@@ -2,7 +2,7 @@
 
 **In short:** In September new models got worse because the tuner picked settings that looked good
 in its own checks and failed on new data. Capping one setting fixed it in Johannesburg but not New
-York, so the cap applies there only.
+York, so the cap applies there only. London, measured the same way when it joined, needs the cap too.
 
 Candidates on both markets looked to be degrading together through September. They were not,
 and the markets turned out to need opposite answers. This records how that was established and
@@ -129,10 +129,35 @@ early stopping over up to 1,500 rounds, so a low rate has room to learn. The rou
 low-rate fits here settled on were not measured, so this is the likely reconciliation rather
 than a confirmed one.
 
+## London (2026-10-18)
+
+London joined as the third market with the default 0.2, and was measured the same way before its
+first challenger: six panels rolling back 63 trading days, rebuilt from the bars available on each
+panel's end date; seeds 42, 7 and 123; ceilings 0.2, 0.06 and 0.02; the same decision rule, fixed
+before running. Each run calls production's own tuner, and the 0.2 run on the newest panel at
+seed 42 reproduced London's first champion exactly (learning rate 0.06408, holdout IC 0.06561).
+
+| market | ceiling | collapses | mean holdout IC | paired vs 0.2 |
+|---|---|---|---|---|
+| XLON | 0.2 | 6/18 | 0.0382 | — |
+| XLON | 0.06 | 3/18 | 0.0585 | +0.0203 (t +1.36), 4/6 panels |
+| XLON | **0.02** | **0/18** | **0.0729** | **+0.0348 (t +3.22), 6/6 panels** |
+
+**XLON passes, more clearly than XJSE did.** Uncapped, the tuner went above 0.02 in 15 of 18 runs,
+and five of the six collapses came from rates above 0.1. Dropping the panel with the largest gain
+(+0.086) leaves +0.0245 with 5 of 5 panels improving. The caveats above carry over: the panels
+share most of their holdout, so the t-statistic is optimistic, and this is the gate's holdout, not
+live returns.
+
+London's first champion, v1, was tuned to 0.064 under the old bound and stays champion; the ceiling
+applies from its first challenger. Its promotion margin was measured on v1's specification, and a
+capped challenger keeps more boosting rounds, so the margin is re-measured when the champion changes
+([promotion-margin.md](promotion-margin.md)). Scripts and log: `~/quantpulse-experiments/m12-london/`.
+
 ## What changed
 
-`Exchange.learning_rate_ceiling` carries the value per market — 0.02 for XJSE, 0.2 for XNYS —
-alongside `ic_promotion_margin` and `feature_columns`, which are per market for the same reason.
+`Exchange.learning_rate_ceiling` carries the value per market — 0.02 for XJSE and XLON, 0.2 for
+XNYS — alongside `ic_promotion_margin` and `feature_columns`, which are per market for the same reason.
 The tuner takes it as a required argument with no default, so no caller can fall back to the
 widest range unnoticed. At a ceiling of 0.2 the tuner returns exactly what it returned before
 the change, so XNYS training is unaltered.
