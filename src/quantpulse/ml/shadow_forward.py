@@ -51,6 +51,10 @@ WINDOW_END = dt.date(2026, 11, 28)
 #: Two or more lost weeks make the run not clean.
 LOST_WEEKS_LIMIT = 2
 ONE_SIDED_Z = 1.645
+#: The markets the rule was registered for, each with the gate margin it named. Held here rather
+#: than read from the market registry: a market added since was not registered and has no shadow
+#: for the early weeks, and a margin re-measured since must not move a verdict fixed in advance.
+REGISTERED_MARGINS: dict[str, float] = {"XJSE": 0.008, "XNYS": 0.006}
 # ------------------------------------------------------------------------------------------------
 
 #: How close a refit's holdout IC must be to the stored one to count as the same model. The fits are
@@ -291,6 +295,11 @@ def shadow_forward(
     """Score every week in the pre-registered window for one market, and read the rule."""
     from quantpulse.ml.pipeline import build_dataset
 
+    if exchange not in REGISTERED_MARGINS:
+        raise ValueError(
+            f"{exchange} was not registered for the shadow run (only {sorted(REGISTERED_MARGINS)})"
+        )
+
     cfg = cfg or TrainConfig()
     dates = saturdays()
     pairs = weekly_pairs(session, exchange, dates)
@@ -298,4 +307,4 @@ def shadow_forward(
     # Today in New York, where the schedule runs — never the container's UTC date.
     today = dt.datetime.now(SCHEDULE_ZONE).date()
     weeks = [score_week(full, exchange, d, *pairs[d], cfg) for d in due(dates, today)]
-    return weeks, verdict(weeks, get_exchange(exchange).ic_promotion_margin, expected=len(dates))
+    return weeks, verdict(weeks, REGISTERED_MARGINS[exchange], expected=len(dates))
