@@ -123,3 +123,11 @@ def test_non_inferiority_asks_about_the_worst_plausible_loss() -> None:
     assert not ok
     _, ok = non_inferiority(-margin + 1e-9, 0.0, margin)
     assert ok
+
+
+def test_the_study_judges_against_the_margins_it_was_registered_with() -> None:
+    """The gate's margins are re-measured from time to time; this study's verdict was fixed against
+    the ones of its day, and a re-run must not quietly judge against different ones."""
+    from quantpulse.ml.fixed_defaults import REGISTERED_MARGINS
+
+    assert REGISTERED_MARGINS == {"XJSE": 0.008, "XNYS": 0.006}

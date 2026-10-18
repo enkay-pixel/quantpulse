@@ -62,6 +62,11 @@ CONTROL = "tuned"
 CANDIDATE = "fixed_default"
 ARMS = (CONTROL, CANDIDATE, "fixed_center")
 
+#: The non-inferiority margins the study was registered with: the gate margins of the day. Held
+#: here rather than read from the market registry, so a margin re-measured since cannot move what a
+#: re-run of this study concludes. A market registered after it uses its own current margin.
+REGISTERED_MARGINS: dict[str, float] = {"XJSE": 0.008, "XNYS": 0.006}
+
 #: One-sided 95%. Non-inferiority asks whether the worst plausible loss is acceptable, so only the
 #: lower side of the interval matters.
 ONE_SIDED_Z = 1.645
@@ -170,7 +175,7 @@ def fixed_defaults(
     cfg = cfg or TrainConfig()
     market = get_exchange(exchange)
     ceiling = market.learning_rate_ceiling
-    margin = market.ic_promotion_margin
+    margin = REGISTERED_MARGINS.get(exchange, market.ic_promotion_margin)
     feature_cols = feature_columns_for(exchange)
     frame = build_dataset(engine, cfg, exchange)  # type: ignore[arg-type]
     frame = truncate_panel(frame, as_of)

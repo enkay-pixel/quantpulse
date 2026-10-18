@@ -504,11 +504,12 @@ Decisions inside that band were coin flips wearing a number. IC is 2–2.4× mor
 relative terms (3.6% vs 7.6% on XNYS), which is unsurprising: Sharpe divides by a
 volatility estimate and inherits noise from both parts, then gets amplified by regime.
 
-So **the gate now compares IC** with a per-market margin set at 2 sd of the measured
-re-roll (0.006 XNYS, 0.008 XJSE), and Sharpe is demoted to a wide veto that may overrule a
-promotion but never cause one. Replayed over both retrains, no decision changes — but the
-*reasons* do, and one is instructive: on 08-01 the JSE candidate's IC was genuinely
-**higher** (+0.0042), and the margin correctly refused it as smaller than a re-roll.
+So **the gate now compares IC** with a per-market margin set at 2 sd of the measured re-roll (0.006
+XNYS, 0.008 XJSE; re-measured 2026-10-18 as 0.009 and 0.026, see
+[promotion-margin.md](findings/promotion-margin.md)), and Sharpe is demoted to a wide veto that may
+overrule a promotion but never cause one. Replayed over both retrains, no decision changes — but the
+*reasons* do, and one is instructive: on 08-01 the JSE candidate's IC was genuinely **higher**
+(+0.0042), and the margin correctly refused it as smaller than a re-roll.
 
 Two related findings from the same investigation, both recorded because they overturn
 plausible-sounding intuitions:
