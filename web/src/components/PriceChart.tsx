@@ -13,14 +13,28 @@ import {
 } from "recharts";
 
 import { usePrices, useSignalHistory } from "../hooks/useApi";
-import { formatDate, formatNumber, formatSignedPercent } from "../lib/format";
+import { formatDate, formatMoney, formatSignedPercent, type MoneyFormat } from "../lib/format";
 import { ChartTooltip } from "./ChartTooltip";
 
 const AXIS_STYLE = { fill: "var(--text-muted)", fontSize: 11 };
 
 // Price and signal are different scales — per the dataviz method we never share a
 // y-axis. Instead we stack two panels on a common x-axis (small multiples).
-export function PriceChart({ ticker }: { ticker: string }) {
+/** Whole units on the axis, unless the prices are small enough that whole units would repeat
+ * (a 105p share drawn as £1, £1, £1). */
+export function priceAxisDigits(points: { close: number }[], money: MoneyFormat | undefined): number {
+  const top = Math.max(0, ...points.map((p) => p.close)) / (money?.divisor ?? 1);
+  return top < 10 ? 2 : 0;
+}
+
+/** Whole percents on the forecast axis, unless forecasts are small enough that whole percents
+ * would repeat (ticks at 0.25% steps drawn as +0%, +0%, +1%, +1%). */
+export function signalAxisDigits(points: { score: number }[]): number {
+  const top = Math.max(0, ...points.map((p) => Math.abs(p.score)));
+  return top < 0.05 ? 1 : 0;
+}
+
+export function PriceChart({ ticker, money }: { ticker: string; money: MoneyFormat | undefined }) {
   const prices = usePrices(ticker);
   const signals = useSignalHistory(ticker);
 
@@ -36,6 +50,8 @@ export function PriceChart({ ticker }: { ticker: string }) {
   }
 
   const signalPoints = signals.data?.points ?? [];
+  const axisDigits = priceAxisDigits(prices.data.points, money);
+  const signalDigits = signalAxisDigits(signalPoints);
   const hasSignal = signalPoints.length > 0;
 
   return (
@@ -58,10 +74,10 @@ export function PriceChart({ ticker }: { ticker: string }) {
               tickLine={false}
               width={56}
               domain={["auto", "auto"]}
-              tickFormatter={(v: number) => `$${formatNumber(v, 0)}`}
+              tickFormatter={(v: number) => formatMoney(v, money, axisDigits)}
             />
             <Tooltip
-              content={<ChartTooltip format={(v) => `close $${formatNumber(v, 2)}`} />}
+              content={<ChartTooltip format={(v) => `close ${formatMoney(v, money)}`} />}
               cursor={{ stroke: "var(--baseline)", strokeWidth: 1 }}
             />
             <Line
@@ -98,7 +114,7 @@ export function PriceChart({ ticker }: { ticker: string }) {
                 stroke="var(--baseline)"
                 tickLine={false}
                 width={56}
-                tickFormatter={(v: number) => formatSignedPercent(v, 0)}
+                tickFormatter={(v: number) => formatSignedPercent(v, signalDigits)}
               />
               <Tooltip
                 cursor={{ fill: "var(--grid)", opacity: 0.4 }}
