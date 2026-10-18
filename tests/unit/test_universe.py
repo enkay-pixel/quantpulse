@@ -50,6 +50,8 @@ def test_every_registered_market_is_fully_onboarded() -> None:
     book is judged against it), enough names for ~10 a side at its quantile width, and a
     canonical Wikipedia title per stock for the attention page. Missing any of these fails
     quietly downstream — an empty book, a benchmark chart with no line — so it fails here.
+    The one item that needs the vendor, each listing quoted in its market's currency, is checked
+    by the backfill instead (`test_quote_currency.py`).
     """
     from quantpulse.data.calendar import EXCHANGES
     from quantpulse.research.attention import load_titles

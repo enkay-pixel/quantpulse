@@ -100,7 +100,6 @@ titles:
   NWG.L: NatWest Group
   RR.L: Rolls-Royce Holdings
   BA.L: BAE Systems
-  CPG.L: Compass Group
   NG.L: National Grid plc
   PRU.L: Prudential plc
   VOD.L: Vodafone
@@ -115,10 +114,11 @@ titles:
   III.L: 3i
   ANTO.L: Antofagasta plc
   BT-A.L: BT Group
-  IHG.L: "IHG Hotels & Resorts"
   NXT.L: Next plc
   SGE.L: Sage Group
   ABF.L: Associated British Foods
   WPP.L: WPP plc
   SN.L: "Smith & Nephew"
   CRDA.L: Croda International
+  FRES.L: Fresnillo plc
+  IAG.L: International Airlines Group

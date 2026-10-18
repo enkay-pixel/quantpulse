@@ -126,6 +126,36 @@ def fetch_daily_bars(tickers: list[str], start: dt.date, end: dt.date) -> pd.Dat
     return cleaned
 
 
+def _quote_currency(ticker: str) -> str | None:
+    """The currency the vendor quotes a ticker in (`USD`, `GBp`, `ZAc`), or None if unknown."""
+    try:
+        return cast(str | None, yf.Ticker(ticker).fast_info["currency"])
+    except Exception:
+        logger.warning("Could not read the quote currency of %s", ticker, exc_info=True)
+        return None
+
+
+def wrong_currency(tickers: list[str], expected: str) -> tuple[dict[str, str], list[str]]:
+    """Tickers the vendor quotes in a currency other than their market's, and those it could not
+    say, so a backfill can refuse a listing before any of its bars are stored.
+
+    A book is one market in one currency. A listing quoted in another passes every check on its
+    bars: its history is complete and its moves are plausible, because they are real moves in the
+    other currency (Compass and IHG trade in London in US dollars). It would rank within its market
+    on returns that carry the exchange rate, and be shown at the market's display unit, a hundredth
+    of its value. Nothing downstream can tell, so the check is made where a listing first arrives.
+    """
+    wrong: dict[str, str] = {}
+    unknown: list[str] = []
+    for ticker in tickers:
+        currency = _quote_currency(ticker)
+        if currency is None:
+            unknown.append(ticker)
+        elif currency != expected:
+            wrong[ticker] = currency
+    return wrong, unknown
+
+
 def upsert_prices(session: Session, bars: pd.DataFrame, overwrite: bool = True) -> int:
     """Idempotent insert-or-update on (ticker, date). Returns number of rows written.
 
