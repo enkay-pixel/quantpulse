@@ -1,9 +1,9 @@
 # ADR 0005: Exchange as a first-class dimension (multi-market)
 
-**Status**: accepted · **Date**: 2026-07-23
+**Status**: accepted, amended 2026-10-18 · **Date**: 2026-07-23
 
-**In short:** Everything is kept separate per stock market (New York, Johannesburg), so figures from
-one market are never mixed into the other's.
+**In short:** Everything is kept separate per stock market (New York, Johannesburg, London), so
+figures from one market are never mixed into another's.
 
 ## Context
 
@@ -45,3 +45,41 @@ the JSE surfaced gaps this dimension made visible and worth fixing platform-wide
 units bug (`data/cleaning.py`), a missing first-champion Sharpe floor, and small-sample
 ratios that are now nulled at source. Adding a third market is now a config change plus a
 backfill — the architecture is the reusable part.
+
+## Amendment (2026-10-18): adding a market, the checklist from London
+
+London was added as the third market to test the claim above. The architecture held: no code
+assumed two markets beyond three tests and one dashboard sentence. Everything London found was
+in the data, the display, or a reading fixed before it arrived, and each is now checked rather
+than remembered. Design record: [../plans/m12-london-pilot.md](../plans/m12-london-pilot.md).
+
+Before ingesting:
+
+1. **Calendar.** The market is in `exchange_calendars`.
+2. **History.** Every listing has vendor history from the panel start; a shorter one is left out,
+   since a model needs the same history as its peers.
+3. **Currency, per listing.** Each listing is quoted in the market's currency. Yahoo quotes two
+   London lines in dollars; `quantpulse backfill` now refuses a market holding one.
+4. **Benchmark.** The market's index fund is in its universe, with history (it may publish a day
+   late; the freshness check reports that).
+5. **Breadth.** `quantile_width` gives about ten names a side, and every stock has a canonical
+   Wikipedia title. `test_every_registered_market_is_fully_onboarded` checks both.
+6. **Registry.** Timezone, close hour, currency, display unit, `has_options`, the dbt `benchmarks`
+   entry, and an `ic_promotion_margin`, which has no default.
+
+Onboarding:
+
+1. **Fingerprint the other markets first** (`prices`, `features`, `predictions`, and the paper
+   books), then sync the universe, backfill, recompute features, and compare. They must be
+   identical; London's were, row for row.
+2. **Train the first champion** through the unchanged gate: the Sharpe floor and the momentum
+   competitor. If none clears it, the market shows its data and research without a model.
+3. **Replay-score the history** (`quantpulse score --replay --exchange X`), build the marts, and
+   read the dashboard in the browser, prices included: the price chart and positions had drawn
+   JSE prices as dollars since July, and London's onboarding is what found it.
+4. **Measure the margin before the first challenger**, as 2 sd of the champion's specification
+   refitted with only the seed changed ([promotion-margin.md](../findings/promotion-margin.md)).
+   Doing so for London found the JSE's margin had fallen to a third of its noise.
+5. **Keep pre-registered readings to their own markets.** A study or verdict fixed before the
+   market arrived holds its markets and margins in code; a new market is not added to it.
+6. **Update the runbook** with the ingest time in local time across both clock changes.

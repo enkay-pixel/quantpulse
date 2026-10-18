@@ -35,7 +35,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   figures in `fct_fundamentals`); `research/brief.py` is the advisor brief, fixed rules over the
   evidence with a test that no sentence instructs. Pages assess;
   they never say what to buy or sell. `fct_gamma_by_strike` / `fct_positioning` (NYSE only: the JSE
-  publishes no free short interest or chains) and `fct_attention` (both markets) feed the
+  and London publish no free short interest or chains) and `fct_attention` (every market) feed the
   Positioning tab. `configs/attention.yaml` titles must be canonical: the page-view API does not
   count redirects, so a redirect title returns a small, wrong number (each run skips and names them).
 - `src/quantpulse/options/`: `pricing.py` (Black-Scholes + Greeks, market IV) ·
@@ -69,8 +69,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   but cannot demote the incumbent. It is deliberately left running — that case rests on
   holdout IC, which does not predict live behaviour here (see below). `quantpulse baseline`
   reports the comparison on demand; reasoning and reopen trigger in docs/roadmap.md.
-  Champions: **XNYS v9** (promoted 2026-08-23, IC 0.059 / Sharpe 1.65), XJSE v3 (IC 0.063 /
-  Sharpe 1.51). XNYS v1 was **demoted 2026-08-23**: it was fitted two days before a backfill
+  Champions: **XNYS v10** (promoted 2026-08-29, IC 0.064), XJSE v3 (IC 0.063 / Sharpe 1.51),
+  **XLON v1** (first champion 2026-10-18, IC 0.066 / Sharpe 2.33 on a holdout where momentum
+  scored −0.010; it keeps one or two boosting rounds, so its forecasts take ~9 distinct values).
+  London joined as the third market on 2026-10-18 ([plan](docs/plans/m12-london-pilot.md)).
+  XNYS v1 was **demoted 2026-08-23**: it was fitted two days before a backfill
   tripled the panel, so it specialised on the evaluation window, re-scored at IC 0.1777 and
   blocked five retrains while the live book lost money
   ([findings/unbeatable-incumbent.md](docs/findings/unbeatable-incumbent.md)). Promotion
@@ -79,6 +82,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Quantile width is per-market, set from breadth so books hold a comparable NUMBER of
   positions: 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. The
   promotion gate backtests at the market's own width, or it judges a book nobody runs.
+  **Tied forecasts at the cut-off are all taken**, so a champion with few distinct forecasts
+  holds more than ten: the NYSE live book averaged 10.4 long / 15.7 short (up to 25) and
+  London's 13.5 / 21, while the JSE stays at 10. Balanced at 0.5 a side either way; left as is
+  by decision (2026-10-18), since changing it would split the live record.
   The gate **re-scores the incumbent on the candidate's exact holdout** at decision time
   — never trust stored metrics across code/panel changes (incident 24: a backfill grew
   the panel, the fractional holdout slid into a momentum-rich stretch, and a no-better

@@ -30,7 +30,7 @@ lost for good if it is missed entirely. Keeping to these windows runs everything
 | Saturday | 14:30–15:30 | 08:00–14:30, and from 15:30 |
 | Sunday | — | all day |
 
-Saturday evening through Monday 19:00 carries no data work, because neither market trades.
+Saturday evening through Monday 19:00 carries no data work, because no market trades.
 Staying on until about 09:30 on weekdays also catches the morning check reports (08:00–09:15);
 switching off at 08:00 skips them, which loses nothing but the report.
 
@@ -41,6 +41,7 @@ Durations measured 2026-09-19 over the preceding nine days.
 | time (SAST) | what | duration | if the laptop is off |
 |---|---|---|---|
 | 19:30 Mon–Fri | JSE ingest | seconds | recovered by the catch-up sensor |
+| 20:30 Mon–Fri | London ingest (21:30 from late October to late March) | seconds | recovered by the catch-up sensor |
 | ~22:10–22:35 Mon–Fri | options snapshot | 3–11 min | **recoverable only until 06:00** |
 | 23:30 Mon–Fri | research watchlist: bars and chains | under a minute | that evening's watchlist chains are not captured; bars catch up the next evening |
 | 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |
@@ -74,6 +75,12 @@ change its clocks, so the launchd jobs stay put.
 | NYSE ingest, processing | 01:30, 02:00 |
 
 Only the Saturday window changes in practice: everything else still falls inside 19:00–08:00.
+
+### When UK summer time changes
+
+London ingests at 19:30 London time, which is 20:30 SAST during British Summer Time and 21:30 SAST
+from the last Sunday of October to the last Sunday of March. Both fall inside the weekday
+keep-on window, so no window changes.
 
 ### Shutting down
 

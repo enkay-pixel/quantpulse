@@ -1,8 +1,8 @@
 # M12 — More markets, starting with a London pilot
 
-**Status: APPROVED 2026-10-17, in progress.** One market first, to prove that a third market is
-"a config change plus a backfill" (ADR 0005) and to turn what it takes into a checklist the next
-markets follow.
+**Status: APPROVED 2026-10-17; London live 2026-10-18 (phases 1–4 done, phase 5 below).**
+One market first, to prove that a third market is "a config change plus a backfill" (ADR 0005)
+and to turn what it takes into a checklist the next markets follow.
 
 **In short:** London joins as the third market, beside the NYSE and the JSE, with its own
 universe, model, books and research pages. Nothing about the two existing markets changes, and
@@ -55,9 +55,9 @@ XLON = Exchange(
 )
 ```
 
-`ic_promotion_margin` and `learning_rate_ceiling` start at the defaults and are **measured** before
-the first challenger is judged against a champion, as each was for the JSE: the variance study for
-the margin (the RNG-only refit spread), the learning-rate finding's method for the ceiling.
+`ic_promotion_margin` and `learning_rate_ceiling` are **measured** before the first challenger is
+judged against a champion, as each was for the JSE: the seed-only refit spread for the margin, the
+learning-rate finding's method for the ceiling. Results under phase 5.
 
 Ingest runs at 19:30 London time: 20:30 SAST now, 21:30 SAST after the UK clocks change on
 25 October. Processing stays after the NYSE close, so London is in it every night.
@@ -77,6 +77,39 @@ Ingest runs at 19:30 London time: 20:30 SAST now, 21:30 SAST after the UK clocks
 5. **Measure and record.** Compute headroom (processing time and memory with three markets), the
    promotion margin, the learning-rate ceiling, the runbook's keep-on windows, and an ADR 0005
    amendment that turns this into the onboarding checklist.
+
+## What happened (2026-10-18)
+
+- **Phases 1–2** merged as #145, then #146 when the backfill found two dollar-quoted listings
+  (above): Compass and IHG out, Fresnillo and IAG in, and the backfill now refuses a mismatched
+  currency.
+- **Phase 3.** 41 listings backfilled from 2018 (91,081 price rows), 124,098 days of Wikipedia
+  views, features for all three markets. NYSE and JSE `prices`, `features` and `predictions`, and
+  their paper books, fingerprinted before and after: **identical**. Evidence in
+  `~/quantpulse-experiments/m12-london/`.
+- **Phase 4.** v1 promoted as London's first champion: holdout IC 0.066 and Sharpe 2.33 over
+  2025-06-13 to 2026-09-17, where momentum scored IC −0.010; trained 2018-04 to 2025-05. Replayed
+  over the full history for the dashboard's replay phase (Sharpe 0.59, labelled not evidence of
+  skill). The live record starts with the next pipeline run. v1 keeps one or two boosting rounds,
+  so its forecasts take about nine distinct values, and with ties taken at the cut-off its book
+  holds more than ten a side.
+- **The dashboard** worked for London unchanged except prices: the price chart and positions drew
+  every price as dollars, which had been wrong for the JSE since July. Fixed for all markets in
+  #147.
+- **The margin study** found the NYSE and JSE margins below their seed noise, the JSE's at a third
+  of it since early stopping moved to IC. Re-measured and raised for all three markets (#149,
+  [promotion-margin.md](../findings/promotion-margin.md)), after #148 held the shadow verdict to
+  the markets and margins it was registered with.
+
+### Phase 5 status
+
+| item | state |
+|---|---|
+| Promotion margin | Measured: 2 sd = 0.027 (#149) |
+| Learning-rate ceiling | Study running (six panels × three seeds × three ceilings, the JSE method and decision rule); result in its own change |
+| Runbook | London's ingest time across the UK clock change |
+| Onboarding checklist | [ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md) |
+| Compute headroom | Measured after the first scheduled processing run and retrain with three markets. London's first training took 70 s on its own |
 
 ## Risks
 
