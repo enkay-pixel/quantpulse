@@ -56,8 +56,8 @@ def _backfill(
     exchange: str | None = None,
     batch_size: int = 25,
 ) -> None:
-    from quantpulse.data.calendar import get_exchange, last_trading_day
-    from quantpulse.data.ingest import fetch_daily_bars, upsert_prices
+    from quantpulse.data.calendar import EXCHANGES, get_exchange, last_trading_day
+    from quantpulse.data.ingest import fetch_daily_bars, upsert_prices, wrong_currency
     from quantpulse.data.universe import active_tickers
     from quantpulse.db import get_session
 
@@ -67,10 +67,26 @@ def _backfill(
     # The end date follows the requested market's own calendar.
     end = end or last_trading_day(exchange=code)
     with get_session() as session:
-        tickers = active_tickers(session, code)
+        by_market = {c: active_tickers(session, c) for c in ([code] if code else sorted(EXCHANGES))}
+    tickers = [t for members in by_market.values() for t in members]
     if not tickers:
         target = code or "any market"
         logger.error("No active tickers for %s — run `quantpulse sync-universe` first", target)
+        sys.exit(1)
+    # A backfill is how a listing first arrives, so it is where one quoted in a currency other than
+    # its market's is refused, before any of its bars are stored.
+    refused: dict[str, str] = {}
+    for market, members in by_market.items():
+        expected = EXCHANGES[market].currency
+        wrong, unknown = wrong_currency(members, expected)
+        if unknown:
+            logger.warning("%s: quote currency unconfirmed for %s", market, ", ".join(unknown))
+        refused |= {t: f"{currency}, not {expected}" for t, currency in wrong.items()}
+    if refused:
+        logger.error(
+            "Quoted in another currency than their market's — remove from the universe: %s",
+            ", ".join(f"{t} ({why})" for t, why in sorted(refused.items())),
+        )
         sys.exit(1)
     logger.info(
         "Backfilling %d %s tickers from %s to %s", len(tickers), code or "all-market", start, end
@@ -1212,10 +1228,10 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser(
         "short-interest", help="Fetch short interest for the options-bearing names (research)"
     )
-    sub.add_parser("page-views", help="Fetch Wikipedia page views for both markets (research)")
+    sub.add_parser("page-views", help="Fetch Wikipedia page views for every market (research)")
     sub.add_parser("options-book", help="Rebuild the paper options book (ADR 0008)")
     sub.add_parser("watchlist", help="Sync the research watchlist and refresh its data")
-    sub.add_parser("ownership", help="Fetch insider trades and 5% stakes from SEC EDGAR")
+    sub.add_parser("ownership", help="Fetch insider trades and 5%% stakes from SEC EDGAR")
     sub.add_parser("fundamentals", help="Fetch company fundamentals from SEC EDGAR's XBRL facts")
     options_snapshot = sub.add_parser(
         "options-snapshot", help="Snapshot live option chains for the universe"

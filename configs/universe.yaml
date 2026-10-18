@@ -1,6 +1,6 @@
 # Trading universe, grouped by exchange. Codes must exist in
 # quantpulse.data.calendar.EXCHANGES; the loader rejects typos at sync time.
-# Edit freely; the ingestion pipeline picks this up on its next run.
+# Edit freely, then run `quantpulse sync-universe`: the pipeline reads the database, not this file.
 #
 # Each market's benchmark ETF must appear here, or fct_portfolio_vs_benchmark has
 # nothing to compare that market's book against.
@@ -94,9 +94,11 @@ exchanges:
       - EXX.JO
       - KIO.JO
       - ARI.JO
-  # London (M12 pilot): 40 large FTSE 100 names with Yahoo history from early 2018. Quoted in
+  # London (M12 pilot): 40 large FTSE 100 names with Yahoo history from early 2018, all quoted in
   # pence. Left out for history too short to train beside the rest: M&G (2019), Haleon (2022);
-  # Ashtead is no longer listed in London.
+  # Ashtead is no longer listed in London. Compass and IHG are left out because Yahoo quotes their
+  # London lines in US dollars, and a book is one market in one currency; the next two largest by
+  # market value, Fresnillo and IAG, take their places.
   XLON:
     etfs:
       - ISF.L
@@ -119,7 +121,6 @@ exchanges:
       - NWG.L
       - RR.L
       - BA.L
-      - CPG.L
       - NG.L
       - PRU.L
       - VOD.L
@@ -134,10 +135,11 @@ exchanges:
       - III.L
       - ANTO.L
       - BT-A.L
-      - IHG.L
       - NXT.L
       - SGE.L
       - ABF.L
       - WPP.L
       - SN.L
       - CRDA.L
+      - FRES.L
+      - IAG.L

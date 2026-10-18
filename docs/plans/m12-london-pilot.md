@@ -22,6 +22,14 @@ that is checked, not assumed.
 - **Prices.** Yahoo serves London from 2018 in pence (`GBp`). Of 44 FTSE 100 candidates, 40
   stocks have history from early 2018 to this week. Dropped: Ashtead (no longer listed in
   London), M&G (listed 2019) and Haleon (2022), since a model needs the same history as its peers.
+- **Currency, per listing.** Found during the backfill, not before it: Yahoo quotes Compass
+  (`CPG.L`) and IHG (`IHG.L`) in London in **US dollars**, while the other 39 lines are in pence.
+  Their bars passed every check, since the moves are real moves in dollars; they showed up only as
+  price levels a hundred times too small for pence. Both were removed with their rows before any
+  feature was computed, and replaced by the next two largest pence-quoted names with full
+  history, Fresnillo (`FRES.L`) and IAG (`IAG.L`). Every NYSE and JSE listing was checked the same
+  way and matches. The backfill now asks the vendor for each listing's currency and refuses a
+  market holding one that differs, before storing anything.
 - **Benchmark.** `ISF.L`, the iShares FTSE 100 fund, has history from 2018. Its newest close was
   missing on 2026-10-17 for the day before: Yahoo publishes some London funds a day late, which
   the benchmark freshness check reports and the next fetch fills.
@@ -75,6 +83,7 @@ Ingest runs at 19:30 London time: 20:30 SAST now, 21:30 SAST after the UK clocks
 | Risk | Mitigation |
 |---|---|
 | A shared change moves NYSE or JSE data during the freeze | Phase 3's row-for-row comparison gates every merge that touches shared code |
+| A listing is quoted in another currency than its market's | The backfill refuses it before storing a bar. A listing that changes currency later is not checked nightly; the next backfill names it |
 | Yahoo reports a London price in pounds instead of pence | The unit repair that catches JSE rand/cent glitches is generic (a −99% day then +100×); a test proves it on a London series |
 | The benchmark lags a day | The freshness check already reports it; the book compares on days both have |
 | No first champion clears the floor | London shows its data and research without a model, said plainly |
