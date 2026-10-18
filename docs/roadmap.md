@@ -218,6 +218,7 @@ result you should not quote.
   point-in-time index constituents effectively do not exist, so the honest move is to
   treat replay returns as an **upper bound**, not an estimate. It biases in the same
   direction as every other soft assumption here, which is exactly why it is written down.
+  London's forty are stronger still: they were chosen as the largest FTSE 100 companies *today*.
 - **In-sample scoring.** The replay equity curve scores each champion over its own training
   window. NYSE's holdout Sharpe is 0.21, JSE's ~1.5 — the replay curves sit far
   above both. Read the replay as a description of the fit, not as evidence of skill.
@@ -225,6 +226,14 @@ result you should not quote.
   design — but the pool it draws from is thin, one name (BHG.JO) has only half the history,
   and Naspers/Prosus is a large, Tencent-linked share of the index. A holdout Sharpe of
   ~1.5 on this many names has wide error bars.
+- **Tied forecasts widen the book.** Each side takes every name at or past its quantile, ties
+  included, and the champions' forecasts tie often: NYSE v10 gives 13–14 distinct values across
+  50 names, London v1 nine across 41. Since July the NYSE live book has averaged 10.4 long and
+  15.7 short (up to 25), London's backfilled stretch 13.5 and 21, the JSE a steady 10 a side.
+  Each side still carries half the capital, so the book is broader and more diluted than designed
+  rather than unbalanced. Left as is by decision (2026-10-18): the rule is deterministic and is the
+  one the gate backtests, and changing it would make the live record before and after measure
+  different books.
 - **Cost model resolution.** Trading costs are linear in turnover with no market-impact
   term and no bid-ask spread by name. Fine for liquid large caps at small size; wrong the
   moment the universe widens or size grows. JSE shorting in particular is thinner and dearer

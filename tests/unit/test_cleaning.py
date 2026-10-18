@@ -77,3 +77,12 @@ def test_short_and_empty_frames_are_noops() -> None:
 
 def test_factor_matches_the_jse_quote_convention() -> None:
     assert UNIT_FACTOR == 100.0  # ZAc per ZAR
+
+
+def test_a_london_session_reported_in_pounds_is_repaired_like_a_jse_one_in_rand() -> None:
+    """London quotes in pence as the JSE does in cents, so the same vendor slip, one session in the
+    major unit, reads as -99% then +100x and is repaired the same way: by the ticker's own
+    neighbours, whatever market it trades on."""
+    out, fixed = repair_price_units(frame([1428.0, 14.31, 1431.5, 1440.0], ticker="HSBA.L"))
+    assert fixed == 1
+    assert out["close"].tolist() == pytest.approx([1428.0, 1431.0, 1431.5, 1440.0])
