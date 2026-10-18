@@ -73,7 +73,15 @@ import { ExchangePicker } from "./components/ExchangePicker";
 import { useExchange } from "./hooks/useExchange";
 import { useHashTab } from "./hooks/useHashTab";
 import { useRotatingTicker } from "./hooks/useRotatingTicker";
-import { formatDate, formatNumber, formatPercent } from "./lib/format";
+import {
+  USD,
+  formatDate,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  moneyOf,
+  type MoneyFormat,
+} from "./lib/format";
 import { TABS, visibleTabs } from "./lib/tabs";
 import { Term } from "./components/Term";
 
@@ -111,7 +119,15 @@ function Placeholder({ height = "h-64" }: { height?: string }) {
   );
 }
 
-function OverviewTab({ exchange, benchmark }: { exchange: string; benchmark?: string }) {
+function OverviewTab({
+  exchange,
+  benchmark,
+  money,
+}: {
+  exchange: string;
+  benchmark?: string;
+  money: MoneyFormat | undefined;
+}) {
   const model = useCurrentModel(exchange);
   const equity = useEquityCurve(exchange);
   const predictions = usePredictions(exchange);
@@ -184,7 +200,7 @@ function OverviewTab({ exchange, benchmark }: { exchange: string; benchmark?: st
                     ? "Pinned — rotation resumes in a few minutes."
                     : "Cycling through today's strongest forecasts — select a stock in the list to keep it here."}
                 </p>
-                <PriceChart ticker={activeTicker} />
+                <PriceChart ticker={activeTicker} money={money} />
               </>
             ) : (
               <div
@@ -371,7 +387,7 @@ function OptionsTab({ exchange }: { exchange: string }) {
           label={<Term id="spot" />}
           value={
             summary.data?.underlying_close
-              ? `$${formatNumber(summary.data.underlying_close)}`
+              ? formatMoney(summary.data.underlying_close, USD)
               : "—"
           }
           sub={ticker ?? "—"}
@@ -726,7 +742,7 @@ function ResearchTab() {
   );
 }
 
-function ModelTab({ exchange }: { exchange: string }) {
+function ModelTab({ exchange, money }: { exchange: string; money: MoneyFormat | undefined }) {
   const history = useModelHistory(exchange);
   const positions = usePositions(exchange);
 
@@ -747,7 +763,7 @@ function ModelTab({ exchange }: { exchange: string }) {
         explain="Today's positions: the stocks bought (long) and sold short, each one's share of the book, and the forecast behind it."
       >
         {positions.data ? (
-          <PositionsTable positions={positions.data} />
+          <PositionsTable positions={positions.data} money={money} />
         ) : (
           <Placeholder height="h-40" />
         )}
@@ -807,7 +823,7 @@ export default function App() {
       </div>
 
       {tab === "Overview" ? (
-        <OverviewTab exchange={exchange} benchmark={market?.benchmark} />
+        <OverviewTab exchange={exchange} benchmark={market?.benchmark} money={moneyOf(market)} />
       ) : null}
       {tab === "Evidence" ? (
         <EvidenceTab exchange={exchange} benchmark={market?.benchmark} />
@@ -822,7 +838,7 @@ export default function App() {
         <FundamentalsTab exchange={exchange} hasFilings={market?.has_options ?? true} />
       ) : null}
       {tab === "Brief" ? <BriefTab exchange={exchange} /> : null}
-      {tab === "Model & Book" ? <ModelTab exchange={exchange} /> : null}
+      {tab === "Model & Book" ? <ModelTab exchange={exchange} money={moneyOf(market)} /> : null}
       {tab === "Research" ? <ResearchTab /> : null}
     </div>
   );

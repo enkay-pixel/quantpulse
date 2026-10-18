@@ -1,3 +1,5 @@
+import type { Exchange } from "../api/types";
+
 export function formatPercent(value: number | null | undefined, digits = 2): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return `${(value * 100).toFixed(digits)}%`;
@@ -33,21 +35,31 @@ export interface MoneyFormat {
   divisor: number;
 }
 
+/** US dollars: for figures that are dollars whatever market is selected, such as SEC filings. */
 export const USD: MoneyFormat = { symbol: "$", divisor: 1 };
+
+/** A market's quote convention, from the backend's exchange registry; undefined until it loads. */
+export function moneyOf(
+  market: Pick<Exchange, "display_symbol" | "display_divisor"> | undefined,
+): MoneyFormat | undefined {
+  return market ? { symbol: market.display_symbol, divisor: market.display_divisor } : undefined;
+}
 
 /**
  * Format a price in its market's own units.
  *
- * The JSE quotes in cents (ZAc), so a stored 79787 is R797.87 — showing it raw would
- * overstate every price by 100x. The divisor comes from the backend's exchange registry
- * rather than being hardcoded here, so adding a market is a config change.
+ * The JSE quotes in cents (ZAc) and London in pence (GBp), so a stored 79787 is R797.87 and a
+ * stored 1428 is £14.28 — showing either raw overstates it 100x. The convention is a required
+ * argument, never a default: a default of dollars is how prices in rand and pounds came to be
+ * drawn as dollars. Until the market's convention is known the price is a dash, since a number in
+ * the wrong units reads as a fact.
  */
 export function formatMoney(
   value: number | null | undefined,
-  money: MoneyFormat = USD,
+  money: MoneyFormat | undefined,
   digits = 2,
 ): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  if (value === null || value === undefined || Number.isNaN(value) || !money) return "—";
   return `${money.symbol}${(value / money.divisor).toFixed(digits)}`;
 }
 

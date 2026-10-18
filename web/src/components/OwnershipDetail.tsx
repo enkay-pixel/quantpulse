@@ -1,5 +1,12 @@
 import type { OwnershipDetailOut } from "../api/types";
-import { formatDate, formatMoney, formatPercent, formatUsdCompact, shareClass } from "../lib/format";
+import {
+  USD,
+  formatDate,
+  formatMoney,
+  formatPercent,
+  formatUsdCompact,
+  shareClass,
+} from "../lib/format";
 import { Term } from "./Term";
 
 const TH = "px-3 py-2 font-medium";
@@ -70,7 +77,7 @@ export function OwnershipDetail({ data }: { data: OwnershipDetailOut }) {
                     {t.trade}
                   </td>
                   <td className="px-3 py-1.5 text-right tabular">{formatUsdCompact(t.value_usd)}</td>
-                  <td className="px-3 py-1.5 text-right tabular">{formatMoney(t.trade_price)}</td>
+                  <td className="px-3 py-1.5 text-right tabular">{formatMoney(t.trade_price, USD)}</td>
                   <td className="px-3 py-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                     {t.planned === null ? "—" : t.planned ? "yes" : "no"}
                   </td>

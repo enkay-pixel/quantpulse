@@ -1,8 +1,20 @@
 import type { Positions } from "../api/types";
-import { formatDate, formatNumber, formatPercent, formatSignedPercent } from "../lib/format";
+import {
+  formatDate,
+  formatMoney,
+  formatPercent,
+  formatSignedPercent,
+  type MoneyFormat,
+} from "../lib/format";
 import { Term } from "./Term";
 
-export function PositionsTable({ positions }: { positions: Positions }) {
+export function PositionsTable({
+  positions,
+  money,
+}: {
+  positions: Positions;
+  money: MoneyFormat | undefined;
+}) {
   if (positions.rows.length === 0) {
     return (
       <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
@@ -43,7 +55,7 @@ export function PositionsTable({ positions }: { positions: Positions }) {
                   {row.latest_score !== null ? formatSignedPercent(row.latest_score) : "—"}
                 </td>
                 <td className="tabular px-3 py-1.5 text-right" style={{ color: "var(--text-secondary)" }}>
-                  {row.latest_close !== null ? `$${formatNumber(row.latest_close)}` : "—"}
+                  {formatMoney(row.latest_close, money)}
                 </td>
               </tr>
             ))}
