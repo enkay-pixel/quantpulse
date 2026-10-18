@@ -52,11 +52,14 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - Model: LightGBM on 13 technical+cross-sectional features, 21d horizon, purged
   walk-forward CV, Optuna(15). Promotion gate compares **IC**, not Sharpe: holdout IC ≥
   champion + a per-market margin (`Exchange.ic_promotion_margin`, 2 sd of a measured seed
-  re-roll), IC ≥ 0, DD > −35%, Sharpe kept only as a wide veto (`max_sharpe_regression`
+  re-roll: 0.009 XNYS, 0.026 XJSE, 0.027 XLON — re-measured 2026-10-18 after the August values
+  turned out to be a third of the JSE's noise; [findings/promotion-margin.md](docs/findings/promotion-margin.md)),
+  IC ≥ 0, DD > −35%, Sharpe kept only as a wide veto (`max_sharpe_regression`
   0.50) applied **after** IC decides. A **first** champion must clear `min_first_sharpe`
   (0.0) — without it a model that lost money out-of-sample becomes the dashboard's
   champion. Why IC: refitting one spec with only the seed changed moves Sharpe by sd
-  0.12–0.24 and moves it ~2.0 across six-month windows, while IC moves by 0.003–0.004.
+  0.12–0.24 and moves it ~2.0 across six-month windows, while IC moves by 0.003–0.004
+  (0.005–0.013 since early stopping moved to IC).
   The old 0.05 Sharpe margin sat 5–10× **below** its own noise floor.
   Since 2026-08-14 a candidate must also beat a **standing competitor** — a fit-free
   63-day momentum rule scored on the same holdout — by the same margin, first champions

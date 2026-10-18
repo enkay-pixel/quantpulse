@@ -26,6 +26,14 @@ class Exchange:
     currency: str  # quote currency as the data vendor reports it
     benchmark: str  # buy-and-hold comparison ticker
     has_options: bool  # free option chains available from the vendor
+    # How much better a challenger's IC must be to count as better rather than luckier: 2 sd of
+    # the gate's holdout IC when the champion's specification is refitted with only the seed
+    # changed. Sharpe is far noisier, which is why the gate compares IC and keeps Sharpe only as
+    # a floor. No default: a market states its value, and measures it before its first challenger
+    # is judged (method and readings in docs/findings/promotion-margin.md). Re-measure whenever
+    # the panel, the training code or early stopping changes: a change to early stopping once
+    # tripled one market's spread and left its margin a third of the noise for weeks.
+    ic_promotion_margin: float
     display_divisor: float = 1.0  # quote units per display unit (JSE quotes in cents)
     display_symbol: str = "$"
     # Share of the universe taken on each side of a long/short book. Set from breadth so
@@ -33,13 +41,6 @@ class Exchange:
     # 20% of 50 US names and 35% of 29 JSE names are both ~10 per side. A thin market
     # sliced at 20% would hold 6, roughly doubling per-position idiosyncratic risk.
     quantile_width: float = 0.2
-    # How much better a challenger's IC must be to count as better rather than luckier.
-    # Measured, not chosen: refit the same specification with only the RNG changed and the
-    # holdout IC moves with sd ~0.003 (XNYS) / ~0.004 (XJSE); this is 2 sd. Sharpe is far
-    # noisier (sd 0.12 / 0.24 on the same experiment, and ~2.0 across six-month windows),
-    # which is why the gate compares IC and keeps Sharpe only as a floor. Re-measure with
-    # the variance study when the panel or the evaluation code changes materially.
-    ic_promotion_margin: float = 0.006
     # Features this market trains on. Empty means every engineered column, which is what
     # both markets currently use.
     #
@@ -76,6 +77,7 @@ XNYS = Exchange(
     currency="USD",
     benchmark="SPY",
     has_options=True,
+    ic_promotion_margin=0.009,
 )
 
 XJSE = Exchange(
@@ -88,7 +90,7 @@ XJSE = Exchange(
     display_divisor=100.0,
     display_symbol="R",
     quantile_width=0.35,  # 29 names -> ~10 per side, matching XNYS
-    ic_promotion_margin=0.008,  # 2 sd; a thinner cross-section re-rolls wider than XNYS
+    ic_promotion_margin=0.026,  # stops after few rounds, so the round count re-rolls with the seed
     learning_rate_ceiling=0.02,  # the tuner overshoots on this market; see the finding
 )
 
@@ -99,6 +101,7 @@ XLON = Exchange(
     currency="GBp",  # pence: a 1428 quote is £14.28
     benchmark="ISF.L",  # iShares Core FTSE 100
     has_options=False,  # no free London chain data
+    ic_promotion_margin=0.027,  # its champion keeps one or two rounds, so it re-rolls wide
     display_divisor=100.0,
     display_symbol="£",
     quantile_width=0.25,  # 40 names -> 10 per side, matching the other markets
