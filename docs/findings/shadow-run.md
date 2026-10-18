@@ -85,6 +85,11 @@ The weekly holdout differences are reported alongside and decide nothing.
   week, without reading any forward return: refitting with `--as-of` the 2026-10-03 candidates'
   holdout end reproduces v14 and v15 to twelve decimal places, a difference of exactly zero, and the
   fixed refits match the dry run. So every week's real models can be recovered.
+- **The rule covers the two markets it names, at the margins it names.** London joined on
+  2026-10-18, after the window opened, and its weekly retrain writes shadow rows like the others',
+  but it has none for the first two weeks and is not part of this verdict. The markets and margins
+  are held in code as `REGISTERED_MARGINS` rather than read from the market registry, so neither a
+  market added later nor a gate margin re-measured later can change what this rule reads.
 - **Holdout IC is the metric throughout**, as in the study. The gate's drawdown floor and Sharpe veto
   are not checked here.
 

@@ -49,9 +49,11 @@ if [ "${RUNNING:-0}" -lt 6 ]; then
     exit 0
 fi
 
-# The markets come from the code rather than a list here, so adding one cannot leave it unscored.
+# The markets the rule was registered for, from the code rather than a list here. Not every market
+# in the registry: one added after the window opened has no shadow for its early weeks, and would
+# be reported as lost every week for a verdict it was never part of.
 MARKETS=$(docker compose exec -T dagster-daemon python -c \
-    "from quantpulse.data.calendar import EXCHANGES; print(' '.join(sorted(EXCHANGES)))" \
+    "from quantpulse.ml.shadow_forward import REGISTERED_MARGINS as M; print(' '.join(sorted(M)))" \
     2>/dev/null | tr -d '\r')
 
 score() {

@@ -525,12 +525,16 @@ def _shadow_forward(exchange: str | None) -> None:
     only on harm, looking often enough lets noise stop it — so until the verdict is readable this
     shows each week's health and progress and withholds the scores.
     """
-    from quantpulse.data.calendar import EXCHANGES
     from quantpulse.db import get_engine, get_session
-    from quantpulse.ml.shadow_forward import READABLE, shadow_forward, week_scores
+    from quantpulse.ml.shadow_forward import (
+        READABLE,
+        REGISTERED_MARGINS,
+        shadow_forward,
+        week_scores,
+    )
 
     engine = get_engine()
-    for code in [exchange] if exchange else sorted(EXCHANGES):
+    for code in [exchange] if exchange else sorted(REGISTERED_MARGINS):
         with get_session() as session:
             weeks, v = shadow_forward(engine, session, code)
         readable = v["state"] in READABLE

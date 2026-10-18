@@ -256,3 +256,31 @@ def test_scores_are_withheld_until_the_rule_can_be_read(state: str) -> None:
 @pytest.mark.parametrize("state", ["harm_shown", "no_harm_shown"])
 def test_scores_are_shown_once_the_rule_has_been_read(state: str) -> None:
     assert "diff -0.0500" in week_scores(_week(0, delta=-0.05), state)
+
+
+def test_the_rule_reads_only_the_markets_and_margins_it_was_registered_with() -> None:
+    """docs/findings/shadow-run.md names two markets and their margins. Both are fixed: London
+    joined after the window opened, and a margin re-measured since must not move the verdict."""
+    assert sf.REGISTERED_MARGINS == {"XJSE": 0.008, "XNYS": 0.006}
+
+
+def test_a_market_added_after_registration_is_refused_before_anything_is_fitted() -> None:
+    with pytest.raises(ValueError, match="not registered"):
+        sf.shadow_forward(None, None, "XLON")  # type: ignore[arg-type]
+
+
+def test_a_re_measured_gate_margin_does_not_move_the_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The gate's margin lives in the market registry and may be re-measured; the verdict's was
+    fixed when the rule was registered."""
+    used: list[float] = []
+    monkeypatch.setattr(sf, "get_exchange", lambda code: SimpleNamespace(ic_promotion_margin=0.5))
+    monkeypatch.setattr(sf, "weekly_pairs", lambda session, exchange, dates: {})
+    monkeypatch.setattr("quantpulse.ml.pipeline.build_dataset", lambda *a, **k: pd.DataFrame())
+    monkeypatch.setattr(sf, "due", lambda dates, today: [])
+    monkeypatch.setattr(
+        sf, "verdict", lambda weeks, margin, expected: used.append(margin) or {"state": "x"}
+    )
+    sf.shadow_forward(None, None, "XNYS")  # type: ignore[arg-type]
+    assert used == [0.006]
