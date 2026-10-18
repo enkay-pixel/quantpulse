@@ -102,6 +102,7 @@ XLON = Exchange(
     benchmark="ISF.L",  # iShares Core FTSE 100
     has_options=False,  # no free London chain data
     ic_promotion_margin=0.027,  # its champion keeps one or two rounds, so it re-rolls wide
+    learning_rate_ceiling=0.02,  # the tuner overshoots here as on the JSE; see the finding
     display_divisor=100.0,
     display_symbol="£",
     quantile_width=0.25,  # 40 names -> 10 per side, matching the other markets

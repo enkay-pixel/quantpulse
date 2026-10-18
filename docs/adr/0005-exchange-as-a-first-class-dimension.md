@@ -77,9 +77,12 @@ Onboarding:
 3. **Replay-score the history** (`quantpulse score --replay --exchange X`), build the marts, and
    read the dashboard in the browser, prices included: the price chart and positions had drawn
    JSE prices as dollars since July, and London's onboarding is what found it.
-4. **Measure the margin before the first challenger**, as 2 sd of the champion's specification
-   refitted with only the seed changed ([promotion-margin.md](../findings/promotion-margin.md)).
-   Doing so for London found the JSE's margin had fallen to a third of its noise.
+4. **Measure the margin and the learning-rate ceiling before the first challenger.** The margin
+   is 2 sd of the champion's specification refitted with only the seed changed
+   ([promotion-margin.md](../findings/promotion-margin.md)); doing so for London found the JSE's
+   had fallen to a third of its noise. The ceiling follows
+   [learning-rate-ceiling.md](../findings/learning-rate-ceiling.md); London needed 0.02, as the
+   JSE does.
 5. **Keep pre-registered readings to their own markets.** A study or verdict fixed before the
    market arrived holds its markets and margins in code; a new market is not added to it.
 6. **Update the runbook** with the ingest time in local time across both clock changes.

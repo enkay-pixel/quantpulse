@@ -106,7 +106,7 @@ Ingest runs at 19:30 London time: 20:30 SAST now, 21:30 SAST after the UK clocks
 | item | state |
 |---|---|
 | Promotion margin | Measured: 2 sd = 0.027 (#149) |
-| Learning-rate ceiling | Study running (six panels × three seeds × three ceilings, the JSE method and decision rule); result in its own change |
+| Learning-rate ceiling | Measured: 0.02 adopted, collapses 6/18 → 0/18 and holdout IC +0.035 (t +3.22, 6/6 panels) against 0.2 ([finding](../findings/learning-rate-ceiling.md#london-2026-10-18)) |
 | Runbook | London's ingest time across the UK clock change |
 | Onboarding checklist | [ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md) |
 | Compute headroom | Measured after the first scheduled processing run and retrain with three markets. London's first training took 70 s on its own |
