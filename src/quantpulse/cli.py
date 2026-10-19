@@ -666,6 +666,7 @@ def _status(verdict_dir: str | None) -> None:
         live_sessions_reached,
         market_status,
         next_retrain,
+        shadow_summary,
         shadow_verdict_eta,
     )
 
@@ -700,8 +701,7 @@ def _status(verdict_dir: str | None) -> None:
             print(f"  {s.day} missing {len(s.missing)}: {', '.join(s.missing)} — {fate}")
         print(
             f"  champion v{m.champion} since {m.champion_since} · "
-            f"{m.rejections} rejection(s) since · shadow weeks recorded "
-            f"{m.shadow_recorded} of {m.shadow_due} due ({m.shadow_in_window} in window)"
+            f"{m.rejections} rejection(s) since · {shadow_summary(m)}"
         )
 
     snapshot = collect(engine, _verdict_dir(verdict_dir))

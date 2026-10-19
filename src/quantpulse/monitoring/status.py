@@ -156,6 +156,23 @@ def market_status(engine: Engine, exchange: str) -> MarketStatus:
     )
 
 
+def shadow_summary(m: MarketStatus) -> str:
+    """The shadow run's progress for one market, or why it has none.
+
+    The run reads the markets it was registered with. One added after its window opened has no
+    shadow for the early weeks, and counting them would read as evidence lost from a run it was
+    never part of.
+    """
+    from quantpulse.ml.shadow_forward import REGISTERED_MARGINS
+
+    if m.exchange not in REGISTERED_MARGINS:
+        return "not in the shadow run, which was registered before this market joined"
+    return (
+        f"shadow weeks recorded {m.shadow_recorded} of {m.shadow_due} due "
+        f"({m.shadow_in_window} in window)"
+    )
+
+
 def sessions_ahead(start: dt.date, n: int, exchange: str) -> dt.date:
     """The date of the `n`-th session after `start` on this market's calendar."""
     days = trading_days(
