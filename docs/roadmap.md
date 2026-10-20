@@ -7,7 +7,7 @@ For *how* it was built and every bug paid for along the way, see
 ## What this project is
 
 A local-first, zero-cost MLOps platform for a self-adapting ML investing model, now running
-**two markets — NYSE and the JSE**. Dagster orchestrates daily ingest → features → champion
+**three markets — NYSE, the JSE and London**. Dagster orchestrates daily ingest → features → champion
 scoring → paper books → drift checks per market; weekly and drift-triggered retraining
 promotes challengers through the MLflow registry; dbt builds analytics marts; FastAPI serves
 them; a React dashboard presents the evidence with a market switcher. Everything runs free
@@ -32,6 +32,7 @@ give investment advice, and the disclaimer stays.
 | M9 | Options layer | Black-Scholes Greeks, daily chain snapshots, IV-surface/put-call marts, Options tab, hypothetical spread translation |
 | M10 | Rigor & reliability | CAPM alpha/beta decomposition (the fair read on a market-neutral book), pipeline failure alerts, automatic missed-day catch-up |
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
+| M12 | London pilot | London (40 FTSE 100 names, ISF.L benchmark) added as a configuration change plus a backfill, NYSE and JSE proven unchanged row for row; the onboarding checklist in [ADR 0005](adr/0005-exchange-as-a-first-class-dimension.md); per-listing currency check; prices in each market's units; promotion margins and London's learning-rate ceiling measured ([plan](plans/m12-london-pilot.md)) |
 
 **Quality gates:** 429 Python tests (269 unit + 141 integration against a disposable
 database that runs a real `dbt build` + 19 Dagster), 66 Vitest, 60 dbt data tests, plus
@@ -343,9 +344,12 @@ while the live book lost money. Demoting on that basis would repeat the error do
 but unresolved: +1.70% and Sharpe 2.68 at 20 sessions, and +1.38%, Sharpe 0.82, alpha t +0.15 at
 56 (2026-10-12). Since then [v3 has been scored forward against
 momentum](findings/champion-vs-momentum.md): its own forward IC is about zero, and −0.125 on the
-sessions it served. *Reopen at 60 live sessions — reached around 2026-10-20 — or sooner if live
-Sharpe turns negative or alpha resolves either way.* Withdrawing it is one command
-(`quantpulse demote`) whenever that call is made.
+sessions it served. **Reviewed at 60 live sessions (2026-10-20) and kept:** Sharpe +0.55 and
+alpha t +0.05, so neither trigger fired and the live record still cannot tell it from luck. *Reopen
+at the shadow run's verdict (about 2026-12-29), which decides tuned versus fixed models for the JSE
+and is the natural moment to change its champion, or sooner if live Sharpe turns negative or alpha
+resolves either way.* Withdrawing it is one command (`quantpulse demote`) whenever that call is
+made.
 
 **Do not prune the NYSE feature set**, though pruning to `vol_21` resolves at t +3.00 across
 sixteen tuned seeds. `vol_21` was selected on this panel, so the result supports "pruning
