@@ -113,3 +113,55 @@ def test_build_dataset_raises_when_history_is_shorter_than_the_horizon(
 
     with pytest.raises(ValueError, match="Training frame is empty"):
         build_dataset(db_engine, TrainConfig(horizon_days=21), exchange="XNYS")
+
+
+CUTOFF = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
+
+
+def _stored_after_cutoff(engine: Engine, first_late: dt.date) -> None:
+    """Mark every row as stored before CUTOFF, except those from `first_late` on."""
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE prices SET ingested_at = :t"), {"t": CUTOFF - dt.timedelta(days=1)}
+        )
+        conn.execute(
+            text("UPDATE prices SET ingested_at = :t WHERE date >= :d"),
+            {"t": CUTOFF + dt.timedelta(days=1), "d": first_late},
+        )
+
+
+def test_known_by_keeps_only_the_rows_stored_by_then(seeded: Engine) -> None:
+    """A model fitted on a past day is refitted on the bars stored by then, not today's."""
+    _stored_after_cutoff(seeded, DATES[-5])
+    assert load_price_bars(seeded, exchange="XNYS", known_by=CUTOFF)["date"].max() == DATES[-6]
+    assert load_price_bars(seeded, exchange="XNYS")["date"].max() == DATES[-1]
+
+
+def test_a_missing_session_lets_later_bars_add_rows_before_the_cut(seeded: Engine) -> None:
+    """Why the shadow scorer refits on `known_by` rather than on today's frame cut at the holdout
+    end. Labels count rows, so a ticker missing a session labels its late rows from a bar one
+    session further on. Here AAA misses one session, and its row 21 sessions before the last bar
+    a past fit could see had no label then; today it has one, so a cut at that date keeps a row
+    the fit never trained on. BBB, with no gap, is the same either way."""
+    from sqlalchemy import text
+
+    from quantpulse.ml.fixed_defaults import truncate_panel
+
+    last_seen, row, gap = 87, 66, 75  # indexes into DATES; 87 - 21 = 66, and 75 lies between
+    with seeded.begin() as conn:
+        conn.execute(
+            text("DELETE FROM prices WHERE ticker = 'AAA' AND date = :d"), {"d": DATES[gap]}
+        )
+    _stored_after_cutoff(seeded, DATES[last_seen + 1])
+    cfg = TrainConfig(horizon_days=21)
+    cut = str(DATES[row])
+    then = truncate_panel(build_dataset(seeded, cfg, "XNYS", known_by=CUTOFF), cut)
+    today = truncate_panel(build_dataset(seeded, cfg, "XNYS"), cut)
+
+    def has(frame: pd.DataFrame, ticker: str) -> bool:
+        return bool(((frame["ticker"] == ticker) & (frame["date"] == DATES[row])).any())
+
+    assert has(today, "AAA") and not has(then, "AAA")
+    assert has(today, "BBB") and has(then, "BBB")

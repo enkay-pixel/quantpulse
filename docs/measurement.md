@@ -96,6 +96,16 @@ Related: a holdout read many times stops being out-of-sample in the way it was w
 new. Prefer a fresh panel period to confirm anything a holdout has already been consulted
 about repeatedly.
 
+### Refit a past model on the bars it saw, not on today's cut at a date
+
+A model fitted on a past day is reproduced from the rows stored by then (`build_dataset(...,
+known_by=...)`), not from today's frame cut at its holdout end. The two differ before the cut:
+labels count rows, so a ticker missing a session labels its last rows from bars stored after the
+fit, and those rows enter today's frame. The shadow scorer lost two weeks this way before it was
+fixed, and studies that roll origins by cutting today's frame carry the same handful of extra rows
+per origin; build each origin's panel from the bars up to its date, as the learning-rate study for
+London did.
+
 ### Fix the decision rule before the run, where the merge cannot erase it
 
 Writing a decision rule down before measuring is what stops it being chosen after the numbers are

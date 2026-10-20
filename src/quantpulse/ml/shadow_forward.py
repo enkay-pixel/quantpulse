@@ -163,8 +163,17 @@ def score_week(
     production: ModelRun | None,
     shadow: ModelRun | None,
     cfg: TrainConfig,
+    trained_on: pd.DataFrame | None = None,
 ) -> Week:
-    """Refit, verify and score one market's week."""
+    """Refit, verify and score one market's week.
+
+    `trained_on` is the frame built from the bars stored when the retrain ran, and the refit is cut
+    from it rather than from today's `full`, which is used only for the forward window. The two
+    differ even before the holdout end: labels count rows, so for a ticker missing a session the
+    label of a row near the end reaches a bar stored after the retrain. That row had no label when
+    the model was fitted and has one now, and a refit including it is a different model. Cutting
+    today's frame lost two weeks this way, each as soon as later bars arrived.
+    """
     from quantpulse.ml.training import (
         HOLDOUT_FRACTION,
         split_by_date,
@@ -187,7 +196,9 @@ def score_week(
     ceiling = market.learning_rate_ceiling
     cols = feature_columns_for(exchange)
     holdout_end = dt.date.fromisoformat(str(end))
-    panel = truncate_panel(full, str(end))
+    if trained_on is None:
+        raise ValueError("a paired week is refitted on the frame its retrain saw; none was given")
+    panel = truncate_panel(trained_on, str(end))
 
     train_frame, _ = split_by_date(panel, HOLDOUT_FRACTION, cfg.embargo_days)
     tuned_params = tune_hyperparameters(train_frame, cols, cfg, learning_rate_ceiling=ceiling)
@@ -306,5 +317,13 @@ def shadow_forward(
     full = build_dataset(engine, cfg, exchange)
     # Today in New York, where the schedule runs — never the container's UTC date.
     today = dt.datetime.now(SCHEDULE_ZONE).date()
-    weeks = [score_week(full, exchange, d, *pairs[d], cfg) for d in due(dates, today)]
+    weeks = []
+    for d in due(dates, today):
+        production, shadow = pairs[d]
+        trained_on = (
+            build_dataset(engine, cfg, exchange, known_by=production.created_at)
+            if production is not None and shadow is not None
+            else None
+        )
+        weeks.append(score_week(full, exchange, d, production, shadow, cfg, trained_on))
     return weeks, verdict(weeks, REGISTERED_MARGINS[exchange], expected=len(dates))
