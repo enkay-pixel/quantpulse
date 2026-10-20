@@ -85,14 +85,16 @@ def load_price_bars(
     start: dt.date | None = None,
     end: dt.date | None = None,
     exchange: str | None = None,
+    known_by: dt.datetime | None = None,
 ) -> pd.DataFrame:
     """Load stored bars for feature computation (active universe only).
 
     Carries `exchange` so cross-sectional features can be ranked within a market rather
-    than across all of them.
+    than across all of them. `known_by` keeps only the rows stored by that moment, which is how
+    a model fitted then can be refitted later on the panel it actually saw.
     """
     clauses = ["u.active"]
-    params: dict[str, dt.date | str] = {}
+    params: dict[str, dt.date | dt.datetime | str] = {}
     if exchange is not None:
         clauses.append("u.exchange = :exchange")
         params["exchange"] = exchange
@@ -102,6 +104,9 @@ def load_price_bars(
     if end is not None:
         clauses.append("p.date <= :end")
         params["end"] = end
+    if known_by is not None:
+        clauses.append("p.ingested_at <= :known_by")
+        params["known_by"] = known_by
     query = text(
         "SELECT p.ticker, p.date, p.close, p.volume, u.exchange FROM prices p "
         "JOIN universe u ON u.ticker = p.ticker "

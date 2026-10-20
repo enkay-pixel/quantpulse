@@ -284,3 +284,40 @@ def test_a_re_measured_gate_margin_does_not_move_the_verdict(
     )
     sf.shadow_forward(None, None, "XNYS")  # type: ignore[arg-type]
     assert used == [0.006]
+
+
+def test_a_paired_week_is_refitted_on_the_bars_stored_when_its_retrain_ran(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Today's frame cut at the holdout end is not the panel the retrain fitted: later bars give
+    labels to rows that had none then. Two weeks were lost that way before this."""
+    saturday = dt.date(2026, 10, 10)
+    prod = _row(16, "train", "2026-10-10T13:00:00", holdout_end="2026-09-10", holdout_ic=0.03)
+    shadow = _row(17, "shadow", "2026-10-10T13:05:00", shadows_run_id=16, paired=True)
+    built: list[Any] = []
+    seen: list[Any] = []
+
+    def fake_build(engine: Any, cfg: Any, exchange: str, known_by: Any = None) -> pd.DataFrame:
+        built.append(known_by)
+        return pd.DataFrame({"known_by": [known_by]})
+
+    def fake_score(full, exchange, day, production, shadow_row, cfg, trained_on=None):  # type: ignore[no-untyped-def]
+        seen.append((full["known_by"].iloc[0], trained_on["known_by"].iloc[0]))
+        return Week(day, exchange, "16", "2026-09-10", "maturing", 0, None, None, None, "")
+
+    monkeypatch.setattr(sf, "weekly_pairs", lambda session, ex, dates: {saturday: (prod, shadow)})
+    monkeypatch.setattr(sf, "saturdays", lambda: [saturday])
+    monkeypatch.setattr(sf, "due", lambda dates, today: [saturday])
+    monkeypatch.setattr("quantpulse.ml.pipeline.build_dataset", fake_build)
+    monkeypatch.setattr(sf, "score_week", fake_score)
+    sf.shadow_forward(None, None, "XNYS")  # type: ignore[arg-type]
+    assert built == [None, prod.created_at]
+    assert seen == [(None, prod.created_at)], "forward on today's bars, refit on the retrain's"
+
+
+def test_a_paired_week_without_the_retrains_frame_is_refused() -> None:
+    prod = _row(16, "train", "2026-10-10T13:00:00", holdout_end="2026-09-10", holdout_ic=0.03)
+    shadow = _row(17, "shadow", "2026-10-10T13:05:00", shadows_run_id=16, paired=True)
+    cfg: Any = SimpleNamespace()
+    with pytest.raises(ValueError, match="frame its retrain saw"):
+        sf.score_week(pd.DataFrame(), "XNYS", dt.date(2026, 10, 10), prod, shadow, cfg)  # type: ignore[arg-type]

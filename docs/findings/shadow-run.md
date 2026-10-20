@@ -151,6 +151,30 @@ what this check is for — and it bears on the disclosure above about where the 
 rule that switches unless harm is shown, an early unfavourable reading like this one does not stop
 the switch unless the forward evidence confirms it.
 
+## Disclosure: two weeks lost, then recovered, by the scorer (2026-10-20)
+
+The weekly check on 2026-10-19 reported XNYS's 2026-10-10 week unrecoverable: the tuned refit
+scored 0.027994 against the candidate's recorded 0.027868, with identical tuned parameters. By the
+next day XNYS's 2026-10-17 week failed the same way. The cause was the scorer, not the weeks.
+
+It cut today's training frame at each week's holdout end. That is not the panel the retrain fitted:
+labels count rows, so for a ticker missing a session the label of a row near the holdout end reaches
+one bar further, past what was stored when the retrain ran. That row had no label then and has one
+once later bars arrive, so the refit trains on rows the model never saw. On 2026-10-12 one later bar
+had been stored and nothing differed; by 2026-10-19 seven rows did (AMZN, GOOGL, KO, PG, WMT and XLF,
+each missing 24 or 29 September). Ruled out on the way: the numpy 2.5.3 to 2.5.4 bump (all three
+NYSE candidates were trained on 2.5.3, v17 reproduced on 2.5.4, and v16 does not reproduce with
+2.5.3 restored) and rewritten prices (none of the 171,725 NYSE and JSE rows to 2026-10-09 differ
+from the 2026-10-12 backup).
+
+The scorer now refits each week on the frame built from the bars stored when its retrain ran
+(`known_by`, the retrain's `created_at` against each row's first `ingested_at`), and keeps today's
+bars for the forward window only. With that, all four weeks so far reproduce exactly on both
+markets, so **no week is lost** and the run is clean. No forward score was read in finding or fixing
+this: every run reported health only. This is the engineering repair rule 3 provides for; the rule
+itself is unchanged. Evidence: `~/quantpulse-experiments/m12-london/` (`panel_diff.py`,
+`shadow-xnys-numpy-2.5.3.log`, `shadow-after-fix-2026-10-20.log`).
+
 ## Results
 
 Not yet measured.

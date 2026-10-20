@@ -341,6 +341,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   ([incident 34](docs/development-history.md#incident-log-root-causes-worth-remembering)).
   Make a check go red on purpose before letting it license a risky edit. Coverage tracks
   where debugging has happened, not where risk is: six guards sat at 0% until 2026-08-11.
+- **A refit of a past model must use the bars stored then** (`build_dataset(..., known_by=...)`),
+  never today's frame cut at its holdout end: labels count rows, so a ticker missing a session
+  labels its last rows from later bars, and today's cut trains on rows the model never saw. It cost
+  the shadow run two weeks until the scorer was fixed (shadow-run.md). `prices.ingested_at` is the
+  first-insert time and an overwrite leaves it alone, which is what `known_by` relies on.
 - Cross-container state goes in **Postgres**, never a file under `DAGSTER_HOME`: that path
   is per-container and not a volume, so the API cannot read what the daemon writes and
   `compose up` erases it (incident 25 — failure alerts were invisible for weeks). Verify

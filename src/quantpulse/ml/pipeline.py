@@ -44,10 +44,16 @@ SCORING_LOOKBACK_DAYS = 30
 
 
 def build_dataset(
-    engine: Engine, cfg: TrainConfig, exchange: str = DEFAULT_EXCHANGE
+    engine: Engine,
+    cfg: TrainConfig,
+    exchange: str = DEFAULT_EXCHANGE,
+    known_by: dt.datetime | None = None,
 ) -> pd.DataFrame:
-    """Assemble one market's training frame from stored bars: features + forward returns."""
-    bars = load_price_bars(engine, exchange=exchange)
+    """Assemble one market's training frame from stored bars: features + forward returns.
+
+    `known_by` builds it from the rows stored by that moment, for refitting a past model.
+    """
+    bars = load_price_bars(engine, exchange=exchange, known_by=known_by)
     if bars.empty:
         raise ValueError(f"No price bars for {exchange} — run ingestion first")
     features = compute_features(bars)
