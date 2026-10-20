@@ -45,7 +45,8 @@ def test_each_decision_reads_as_its_worst_condition(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     snapshot = Snapshot(
-        live={"XJSE": Live(61, 0.5, 0.3, dt.date(2026, 10, 20)), "XNYS": Live(65, 1.0, 0.8, None)},
+        # XJSE live Sharpe below zero fires `keep-jse-model`, whatever else it watches.
+        live={"XJSE": Live(61, -0.1, 0.3, dt.date(2026, 10, 20)), "XNYS": Live(65, 1.0, 0.8, None)},
         promotions={},
         option_snapshot_days=60,
         verdicts=None,  # the verdict directory not visible: that condition is unknown

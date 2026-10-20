@@ -17,11 +17,14 @@
 
 - id: keep-jse-model
   title: Keep running the JSE model (champion v3), despite it losing to momentum
-  decided: 2026-08-24
+  decided: 2026-10-20
   reopen_when:
-    - {type: live_sessions_at_least, exchange: XJSE, sessions: 60}
+    - {type: shadow_verdict_saved}
     - {type: live_sharpe_below, exchange: XJSE, value: 0}
     - {type: live_alpha_resolves, exchange: XJSE}
+  note: >-
+    Reviewed at 60 live sessions (Sharpe +0.55, alpha t +0.05) and kept. The shadow verdict decides
+    tuned versus fixed models for the JSE, which is the next natural moment to change its champion.
 
 - id: jse-momentum-check-stays
   title: Leave the JSE momentum check in the gate
