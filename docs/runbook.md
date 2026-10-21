@@ -425,10 +425,25 @@ digest beside its tag would make `check_tool_pins.py` check a tag Docker ignores
 
 The `resource_report` asset runs with the daily processing job and reports **runway in
 days**, not bytes — bytes mean nothing without a rate. Dagster charts its metadata over
-time, so the trend is visible in the asset's page with no metrics stack involved. The
-`resource_headroom` check (non-blocking) fails when runway drops below 90 days or any
-container exceeds 85% of its cap, which it reads from its own cgroup rather than a
-hardcoded number, so raising a limit in `docker-compose.yml` is picked up automatically.
+time, so the trend is visible in the asset's page with no metrics stack involved.
+
+**Memory is judged on the daemon's container, not on one process.** The daemon, its code server,
+each run's worker and every step are separate processes under one cap, and the cgroup counts page
+cache against that cap too, so reaching it is normal: the first night with three markets
+(2026-10-20/21) reached it 4,949 times, with 0.45 seconds of memory stalls in 30 hours and no
+process killed. The report therefore charts the container's own counters (`memory_oom_kills`,
+`memory_cap_hits`, `memory_stall_pct`, all since the container started) and the heaviest recent
+run (`heaviest_run_mb`), estimated from each step's peak, which a hook on every job records in
+`step_memory` as the step finishes. `largest_step` names the biggest single step, which is how a
+new market's cost shows up.
+
+The `resource_headroom` check (non-blocking) fails when runway drops below 90 days, when any
+process was killed for memory, when processes stalled on memory more than 0.1% of the time, or when
+the heaviest run's processes could have held more than 85% of the cap. The cap is read from the
+cgroup rather than hardcoded, so raising a limit in `docker-compose.yml` is picked up
+automatically. If it fires on the heaviest run: running that job's steps in one process saves the
+stack each step process loads again (a few hundred MiB, some wall time); raising the cap costs
+nothing but memory.
 
 Measured 2026-07-22: the market database is **180 MB** growing **~8 MB/day**, essentially
 all of it `option_quotes`. Everything else adds ~50 rows/day per table. That is roughly
