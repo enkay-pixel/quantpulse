@@ -627,12 +627,13 @@ def resource_report() -> dg.MaterializeResult:
     """Database growth and memory headroom, expressed as runway rather than raw bytes.
 
     Materialization metadata is the storage: Dagster charts numeric metadata over time, so
-    the trend is visible without a new table, a new container, or a metrics stack.
+    the trend is visible without a new container or a metrics stack.
 
-    The memory figure is the **run process's** RSS against the container cap, not the
-    daemon's idle footprint — runs execute in-process under the launcher. That is the more
-    useful of the two: it measures the process that could actually exhaust the cap, which
-    on a Saturday is the Optuna/LightGBM retrain.
+    Memory is the daemon container's, not one process's. Each run's worker and every one of its
+    steps is a separate process under the cap beside the daemon and its code server, and the
+    cgroup counts page cache against the cap too. So the figures are the container's own kill,
+    cap-hit and stall counters, plus the heaviest recent run estimated from the steps' recorded
+    peaks (`step_memory`).
     """
     from quantpulse.monitoring.resources import check_headroom, collect_resource_report
 
@@ -648,8 +649,25 @@ def resource_report() -> dg.MaterializeResult:
     if report.runway_days is not None:
         metadata["runway_days"] = round(report.runway_days)
         metadata["runway_years"] = round(report.runway_days / 365, 1)
+    mb = 1024**2
+    container = report.container
+    if container.limit_bytes:
+        metadata["memory_cap_mb"] = round(container.limit_bytes / mb)
+    if container.oom_kills is not None:
+        metadata["memory_oom_kills"] = container.oom_kills
+    if container.limit_hits is not None:
+        metadata["memory_cap_hits"] = container.limit_hits
+    if container.stall_fraction is not None:
+        metadata["memory_stall_pct"] = round(container.stall_fraction * 100, 4)
+    if report.heaviest_run is not None:
+        metadata["heaviest_run_job"] = report.heaviest_run.job_name
+        metadata["heaviest_run_mb"] = round(report.heaviest_run.bytes / mb)
+        metadata["heaviest_run_steps_at_once"] = report.heaviest_run.concurrent_steps
     if report.memory_fraction is not None:
         metadata["memory_pct_of_cap"] = round(report.memory_fraction * 100, 1)
+    if report.largest_step is not None:
+        metadata["largest_step"] = report.largest_step.step_key
+        metadata["largest_step_mb"] = round(report.largest_step.peak_rss_bytes / mb)
     metadata["breaches"] = len(breaches)
     for breach in breaches:
         metadata[f"breach_{breach.name}"] = breach.detail

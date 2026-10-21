@@ -15,10 +15,11 @@ almost all of it Dagster itself. Same convention as `assets.py` and `cli.py`.
 import dagster as dg
 from quantpulse.data.calendar import EXCHANGES, get_exchange, is_trading_day, market_today
 from quantpulse.orchestration import assets as qp_assets
+from quantpulse.orchestration.hooks import STEP_HOOKS
 from quantpulse.orchestration.transform_assets import dbt_resource, transform_dbt_assets
 
 # Partitioning is inferred from the selected asset (raw_prices is daily-partitioned).
-ingest_job = dg.define_asset_job("ingest_job", selection=[qp_assets.raw_prices])
+ingest_job = dg.define_asset_job("ingest_job", selection=[qp_assets.raw_prices], hooks=STEP_HOOKS)
 
 process_job = dg.define_asset_job(
     "process_job",
@@ -31,9 +32,12 @@ process_job = dg.define_asset_job(
         qp_assets.resource_report,
     )
     | dg.AssetSelection.groups("transform"),
+    hooks=STEP_HOOKS,
 )
 
-training_job = dg.define_asset_job("training_job", selection=[qp_assets.champion_model])
+training_job = dg.define_asset_job(
+    "training_job", selection=[qp_assets.champion_model], hooks=STEP_HOOKS
+)
 
 # The research branch (ADR 0007) runs apart from the pipeline: nothing it fetches is a model
 # input, so a failure here must never hold up an ingest or a retrain.
@@ -45,6 +49,7 @@ research_job = dg.define_asset_job(
         qp_assets.ownership,
         qp_assets.financial_facts,
     ],
+    hooks=STEP_HOOKS,
 )
 
 # The research watchlist (ADR 0007): names the model does not follow, in a job of their own for
@@ -52,11 +57,14 @@ research_job = dg.define_asset_job(
 watchlist_job = dg.define_asset_job(
     "watchlist_job",
     selection=[qp_assets.watchlist, qp_assets.watchlist_prices, qp_assets.watchlist_chains],
+    hooks=STEP_HOOKS,
 )
 
 # The paper options book (ADR 0008) runs apart too: it reads the evening's share book and option
 # chains, and nothing downstream of the model reads it.
-options_book_job = dg.define_asset_job("options_book_job", selection=[qp_assets.option_book])
+options_book_job = dg.define_asset_job(
+    "options_book_job", selection=[qp_assets.option_book], hooks=STEP_HOOKS
+)
 
 # Catch-up bounds: how far back to look for skipped sessions, and how many to request
 # per sensor tick (so a long sleep doesn't stampede the queue).
@@ -346,7 +354,9 @@ OPTION_CAPTURE_JOB = "option_resnapshot_job"
 
 
 @dg.sensor(
-    job=dg.define_asset_job(OPTION_CAPTURE_JOB, selection=[qp_assets.option_chains]),
+    job=dg.define_asset_job(
+        OPTION_CAPTURE_JOB, selection=[qp_assets.option_chains], hooks=STEP_HOOKS
+    ),
     minimum_interval_seconds=1800,
     default_status=dg.DefaultSensorStatus.RUNNING,
 )

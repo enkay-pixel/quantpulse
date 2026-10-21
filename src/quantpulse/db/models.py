@@ -585,3 +585,23 @@ class PipelineAlert(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class StepMemory(Base):
+    """Each finished Dagster step's peak memory, recorded by a hook in the step's own process.
+
+    The daemon container's cap is shared by the daemon, its code server, each run's worker and
+    the run's step processes, and its cgroup counts page cache too, so the cap being reached says
+    little. These records are what `resource_report` sums to estimate the heaviest run, and they
+    show how each step grows as markets are added.
+    """
+
+    __tablename__ = "step_memory"
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    step_key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    job_name: Mapped[str] = mapped_column(String(64))
+    pid: Mapped[int] = mapped_column(Integer)
+    started_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
+    peak_rss_bytes: Mapped[int] = mapped_column(BigInteger)

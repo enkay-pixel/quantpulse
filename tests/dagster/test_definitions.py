@@ -273,3 +273,39 @@ def test_the_watchlist_schedule_skips_a_day_the_market_is_shut(
         assert [r.run_key for r in schedule.evaluate_tick(context).run_requests or []] == [
             "watchlist-2026-11-27"
         ]
+
+
+def test_every_job_records_each_steps_peak_memory() -> None:
+    """The daemon's headroom check sums these records. A job without the hooks is invisible to
+    it, and the heaviest run could be the one it cannot see."""
+    from quantpulse.orchestration.hooks import STEP_HOOKS
+
+    named = {job.name: job for job in defs.resolve_all_job_defs() if not job.name.startswith("__")}
+    assert "option_resnapshot_job" in named, "the sensor-only capture job was not examined"
+    for name, job in named.items():
+        assert set(job.hook_defs) >= STEP_HOOKS, f"{name} does not record step memory"
+
+
+def test_a_step_memory_record_that_fails_never_fails_the_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A measurement must not take down the work it measures: no database, a warning, no raise."""
+    from types import SimpleNamespace
+
+    from quantpulse.monitoring import resources
+    from quantpulse.orchestration import hooks
+
+    def broken(engine: object, peak: object) -> None:
+        raise ConnectionError("database down")
+
+    warnings: list[str] = []
+    monkeypatch.setattr(resources, "record_step_peak", broken)
+    monkeypatch.setattr(resources, "process_peak_rss_bytes", lambda: 300 * 1024**2)
+    monkeypatch.setattr(
+        resources, "process_started_at", lambda: dt.datetime(2026, 10, 21, tzinfo=dt.UTC)
+    )
+    monkeypatch.setattr("quantpulse.db.get_engine", lambda: object())
+    log = SimpleNamespace(warning=lambda msg, **kw: warnings.append(msg))
+    context = SimpleNamespace(run_id="r", job_name="process_job", step_key="features", log=log)
+    hooks._record(context)  # type: ignore[arg-type]
+    assert warnings == ["Could not record this step's peak memory"]
