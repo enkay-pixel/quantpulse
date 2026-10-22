@@ -250,7 +250,7 @@ separate agent fleet, not this repo. The ones below are the ones a fresh clone c
 | `decisions` | 08:20 Tue–Sat | Evaluates the standing decisions' reopen conditions in `configs/decisions.yaml` and notifies when one fires, reminding weekly until the decision is revisited |
 | `readiness` | 21:45 weekdays | Warns if the stack is down or on battery, 15 min before the option window |
 | `power` | every 2h | Warns only when sleep is disabled **and** on battery — the combination that runs the machine flat |
-| `prune-cache` | Sun 03:00 | Reclaims Docker build cache, keeps the uv wheel cache |
+| `prune-cache` | Sun 03:00 | Reclaims Docker build cache above 10 GB (keeping the uv wheel cache) and removes superseded images |
 
 `jse-close` exists for the failure the others cannot see. A session that never ingests is
 loud; a session that ingests *almost* completely is silent — STX40.JO alone went missing on
@@ -321,17 +321,36 @@ Demotion is manual on purpose. Deciding a champion should be withdrawn needs a j
 pipeline cannot make — the promotion gate prevents a bad model being *installed*, not a model
 that has since been shown up.
 
-## Reclaiming Docker build cache
+## Reclaiming Docker build cache and superseded images
 
 ```bash
 make prune-cache
+PRUNE_DRY_RUN=1 make prune-cache   # what it would remove, removing nothing
 ```
 
 Repeated `make build` accumulates BuildKit layer cache without bound — 20 GB over ten days
-of this project's rebuilds. This reclaims it while **keeping the uv wheel cache**
-(`type=exec.cachemount`, ~1 GB): that cache is what lets a rebuild resume downloads instead
-of restarting ~200 wheels, which is the difference between a 3-minute build and an
-all-night one on a bad connection.
+of this project's rebuilds. This reclaims it once it passes 10 GB (`PRUNE_CEILING_GB`) while
+**keeping the uv wheel cache** (`type=exec.cachemount`, ~1 GB): that cache is what lets a
+rebuild resume downloads instead of restarting ~200 wheels, which is the difference between a
+3-minute build and an all-night one on a bad connection. Below the ceiling it keeps the cache,
+so builds stay warm.
+
+**Superseded images go every week, whatever the cache's size.** `docker image prune` removes
+only untagged images, so a base image the Dockerfiles have moved past keeps its tag for good.
+On 2026-10-22 three old MLflow bases held 3.6 GB, and each MLflow bump adds about 1.2 GB. An
+image is removed only if all of these hold:
+
+- no container uses it, running or stopped;
+- no Dockerfile, the compose file or the shellcheck pre-commit hook names it, by tag or by
+  pinned digest;
+- it is not tagged `:local`;
+- it was created more than a week ago.
+
+Removal is never forced, so Docker itself also refuses an image a container still uses. The
+first dry run listed eight images, about 4 GB, and kept ten.
+
+Experiment images are tagged `:local`, such as `quantpulse-kronos:local`, and are removed by
+hand once their study is written up.
 
 Scheduled weekly on the dev machine via a launchd agent
 (`~/Library/LaunchAgents/com.quantpulse.prune-cache.plist`, Sundays 03:00, logging to
