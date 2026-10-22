@@ -5,9 +5,10 @@ against this project's own model and the momentum rule, on dates Kronos never sa
 only measures; nothing in production changes because of it.
 
 **Status: run 2026-10-22; not clean by its own rule, and left unread by the owner's decision. Kronos
-is not pursued** (see Results). The sections down to the results are the pre-registration, which
-reached `main` before any forecast on the test dates existed, under the rule in [How to measure
-things
+is not pursued** (see Results). A replication on fresh stocks with a powered control is
+[pre-registered separately](kronos-fresh-stocks.md). The sections down to the results are the
+pre-registration, which reached `main` before any forecast on the test dates existed, under the
+rule in [How to measure things
 here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
 
 ## Why
