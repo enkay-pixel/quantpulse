@@ -81,9 +81,20 @@ Phase 0 therefore changes how the work is laid out. It does not change what is c
    cap.
 4. **Skip unchanged feature rows.** The nightly upsert rewrites every feature row (2.36 million
    updates when London arrived), and seven markets would more than double that.
-5. **Measure** for two nights with the three markets, then decide. The wave proceeds if the
-   heaviest run stays under 75% of the cap with room for 2.3 times the panel. Otherwise the cap
-   rises, within the 7.75 GiB the Docker VM has, and the experiment containers shrink to match.
+5. **Measure** for two nights with the three markets, then decide. **The gate is the
+   `resource_headroom` check's own line:** the heaviest run must hold less than 85% of the cap
+   in memory the container cannot reclaim (decided 2026-10-22).
+   - **No lower bar can be met.** A run with two steps alive sits at about 78% from the stack
+     alone, whatever the markets. The two ingest runs on the evening of 2026-10-22 left the
+     container at 1,191 and 1,199 MiB: the daemon and its code server, the run's worker, and
+     two step processes of about 290 MiB each.
+   - **What grows with markets is the features step**, which phase 0 bounds by the largest
+     market.
+   - **The same line is read again after the backfill, with seven markets.** If a run crosses
+     it either time, the cap rises, within the 7.75 GiB the Docker VM has, and the experiment
+     containers shrink to match.
+   - **Postgres is recorded with each reading.** It stood at 412 of its 512 MiB that evening,
+     mostly reclaimable cache, and seven markets' data will add to it.
 
 ## The markets
 
