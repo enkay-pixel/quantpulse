@@ -2,7 +2,8 @@
 
 **Status: APPROVED 2026-10-22; phase 0 built and proven, deploying after 2026-10-24's
 retrain.** It follows the checklist London produced
-([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md)) and, unlike London,
+([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
+[M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
 stops fitting.
 

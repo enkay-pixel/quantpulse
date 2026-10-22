@@ -52,6 +52,8 @@ London was added as the third market to test the claim above. The architecture h
 assumed two markets beyond three tests and one dashboard sentence. Everything London found was
 in the data, the display, or a reading fixed before it arrived, and each is now checked rather
 than remembered. Design record: [../plans/m12-london-pilot.md](../plans/m12-london-pilot.md).
+The next markets follow it in waves, starting with [M13](../plans/m13-europe-wave.md), which adds
+a headroom phase before onboarding: four markets at once is where the laptop stops fitting.
 
 Before ingesting:
 

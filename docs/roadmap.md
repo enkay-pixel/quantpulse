@@ -34,8 +34,8 @@ give investment advice, and the disclaimer stays.
 | M11 | Multi-market | Exchange as a first-class dimension (schema, calendar registry, per-market partitions/schedules/champions/books/marts); JSE added; dashboard market switcher; resource-headroom check; three paper books (`daily`/`horizon`/`long_only`) |
 | M12 | London pilot | London (40 FTSE 100 names, ISF.L benchmark) added as a configuration change plus a backfill, NYSE and JSE proven unchanged row for row; the onboarding checklist in [ADR 0005](adr/0005-exchange-as-a-first-class-dimension.md); per-listing currency check; prices in each market's units; promotion margins and London's learning-rate ceiling measured ([plan](plans/m12-london-pilot.md)) |
 
-**Quality gates:** 429 Python tests (269 unit + 141 integration against a disposable
-database that runs a real `dbt build` + 19 Dagster), 66 Vitest, 60 dbt data tests, plus
+**Quality gates** (counted 2026-10-22): 749 Python tests (501 unit + 215 integration against a
+disposable database that runs a real `dbt build` + 33 Dagster), 136 Vitest, 110 dbt data tests, plus
 mypy / ruff / eslint / tsc, shellcheck, markdownlint, a documentation link check,
 `alembic check` for model/migration drift, and compose validation — all enforced in CI.
 

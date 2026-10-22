@@ -11,6 +11,7 @@ that first, and the detail only if you need it.
 |---|---|
 | What this is and how it's doing | [../README.md](../README.md) |
 | Current state, honest numbers, what's next | [roadmap.md](roadmap.md) |
+| What each milestone set out to do, and what happened (the current one: [M13, more markets](plans/m13-europe-wave.md)) | [plans/](plans/) |
 | How to run it, and what to do when it breaks | [runbook.md](runbook.md) |
 | Services, data flow, how the pieces fit | [architecture.md](architecture.md) |
 | What a term on the dashboard or in the API means | [glossary.md](glossary.md) |

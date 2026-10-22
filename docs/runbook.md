@@ -557,5 +557,6 @@ whole situation.
 - **yfinance rate limiting**: ingestion retries with backoff, then fails the run, which the
   catch-up sensor retries; a partition that still fails can be re-materialized later — the
   pipeline is idempotent (upserts). There is no second source.
-- **Memory pressure**: `docker stats` to inspect; every service carries a compose memory limit. Cap
-  Docker Desktop at ~6 GB (Settings → Resources).
+- **Memory pressure**: `docker stats` to inspect; every service carries a compose memory limit.
+  Docker Desktop's VM has 7.75 GiB (Settings → Resources; measured 2026-10-22). The compose caps
+  sum to about 4.3 GB, so run one 3 GB experiment container at a time beside the stack.

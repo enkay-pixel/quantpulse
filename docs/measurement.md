@@ -103,7 +103,10 @@ advance. A single random score per date is as noisy as the arms it sits beside: 
 zero one market in twenty by chance, and one run in seven across three markets. That is what
 stopped the [Kronos study](findings/kronos-zero-shot.md) from being read, with no defect behind it.
 Use the mean over many random draws per date, or a label-permutation null, so a control that fails
-means something; and pre-register what happens when it fails and no defect can be found.
+means something; and pre-register what happens when it fails and no defect can be found. The
+[Kronos replication](findings/kronos-fresh-stocks.md) does both: the mean of 1,000 random
+rankings per date, with a tolerance about ten times that mean's own noise, and a run reported
+unread if it fails with no defect found.
 
 ### Refit a past model on the bars it saw, not on today's cut at a date
 
