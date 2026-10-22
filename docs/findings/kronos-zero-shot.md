@@ -4,10 +4,11 @@
 against this project's own model and the momentum rule, on dates Kronos never saw in training. It
 only measures; nothing in production changes because of it.
 
-**Status: run 2026-10-22, and by its own rule not clean, so not read** (see Results). The sections
-down to the results are the pre-registration, which reached `main` before any forecast on the test
-dates existed, under the rule in
-[How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
+**Status: run 2026-10-22; not clean by its own rule, and left unread by the owner's decision. Kronos
+is not pursued** (see Results). The sections down to the results are the pre-registration, which
+reached `main` before any forecast on the test dates existed, under the rule in [How to measure
+things
+here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
 
 ## Why
 
@@ -142,9 +143,11 @@ in no market, and so record the null and do not pursue Kronos. That is what the 
 point to, and it is not a reading. The strict window (12 dates after 2025-09-09) reverses no sign
 against the recipe except on XNYS (+0.038, unresolved).
 
-**What follows is the owner's call**, since the rule does not cover a control that fails by chance:
-leave the run unread, which changes nothing in practice because nothing was going to be acted on
-short of a clean "ahead"; or pre-register a properly powered control, apply it to the scores
-already computed (the four arms' numbers cannot move), and read the rule then. Evidence:
+**Left unread, by the owner's decision (2026-10-22).** The rule did not cover a control that fails
+by chance, and the alternative, redesigning the control after seeing this result and then reading,
+would have been a choice made with the outcome in view. Nothing was going to be acted on short of a
+clean "ahead", so leaving it unread changes nothing in practice: **Kronos is not pursued.** A future
+test of it, or of any foundation model, starts from a new pre-registration with a properly powered
+control. Evidence:
 `~/quantpulse-experiments/kronos-zero-shot-asof-2026-10-21/` (`run.py`, `summarize.py`,
 `control_check.py`, `out/`, `summary.txt`, `control_check.txt`, `image-packages.txt`).
