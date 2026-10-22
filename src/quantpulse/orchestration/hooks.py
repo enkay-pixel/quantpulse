@@ -1,8 +1,8 @@
 """Hooks attached to every job: they run in each step's own process as the step finishes.
 
-The one here records the step's peak memory. The daemon container's cap is shared by the daemon,
-its code server, each run's worker and every step process, and only a step's own process knows
-how large it grew, so the record has to be made there, before the process exits.
+The one here records the step's peak memory, which only its own process knows, and the container's
+unreclaimable memory at that moment, which is what the daemon's headroom check reads: processes
+forked from one another share pages, so their peaks cannot be summed.
 """
 
 import dagster as dg
@@ -15,6 +15,7 @@ def _record(context: dg.HookContext) -> None:
     from quantpulse.db import get_engine
     from quantpulse.monitoring.resources import (
         StepPeak,
+        container_unreclaimable_bytes,
         process_peak_rss_bytes,
         process_started_at,
         record_step_peak,
@@ -34,6 +35,7 @@ def _record(context: dg.HookContext) -> None:
                 started_at=started,
                 finished_at=dt.datetime.now(dt.UTC),
                 peak_rss_bytes=peak,
+                container_bytes=container_unreclaimable_bytes(),
             ),
         )
     except Exception:

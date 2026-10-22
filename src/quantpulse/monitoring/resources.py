@@ -7,9 +7,13 @@ that has to be interpreted every time.
 
 Memory is judged on the container, not on one process. A container's cgroup counts page cache
 against its cap, so reaching the cap is normal and says nothing by itself; what matters is whether
-anything was killed, whether processes stalled waiting for memory, and how large the processes
-of the heaviest run were. The first two come from the cgroup's own counters, the third from each
-step's peak memory, recorded as it finishes (`record_step_memory`).
+anything was killed, whether processes stalled waiting for memory, and how much memory the
+container could not give back during its heaviest run. All three come from the cgroup, the third
+read as each step finishes (`record_step_memory`), which also records the step's own peak.
+
+Processes cannot simply be summed: Dagster forks its step processes, and the pages they share are
+counted in every process's resident size but charged to the container once. Summed, the first
+night's peaks came to 143% of the cap on a night the container never reached it.
 
 Deliberately dependency-free: no Prometheus, no cAdvisor, no Docker socket. A stack whose
 defining constraint is a ≤2.5 GB footprint should not spend a gigabyte watching itself.
@@ -32,7 +36,7 @@ DATABASE_CEILING_BYTES = 20 * 1024**3
 
 # Warn while there is still time to act, not once the disk is full.
 MIN_RUNWAY_DAYS = 90
-# The heaviest run's processes, at their peaks, against the container cap.
+# Memory the container cannot reclaim (anon + kernel) during its heaviest run, against the cap.
 MAX_MEMORY_FRACTION = 0.85
 # Share of the container's life its processes spent stalled waiting for memory (pressure stall
 # information, "full"). Reclaiming cache costs almost nothing, so this stays near zero until
@@ -47,7 +51,7 @@ TRACKED_DATABASES = ("market", "dagster", "mlflow")
 
 @dataclass(frozen=True)
 class StepPeak:
-    """One finished step's peak memory: its process at its largest, and when that process ran."""
+    """One finished step: its own process at its largest, and the container as it finished."""
 
     run_id: str
     job_name: str
@@ -56,11 +60,14 @@ class StepPeak:
     started_at: dt.datetime
     finished_at: dt.datetime
     peak_rss_bytes: int
+    # The container's unreclaimable memory (anon + kernel) as the step finished, shared pages once.
+    container_bytes: int | None = None
 
 
 @dataclass(frozen=True)
 class RunFootprint:
-    """The most memory one run's processes could have held at once, from their peaks."""
+    """The most unreclaimable memory the container held during one run, read as its steps
+    finished, and the most of its steps that overlapped."""
 
     run_id: str
     job_name: str
@@ -144,23 +151,19 @@ def process_started_at(pid: int | str = "self", proc: Path = Path("/proc")) -> d
     return dt.datetime.fromtimestamp(btime + ticks / os.sysconf("SC_CLK_TCK"), tz=dt.UTC)
 
 
-#: The processes that live as long as the container, whatever runs: the daemon and the code server.
-LONG_LIVED = ("dagster-daemon", "dagster api grpc")
+def container_unreclaimable_bytes(cgroup: Path = CGROUP) -> int | None:
+    """Memory the container cannot reclaim right now: anonymous plus kernel, from memory.stat.
 
-
-def resident_peak_bytes(proc: Path = Path("/proc")) -> int | None:
-    """Peak memory of the container's long-lived processes together, or None off Linux."""
-    total, found = 0, False
-    for cmdline in proc.glob("[0-9]*/cmdline"):
-        try:
-            command = cmdline.read_bytes().replace(b"\0", b" ").decode(errors="replace")
-        except OSError:
-            continue
-        if any(name in command for name in LONG_LIVED):
-            peak = process_peak_rss_bytes(cmdline.parent.name, proc)
-            if peak is not None:
-                total, found = total + peak, True
-    return total if found else None
+    Page cache is left out because the kernel drops it under pressure; anonymous memory and kernel
+    allocations are what an out-of-memory kill is about. Shared pages are counted once.
+    """
+    try:
+        stat = parse_keyed((cgroup / "memory.stat").read_text())
+    except OSError:
+        return None
+    if "anon" not in stat:
+        return None
+    return stat["anon"] + stat.get("kernel", 0)
 
 
 def parse_keyed(text_: str) -> dict[str, int]:
@@ -210,42 +213,34 @@ def container_memory(
     )
 
 
-def heaviest_run(steps: Iterable[StepPeak], resident_bytes: int) -> RunFootprint | None:
-    """The run whose processes could have held the most memory at once.
+def heaviest_run(steps: Iterable[StepPeak]) -> RunFootprint | None:
+    """The run during which the container held the most memory it could not reclaim.
 
-    Sums the peaks of the processes alive at the same moment, so it is an upper bound: two peaks
-    need not coincide. Steps that shared a process (an in-process executor) count once, at their
-    largest. A run whose steps had their own processes also has a worker, taken as its lightest
-    step since both load the same stack; a run in one process is its own worker.
+    Read from each step's record of the container as it finished, so it is a sample at step
+    boundaries rather than a continuous peak; a long step's high point between boundaries can be
+    missed. Runs whose steps carry no container reading are left out. The overlap count treats
+    steps that shared a process (an in-process executor) as one.
     """
     by_run: dict[str, list[StepPeak]] = {}
     for step in steps:
-        by_run.setdefault(step.run_id, []).append(step)
+        if step.container_bytes is not None:
+            by_run.setdefault(step.run_id, []).append(step)
     heaviest: RunFootprint | None = None
     for run_id, run_steps in by_run.items():
-        processes: dict[int, tuple[dt.datetime, dt.datetime, int]] = {}
+        processes: dict[int, tuple[dt.datetime, dt.datetime]] = {}
         for st in run_steps:
-            start, end, peak = processes.get(st.pid, (st.started_at, st.finished_at, 0))
-            processes[st.pid] = (
-                min(start, st.started_at),
-                max(end, st.finished_at),
-                max(peak, st.peak_rss_bytes),
-            )
+            start, end = processes.get(st.pid, (st.started_at, st.finished_at))
+            processes[st.pid] = (min(start, st.started_at), max(end, st.finished_at))
         # A process ending at the instant another starts did not overlap it: ends sort first.
         events = sorted(
-            [(start, 1, peak) for start, _, peak in processes.values()]
-            + [(end, 0, -peak) for _, end, peak in processes.values()]
+            [(a, 1) for a, _ in processes.values()] + [(b, -1) for _, b in processes.values()]
         )
-        held = alive = most = most_alive = 0
-        for _, starting, change in events:
-            held += change
-            alive += 1 if starting else -1
-            if held > most:
-                most, most_alive = held, alive
-        worker = min(peak for _, _, peak in processes.values()) if len(processes) > 1 else 0
-        footprint = RunFootprint(
-            run_id, run_steps[0].job_name, resident_bytes + worker + most, most_alive
-        )
+        alive = most_alive = 0
+        for _, change in events:
+            alive += change
+            most_alive = max(most_alive, alive)
+        held = max(st.container_bytes or 0 for st in run_steps)
+        footprint = RunFootprint(run_id, run_steps[0].job_name, held, most_alive)
         if heaviest is None or footprint.bytes > heaviest.bytes:
             heaviest = footprint
     return heaviest
@@ -304,10 +299,12 @@ def record_step_peak(engine: Engine, peak: StepPeak) -> None:
         conn.execute(
             text(
                 "INSERT INTO step_memory (run_id, step_key, job_name, pid, started_at, "
-                "finished_at, peak_rss_bytes) VALUES (:run_id, :step_key, :job_name, :pid, "
-                ":started_at, :finished_at, :peak_rss_bytes) ON CONFLICT (run_id, step_key) "
-                "DO UPDATE SET pid = excluded.pid, started_at = excluded.started_at, "
-                "finished_at = excluded.finished_at, peak_rss_bytes = excluded.peak_rss_bytes"
+                "finished_at, peak_rss_bytes, container_bytes) VALUES (:run_id, :step_key, "
+                ":job_name, :pid, :started_at, :finished_at, :peak_rss_bytes, :container_bytes) "
+                "ON CONFLICT (run_id, step_key) DO UPDATE SET pid = excluded.pid, "
+                "started_at = excluded.started_at, finished_at = excluded.finished_at, "
+                "peak_rss_bytes = excluded.peak_rss_bytes, "
+                "container_bytes = excluded.container_bytes"
             ),
             {
                 "run_id": peak.run_id,
@@ -317,6 +314,7 @@ def record_step_peak(engine: Engine, peak: StepPeak) -> None:
                 "started_at": peak.started_at,
                 "finished_at": peak.finished_at,
                 "peak_rss_bytes": peak.peak_rss_bytes,
+                "container_bytes": peak.container_bytes,
             },
         )
 
@@ -325,8 +323,8 @@ def recent_step_peaks(engine: Engine, since: dt.datetime) -> list[StepPeak]:
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT run_id, job_name, step_key, pid, started_at, finished_at, peak_rss_bytes "
-                "FROM step_memory WHERE finished_at >= :since"
+                "SELECT run_id, job_name, step_key, pid, started_at, finished_at, peak_rss_bytes, "
+                "container_bytes FROM step_memory WHERE finished_at >= :since"
             ),
             {"since": since},
         ).all()
@@ -339,6 +337,7 @@ def recent_step_peaks(engine: Engine, since: dt.datetime) -> list[StepPeak]:
             started_at=r.started_at,
             finished_at=r.finished_at,
             peak_rss_bytes=int(r.peak_rss_bytes),
+            container_bytes=None if r.container_bytes is None else int(r.container_bytes),
         )
         for r in rows
     ]
@@ -376,14 +375,13 @@ def collect_resource_report(engine: Engine, now: dt.datetime | None = None) -> R
 
     now = now or dt.datetime.now(dt.UTC)
     steps = recent_step_peaks(engine, now - STEP_WINDOW)
-    resident = resident_peak_bytes()
     return ResourceReport(
         database_bytes=database_bytes,
         market_rows=market_rows,
         bytes_per_day=bytes_per_day,
         runway_days=runway,
         container=container_memory(now=now),
-        heaviest_run=heaviest_run(steps, resident) if resident is not None else None,
+        heaviest_run=heaviest_run(steps),
         largest_step=max(steps, key=lambda st: st.peak_rss_bytes, default=None),
     )
 
@@ -427,8 +425,9 @@ def check_headroom(report: ResourceReport) -> list[Breach]:
         breaches.append(
             Breach(
                 "memory_pressure",
-                f"{run.job_name}'s processes peaked at up to {fraction:.0%} of the container cap "
-                f"(ceiling {MAX_MEMORY_FRACTION:.0%}, {run.concurrent_steps} steps at once) "
+                f"during {run.job_name} the container held {fraction:.0%} of its cap in memory it "
+                f"cannot reclaim (ceiling {MAX_MEMORY_FRACTION:.0%}, {run.concurrent_steps} steps "
+                "at once) "
                 "— raise the limit in docker-compose.yml or run fewer steps at once",
             )
         )
