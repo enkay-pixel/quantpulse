@@ -88,8 +88,8 @@ services:
     <<: *dagster-service
     container_name: quantpulse-dagster-web
     command: ["dagster-webserver", "-w", "/opt/dagster/workspace.yaml", "-h", "0.0.0.0", "-p", "3000"]
-    ports:
-      - "127.0.0.1:3000:3000"
+    # No host port: the UI is published by `web` on 127.0.0.1:3000, behind nginx's host check,
+    # because this server has no authentication and no host check of its own.
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/server_info"]
       interval: 30s
@@ -156,6 +156,8 @@ services:
     container_name: quantpulse-web
     ports:
       - "127.0.0.1:8080:80"
+      # Dagster's UI, through nginx's host check (see docker/nginx.conf), never published directly.
+      - "127.0.0.1:3000:3000"
     # Serving, not just running: nginx once sat stuck before starting while the container showed
     # "Up", and `compose up --wait` reported success.
     healthcheck:

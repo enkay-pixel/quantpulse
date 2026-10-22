@@ -8,15 +8,30 @@ forecasts to the dashboard, and the main design choice behind each layer.
 | Service | Purpose | Port | Memory cap |
 |---|---|---|---|
 | `postgres` | 3 databases: `market` (app data), `dagster` (orchestrator storage), `mlflow` (tracking backend) | 5432 | 512M |
-| `dagster-webserver` + `dagster-daemon` | Pipeline UI; schedules/sensors/run launcher. Both load the code location in-process from the shared image (one fewer container than a gRPC code server — deliberate on 16 GB) | 3000 | 768M + 1.5G |
+| `dagster-webserver` + `dagster-daemon` | Pipeline UI; schedules/sensors/run launcher. Both load the code location in-process from the shared image (one fewer container than a gRPC code server — deliberate on 16 GB) | 3000, published by `web` | 768M + 1.5G |
 | `mlflow` | Experiment tracking + model registry (single worker) | 5001→5000 | 1G |
 | `api` | FastAPI serving layer | 8000 | 384M |
-| `web` *(M5)* | React dashboard behind nginx | 8080 | 128M |
+| `web` *(M5)* | React dashboard behind nginx; also Dagster's UI, behind a host check | 8080, 3000 | 128M |
 
 All host ports bind **127.0.0.1 only**. Dagster and MLflow ship without authentication, and
 an exposed MLflow registry would let anyone on the LAN reassign the `@champion` alias to
 their own artifact — which the scoring pipeline then deserializes. The laptop roams
 networks, so nothing is published beyond loopback.
+
+Loopback keeps the LAN out but not this machine's browser: any web page open in it can send
+requests to 127.0.0.1, by cross-origin calls or by DNS rebinding (a hostile name re-pointed at
+127.0.0.1). Three things close that, each found in the 2026-10-22 security review:
+
+- **MLflow keeps its own host and origin checks**, with explicit lists (`docker/mlflow.Dockerfile`).
+  They had been set to `*`, which let any website call the registry's write API.
+- **Dagster is reached only through nginx**, which refuses any `Host` but `localhost` and
+  `127.0.0.1` (`docker/nginx.conf`); its webserver has no host check of its own.
+- **The pipeline loads only native LightGBM boosters** (`registry.load_booster`). MLflow's loader
+  chooses how to read a model from the model's own metadata and unpickles anything that is not a
+  booster, so a model planted in the registry could otherwise run code in the daemon.
+
+Whether a browser lets a public page reach 127.0.0.1 at all varies by browser and version; these
+controls do not depend on it.
 
 Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Docker Desktop capped at
 ~6 GB.

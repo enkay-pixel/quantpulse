@@ -1,12 +1,14 @@
 """MLflow tracking + model registry helpers. Champion selection uses registry aliases."""
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import lightgbm as lgb
 import mlflow
 import numpy as np
 import pandas as pd
+import yaml
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.tracking import MlflowClient
 
@@ -100,13 +102,46 @@ def clear_champion(client: MlflowClient | None = None, exchange: str = DEFAULT_E
     logger.info("%s @%s alias cleared — market has no champion", exchange, CHAMPION_ALIAS)
 
 
+#: The only model format this pipeline writes, and so the only one it will load.
+BOOSTER_CLASS = "lightgbm.basic.Booster"
+
+
+class UntrustedModelFormat(RuntimeError):
+    """A registered model is not a native LightGBM booster, so loading it could run code."""
+
+
+def load_booster(model_uri: str) -> lgb.Booster:
+    """Load a registered model as a native LightGBM booster, refusing any other format.
+
+    MLflow's own LightGBM loader reads the model's class from the model's metadata and, for any
+    class but a booster, unpickles the file. The registry is writable by anything that can reach
+    MLflow's API, so its metadata is not trusted to choose a loader: every model this pipeline logs
+    is a booster saved as LightGBM text, and anything else is refused before a byte of it is read.
+    """
+    local = Path(mlflow.artifacts.download_artifacts(artifact_uri=model_uri)).resolve()
+    meta = yaml.safe_load((local / "MLmodel").read_text()) or {}
+    flavor = (meta.get("flavors") or {}).get("lightgbm") or {}
+    model_class, data = flavor.get("model_class"), flavor.get("data")
+    if model_class != BOOSTER_CLASS or not isinstance(data, str):
+        raise UntrustedModelFormat(
+            f"{model_uri} is {model_class!r}, not a {BOOSTER_CLASS}; refusing to load it"
+        )
+    path = (local / data).resolve()
+    if local not in path.parents:
+        raise UntrustedModelFormat(f"{model_uri} points its data outside its own files: {data!r}")
+    return lgb.Booster(model_file=str(path))
+
+
 def load_champion(exchange: str = DEFAULT_EXCHANGE) -> tuple[lgb.Booster, ModelVersion] | None:
-    """Load this market's champion booster, or None if it has no champion yet."""
+    """Load this market's champion booster, or None if it has no champion yet.
+
+    Loads the exact version the alias named when it was read, so the booster and the version
+    reported beside it cannot differ if the alias moves in between.
+    """
     champion = get_champion(exchange=exchange)
     if champion is None:
         return None
-    model = mlflow.lightgbm.load_model(f"models:/{model_name(exchange)}@{CHAMPION_ALIAS}")
-    return model, champion
+    return load_booster(f"models:/{model_name(exchange)}/{champion.version}"), champion
 
 
 def champion_metrics(

@@ -22,4 +22,4 @@ FROM nginx:1.31.6-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426e
 RUN rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 80 3000

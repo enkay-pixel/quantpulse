@@ -115,8 +115,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   plausible median IV among traded contracts, Greeks present).
 - Ports (**loopback-only** — Dagster/MLflow have no auth and the laptop roams networks;
   an exposed MLflow lets anyone swap the champion the pipeline deserializes):
-  Dagster 3000 · MLflow **5001** (AirPlay owns 5000; in-network mlflow:5000) ·
-  API 8000 · dashboard 8080 · Postgres 5432 (DB `market`, creds in `.env`).
+  Dagster 3000 (served by `web`'s nginx, which refuses foreign `Host`s) · MLflow **5001** (AirPlay
+  owns 5000; in-network mlflow:5000) · API 8000 · dashboard 8080 · Postgres 5432 (DB `market`, creds
+  in `.env`). Loopback does not keep out this machine's browser (cross-origin calls, DNS rebinding):
+  MLflow's `--allowed-hosts`/`--cors-allowed-origins` must never be `*`, and models load only
+  through `registry.load_booster`, which refuses anything but a native booster (MLflow's own loader
+  unpickles). Tests in `test_containers.py` and `test_load_booster.py` hold all three.
 
 ## Conventions
 
