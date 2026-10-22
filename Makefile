@@ -105,5 +105,5 @@ backup:  ## Snapshot the market database (options history + live record are unba
 # Gated on size: pruning costs the next build every layer step above the uv wheel cache,
 # and running it weekly against a ~3 GB cache bought nothing but a slower Monday. Override
 # the ceiling with PRUNE_CEILING_GB. Rationale in the script.
-prune-cache:  ## Reclaim Docker build cache, but only above PRUNE_CEILING_GB (default 12)
+prune-cache:  ## Reclaim build cache above PRUNE_CEILING_GB (default 10) and superseded images; PRUNE_DRY_RUN=1 to preview
 	./scripts/prune-cache.sh
