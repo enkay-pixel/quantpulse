@@ -222,20 +222,21 @@ def benchmark_freshness() -> dg.AssetCheckResult:
 
 @dg.asset(deps=[raw_prices], group_name="features", kinds={"python", "postgres"})
 def features() -> dg.MaterializeResult:
-    """Engineered feature rows recomputed over the full stored history."""
-    from quantpulse.features.engineering import FEATURE_VERSION, compute_features
-    from quantpulse.features.store import load_price_bars, store_features
+    """Engineered feature rows recomputed over the full stored history, one market at a time."""
+    from quantpulse.features.engineering import FEATURE_VERSION
+    from quantpulse.features.store import refresh_features
 
-    # load_price_bars carries `exchange`, and compute_features ranks cross-sectionally
-    # within it — one call covers every market without mixing their cross-sections.
-    bars = load_price_bars(get_engine())
-    if bars.empty:
+    per_market = refresh_features(get_engine(), FEATURE_VERSION)
+    if not per_market:
         raise ValueError("No price bars stored")
-    frame = compute_features(bars)
-    with get_session() as session:
-        rows = store_features(session, frame, FEATURE_VERSION)
     return dg.MaterializeResult(
-        metadata={"rows": rows, "latest_date": str(frame["date"].max()), "version": FEATURE_VERSION}
+        metadata={
+            "rows": sum(r.computed for r in per_market.values()),
+            "written": sum(r.written for r in per_market.values()),
+            **{f"rows_{code}": r.computed for code, r in per_market.items()},
+            "latest_date": str(max(r.latest_date for r in per_market.values())),
+            "version": FEATURE_VERSION,
+        }
     )
 
 

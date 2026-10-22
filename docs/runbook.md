@@ -437,6 +437,9 @@ process killed. The report therefore charts the container's own counters (`memor
 run's steps finished, which a hook on every job reads from the cgroup into `step_memory`. The hook
 also records each step's own peak; `largest_step` names the biggest, which is how a new market's
 cost shows up (on 2026-10-22, `features` at 814 MiB, computing all three markets in one process).
+That step now computes and stores one market at a time (`refresh_features`) and builds its rows a
+chunk at a time, so its peak follows the largest market rather than the sum: of the 814 MiB, 342
+were one dict per row for the whole panel. It writes only rows whose values changed.
 Step peaks are never summed: forked step processes share pages, which each process's peak counts and
 the container is charged once, and the first night's sum came to 143% of the cap on a night the
 container never reached it.
@@ -445,9 +448,11 @@ The `resource_headroom` check (non-blocking) fails when runway drops below 90 da
 was killed for memory, when processes stalled on memory more than 0.1% of the time, or when the
 heaviest run held more than 85% of the cap in memory the container cannot reclaim. The cap is read
 from the cgroup rather than hardcoded, so raising a limit in `docker-compose.yml` is picked up
-automatically. If it fires on the heaviest run: running that job's steps in one process saves the
-stack each step process loads again (a few hundred MiB, some wall time); raising the cap costs
-nothing but memory.
+automatically. Every job runs at most two steps at once (`MAX_CONCURRENT_STEPS` in
+`definitions.py`): each step process starts at about 285 MiB, and the research job's four at once
+held the container at 89% of its cap. If it fires on the heaviest run: running that job's steps in
+one process saves the stack each step process loads again (a few hundred MiB, some wall time);
+raising the cap costs nothing but memory.
 
 Measured 2026-07-22: the market database is **180 MB** growing **~8 MB/day**, essentially
 all of it `option_quotes`. Everything else adds ~50 rows/day per table. That is roughly

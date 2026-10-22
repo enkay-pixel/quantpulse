@@ -463,6 +463,14 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     )
 
 
+# Each step is its own process, and each starts at about 285 MiB because it loads the whole stack.
+# Left at the default, a run starts one per CPU: the research job's four steps at once held the
+# container at 1,373 MiB of its 1,536 on 2026-10-22. Two at a time costs seconds per run.
+MAX_CONCURRENT_STEPS = 2
+STEP_EXECUTOR = dg.multiprocess_executor.configured(
+    {"max_concurrent": MAX_CONCURRENT_STEPS}, name="multiprocess_two_at_a_time"
+)
+
 defs = dg.Definitions(
     assets=[
         qp_assets.raw_prices,
@@ -514,4 +522,5 @@ defs = dg.Definitions(
         option_snapshot_repair_sensor,
     ],
     resources={"dbt": dbt_resource},
+    executor=STEP_EXECUTOR,
 )

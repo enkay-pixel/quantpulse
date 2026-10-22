@@ -1,6 +1,7 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phase 0 being built.** It follows the checklist London produced
+**Status: APPROVED 2026-10-22; phase 0 built and proven, deploying after 2026-10-24's
+retrain.** It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
 stops fitting.
@@ -72,12 +73,15 @@ Phase 0 therefore changes how the work is laid out. It does not change what is c
    within a market, so the output is identical by construction, and the fingerprint proves it.
    The step's peak then follows the largest market, 50 listings, not the sum, so later waves add
    time, not memory.
-2. **At most two steps at once per run**, using the multiprocess executor's `max_concurrent`.
+2. **Rows built a chunk at a time.** Measured while building phase 0: of the step's 814 MiB, 342
+   were the upsert's list of one dict per row for the whole panel (1.37 KiB a row). Computing
+   the features themselves took about 280 MiB above the imports.
+3. **At most two steps at once per run**, using the multiprocess executor's `max_concurrent`.
    This adds seconds to a run, and it bounds the research job, which today is the closest to the
    cap.
-3. **Skip unchanged feature rows.** The nightly upsert rewrites every feature row (2.36 million
+4. **Skip unchanged feature rows.** The nightly upsert rewrites every feature row (2.36 million
    updates when London arrived), and seven markets would more than double that.
-4. **Measure** for two nights with the three markets, then decide. The wave proceeds if the
+5. **Measure** for two nights with the three markets, then decide. The wave proceeds if the
    heaviest run stays under 75% of the cap with room for 2.3 times the panel. Otherwise the cap
    rises, within the 7.75 GiB the Docker VM has, and the experiment containers shrink to match.
 
@@ -109,8 +113,10 @@ processing.
 
 ## Phases
 
-0. **Headroom.** The three changes above, behind a row-for-row fingerprint of all three markets'
-   `features`, `predictions` and books. Two nights are then measured.
+0. **Headroom.** The four changes above, behind a row-for-row fingerprint of all three markets'
+   `features`, `predictions` and books. Two nights are then measured. Before merging, the new
+   step's rows were computed from the live panel read-only and compared with the stored ones:
+   identical, all 256,001 of them (`phase0_proof.py` in the evidence folder).
 1. **Generic changes.** The dashboard's market picker becomes a menu: seven four-letter buttons do
    not fit a phone's width. Nothing else on the dashboard names a market, which London proved.
 2. **Configure.** The four registry entries, the universe blocks (the 40 largest eligible names
