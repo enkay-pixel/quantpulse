@@ -23,7 +23,7 @@ MB = 1024**2
 
 
 def _peak(step_key: str, mb: int, finished: dt.datetime, pid: int = 10) -> StepPeak:
-    return StepPeak("run-1", "process_job", step_key, pid, T0, finished, mb * MB)
+    return StepPeak("run-1", "process_job", step_key, pid, T0, finished, mb * MB, (mb + 50) * MB)
 
 
 def test_a_retried_step_replaces_its_record_and_old_records_age_out(db_engine: Engine) -> None:
@@ -31,7 +31,9 @@ def test_a_retried_step_replaces_its_record_and_old_records_age_out(db_engine: E
     record_step_peak(db_engine, _peak("features", 420, T0 + dt.timedelta(seconds=90), pid=11))
     record_step_peak(db_engine, _peak("predictions", 350, T0 - dt.timedelta(days=2)))
     recent = recent_step_peaks(db_engine, T0 - dt.timedelta(days=1))
-    assert [(p.step_key, p.peak_rss_bytes, p.pid) for p in recent] == [("features", 420 * MB, 11)]
+    assert [(p.step_key, p.peak_rss_bytes, p.pid, p.container_bytes) for p in recent] == [
+        ("features", 420 * MB, 11, 470 * MB)
+    ]
 
 
 def test_the_report_reads_the_records_without_a_container_to_measure(db_engine: Engine) -> None:

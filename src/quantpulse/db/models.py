@@ -592,8 +592,8 @@ class StepMemory(Base):
 
     The daemon container's cap is shared by the daemon, its code server, each run's worker and
     the run's step processes, and its cgroup counts page cache too, so the cap being reached says
-    little. These records are what `resource_report` sums to estimate the heaviest run, and they
-    show how each step grows as markets are added.
+    little. The container reading is what `resource_report` judges the heaviest run on; a step's own
+    peak shows how that step grows as markets are added.
     """
 
     __tablename__ = "step_memory"
@@ -605,3 +605,5 @@ class StepMemory(Base):
     started_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
     peak_rss_bytes: Mapped[int] = mapped_column(BigInteger)
+    # The container's anon + kernel memory as the step finished: shared pages counted once.
+    container_bytes: Mapped[int | None] = mapped_column(BigInteger)
