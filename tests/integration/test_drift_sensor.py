@@ -297,3 +297,57 @@ def test_the_sensor_tags_the_run_with_the_market_the_job_reads(db_engine: Engine
     (request,) = _evaluate().run_requests or []
     assert request.tags["exchange"] == "XJSE"
     assert request.tags["trigger"] == "drift"
+
+
+# --- once per drift episode per champion -----------------------------------------------------
+
+
+def _evaluate_with_history(drift_runs: list[str], cursor: str | None = None) -> dg.SensorResult:
+    """Evaluate against an instance holding succeeded drift retrains with these run_keys."""
+    from quantpulse.orchestration.definitions import defs
+
+    job = defs.resolve_job_def("training_job")
+    with dg.DagsterInstance.ephemeral() as instance:
+        for key in drift_runs:
+            exchange = key.split("-")[2]
+            instance.create_run_for_job(
+                job_def=job,
+                status=dg.DagsterRunStatus.SUCCESS,
+                tags={"trigger": "drift", "exchange": exchange, "dagster/run_key": key},
+            )
+        return drift_retrain_sensor(dg.build_sensor_context(instance=instance, cursor=cursor))
+
+
+def _londons_week(db_engine: Engine) -> None:
+    with Session(db_engine) as session:
+        for offset in range(3):
+            _record(session, "XLON", 0.308, True, TODAY - dt.timedelta(days=offset))
+        session.commit()
+
+
+def test_a_persisting_drift_already_retrained_for_does_not_refit_again(db_engine: Engine) -> None:
+    """London's week: drift from two days ago, retrained for then, unchanged since."""
+    _londons_week(db_engine)
+    first = TODAY - dt.timedelta(days=2)
+    result = _evaluate_with_history([f"drift-retrain-XLON-{first}"])
+    assert not (result.run_requests or [])
+    assert result.skip_reason is not None
+    assert "already retrained" in (result.skip_reason.skip_message or "")
+
+
+def test_a_promotion_since_the_last_drift_retrain_reopens_it(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from quantpulse.orchestration import catchup
+
+    monkeypatch.setattr(catchup, "promoted_after", lambda exchange, since: exchange == "XLON")
+    _londons_week(db_engine)
+    result = _evaluate_with_history([f"drift-retrain-XLON-{TODAY - dt.timedelta(days=2)}"])
+    (request,) = result.run_requests or []
+    assert request.run_key == f"drift-retrain-XLON-{TODAY}"
+
+
+def test_another_markets_drift_retrain_does_not_count(db_engine: Engine) -> None:
+    _londons_week(db_engine)
+    result = _evaluate_with_history([f"drift-retrain-XJSE-{TODAY - dt.timedelta(days=2)}"])
+    assert [r.tags["exchange"] for r in result.run_requests or []] == ["XLON"]

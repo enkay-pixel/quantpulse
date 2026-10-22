@@ -360,7 +360,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   The benchmark trigger needs its own bound (`BENCHMARK_RETRY_SESSIONS`) because it cannot
   fix itself the way coverage can: if the vendor never publishes the bar, retrying changes
   nothing, so eligibility expires after five sessions while `benchmark_freshness` keeps
-  reporting it. Any future "re-run until X appears" trigger needs the same treatment.
+  reporting it. Any future "re-run until X appears" trigger needs the same treatment. The drift
+  retrain is one: drift is measured against the champion's training data, which a rejected
+  candidate does not change, so London refitted on three straight days of the same 0.308 share.
+  It now fires once per drift episode per champion (`catchup.drift_retrain_due`).
 - **`dg.RunsFilter(created_after=...)` ignores `tzinfo`** — it compares wall-clock fields
   against the naive-UTC `create_timestamp` column, so an aware local datetime silently
   shifts the boundary by the offset (incident 30: the same filter matched 3 runs as

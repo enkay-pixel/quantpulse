@@ -276,7 +276,9 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
 - Schedules run **only while the stack is up**, and each market ingests in its own
   timezone two-and-a-half hours after its own close (NYSE 18:30 ET, JSE 19:30 SAST).
   Processing runs once after the latest close (19:00 ET), then a Saturday 09:00 ET
-  retrain per market plus a drift-triggered retrain sensor. All schedules ship `RUNNING`.
+  retrain per market plus a drift-triggered retrain sensor, which refits a market once per drift
+  episode per champion rather than every session the drift persists. All schedules ship
+  `RUNNING`.
 - **Options snapshots must run post-close** (NYSE only). Measured on the same universe:
   post-close averages ≈33% ATM IV (realistic) versus ≈2.1% pre-market (stale, untraded
   contracts). A full 50-ticker snapshot takes ~10 minutes and commits per ticker, so it is
