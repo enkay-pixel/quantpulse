@@ -473,6 +473,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     them at the first live cohort's close to confirm. Options *models* — implied-volatility
     change, return on a structure — wait for about 250 snapshot days and the shadow verdict, then
     get their own lineage, gate and shadow.
+12. **More markets, in waves ([M13 plan](plans/m13-europe-wave.md), approved 2026-10-22).** Europe
+    first: Frankfurt, Paris, Zurich and Amsterdam together. Canada, then Asia-Pacific, then the
+    rest follow, each after the previous wave's headroom reading. The features step first works one
+    market at a time, so its memory follows the largest market rather than the sum. That deploys
+    after London's first challenger on 2026-10-24, and is measured before anything is backfilled.
 
 ## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 
