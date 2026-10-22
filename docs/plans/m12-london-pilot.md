@@ -127,4 +127,5 @@ Ingest runs at 19:30 London time: 20:30 SAST now, 21:30 SAST after the UK clocks
 
 - Options, short interest and SEC filings for London (no free source).
 - Currency conversion and cross-market books: each book is one market, one currency.
-- Markets beyond London until this pilot's checklist exists.
+- Markets beyond London until this pilot's checklist exists. It does now, and the next markets
+  follow it in waves: [M13](m13-europe-wave.md).

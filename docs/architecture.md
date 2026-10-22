@@ -33,8 +33,9 @@ requests to 127.0.0.1, by cross-origin calls or by DNS rebinding (a hostile name
 Whether a browser lets a public page reach 127.0.0.1 at all varies by browser and version; these
 controls do not depend on it.
 
-Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Docker Desktop capped at
-~6 GB.
+Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook. Docker Desktop's VM has
+7.75 GiB (`docker info`, 2026-10-22). The caps above sum to about 4.3 GB, which leaves room for
+one 3 GB experiment container at a time beside the stack.
 
 ## Data flow
 
@@ -43,7 +44,9 @@ Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Dock
    `MultiPartitionsDefinition` because a JSE holiday is not an NYSE holiday and each market has its
    own post-close schedule.
 2. `features` computes technical + cross-sectional features into `market.features`, ranking
-   cross-sectionally **within each exchange**.
+   cross-sectionally **within each exchange**. It works one market at a time, so its memory
+   follows the largest market rather than the sum, and writes only rows whose values changed
+   (`refresh_features`, since 2026-10-22).
 3. `predictions` loads each market's champion (`quantpulse-lgbm-<exchange>@champion`) and scores its
    latest features.
 4. `portfolio_equity` rebuilds the three paper books **per market** from predictions.
@@ -52,6 +55,12 @@ Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook with Dock
 
 `market_today()` / `is_post_close()` / the calendars are all exchange-aware; nothing uses the
 container's UTC clock (`data/calendar.py`).
+
+Dagster runs one job at a time (`max_concurrent_runs: 1` in `docker/dagster.yaml`), so runs that
+fire together queue. Within a run, each step is its own process, starting at about 285 MiB because
+it loads the whole stack, and at most two run at once (`MAX_CONCURRENT_STEPS` in
+`orchestration/definitions.py`). How close that comes to the daemon's cap is in the
+[runbook](runbook.md#resource-headroom).
 
 ## Transform layer (dbt)
 

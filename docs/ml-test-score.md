@@ -46,7 +46,7 @@ comparable scrutiny onto the modelling.
 
 | # | Test | Score | Evidence |
 |---|---|---|---|
-| 1 | Feature expectations captured in a schema | 1 | `FEATURE_COLUMNS` + `FEATURE_VERSION`, DB CHECK constraints, 59 dbt data tests, `data/quality.py` |
+| 1 | Feature expectations captured in a schema | 1 | `FEATURE_COLUMNS` + `FEATURE_VERSION`, DB CHECK constraints, 110 dbt data tests (counted 2026-10-22), `data/quality.py` |
 | 2 | All features are beneficial | 0.5 | `quantpulse ablation` and `quantpulse prune` run drop-one, single-feature and forward-selection sweeps against a floor measured per run. The study exists, but **it is underpowered**: on one holdout the seed-only spread (2 sd 0.0375 / 0.0228) exceeds every effect being tested, so no feature is shown to help or hurt |
 | 3 | No feature's cost is too much | 0.5 | All derived from stored OHLCV, vectorized, full recompute ~4s — bounded in practice, never measured per feature |
 | 4 | Features meet meta-level requirements | 1 | Market data only, no PII; gitleaks over every staged diff on a public repo |
@@ -72,7 +72,7 @@ comparable scrutiny onto the modelling.
 |---|---|---|---|
 | 1 | Training is reproducible | 0.5 | `seed=42` through LightGBM and Optuna; but the panel grows with each backfill, so the same code on a later day draws a different holdout (incident 24). Deterministic given fixed data, not stable over time |
 | 2 | Model specs unit tested | 1 | Promotion gate, CV, metrics and training config all covered |
-| 3 | Full pipeline integration tested | 1 | 140 integration tests against a disposable DB running a real `dbt build` |
+| 3 | Full pipeline integration tested | 1 | 215 integration tests (counted 2026-10-22) against a disposable DB running a real `dbt build` |
 | 4 | Model quality validated before serving | 1 | The promotion gate — IC margin from measured seed noise (re-measured 2026-10-18: a change to early stopping had left the JSE's at a third of its noise for eight weeks, [promotion-margin](findings/promotion-margin.md)), IC ≥ 0, drawdown floor, Sharpe veto, first-champion floor, incumbent re-scored on the candidate's exact holdout. The project's strongest single component |
 | 5 | Debuggable on single examples | 0.5 | `/predictions/latest` and the positions endpoint allow inspecting a ticker-date; no dedicated debug path |
 | 6 | Canary before serving | **0** | Promotion is an atomic alias switch to 100%. Mitigated by this being a paper book — nothing real is at risk |
