@@ -350,3 +350,69 @@ def next_ingest_attempt(
     if in_flight or reached_feed >= MAX_INGEST_ATTEMPTS_PER_SESSION:
         return None
     return len(runs) + 1
+
+
+# --- the drift retrain ----------------------------------------------------------------------
+
+#: The run_key the drift retrain sensor gives each request, which names the drift day it was for.
+DRIFT_RUN_KEY_PREFIX = "drift-retrain-"
+
+
+def drift_retrain_due(
+    drift_days: Iterable[tuple[dt.date, bool]],
+    last_retrain_day: dt.date | None,
+    promoted_since: bool,
+) -> tuple[bool, str]:
+    """Whether a market's drift warrants an off-cycle retrain now, and why.
+
+    A drift retrain is tried once per drift episode per champion. Drift is measured against the
+    champion's training data, which a rejected candidate does not change, so a market that keeps
+    drifting keeps firing the trigger on the same evidence, and each refit sees a panel all but
+    identical to the one just rejected: London was refitted on three consecutive days of an
+    unchanged 0.308 share, every candidate rejected. Like every "re-run until X appears" trigger
+    here, it needs a bound. It fires again once the champion changes, or once the drift has
+    cleared and returned; the scheduled weekly retrain runs regardless.
+
+    `drift_days` is the market's drift checks, one per session, newest first; `last_retrain_day`
+    the drift day the market's latest successful drift retrain was fired for; `promoted_since`
+    whether any candidate was promoted for the market after that retrain.
+    """
+    days = list(drift_days)
+    if not days or not days[0][1]:
+        return False, "no drift beyond threshold"
+    episode_start = days[0][0]
+    for day, drifted in days:
+        if not drifted:
+            break
+        episode_start = day
+    if last_retrain_day is not None and last_retrain_day >= episode_start and not promoted_since:
+        return False, (
+            f"drifting since {episode_start}, already retrained for it ({last_retrain_day}) "
+            "and the champion has not changed"
+        )
+    return True, f"drifting since {episode_start}"
+
+
+def drift_day_of(run_key: str | None, exchange: str) -> dt.date | None:
+    """The drift day a drift retrain's run_key names (`drift-retrain-XLON-2026-10-19`)."""
+    prefix = f"{DRIFT_RUN_KEY_PREFIX}{exchange}-"
+    if not run_key or not run_key.startswith(prefix):
+        return None
+    try:
+        return dt.date.fromisoformat(run_key[len(prefix) :])
+    except ValueError:
+        return None
+
+
+def promoted_after(exchange: str, since: dt.datetime) -> bool:
+    """Whether a candidate was promoted for the market after `since`."""
+    with get_engine().connect() as conn:
+        return bool(
+            conn.execute(
+                text(
+                    "SELECT 1 FROM model_runs WHERE exchange = :ex AND run_type = 'train' "
+                    "AND decision = 'promoted' AND created_at > :since LIMIT 1"
+                ),
+                {"ex": exchange, "since": since},
+            ).first()
+        )

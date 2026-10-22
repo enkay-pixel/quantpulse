@@ -182,52 +182,91 @@ options_book_schedule = dg.ScheduleDefinition(
     default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def drift_retrain_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
-    """Fire an off-cycle retrain when a market's latest drift check crosses the threshold.
+    """Fire an off-cycle retrain when a market starts drifting, once per drift episode per champion.
 
     Evaluated per market: a pooled reading dilutes one market's drift with the other's
-    calm, and firing on it retrains both on evidence about neither. The cursor carries each
-    market's last-fired date so one drifting market cannot lock out the other's trigger.
+    calm, and firing on it retrains both on evidence about neither. Each market's drift retrain
+    is bounded by `catchup.drift_retrain_due`: drift is measured against the champion's training
+    data, which a rejected candidate does not change, so without the bound one persisting drift
+    refits the market every session. The bound reads Dagster's run history, not the cursor; the
+    cursor only stops a second request for the same day while the first is still in flight.
     """
+    import datetime as dt
     import json
 
     from sqlalchemy import select
 
     from quantpulse.db import DriftMetric, get_session
+    from quantpulse.orchestration.catchup import (
+        DRIFT_RUN_KEY_PREFIX,
+        drift_day_of,
+        drift_retrain_due,
+        promoted_after,
+    )
 
     fired: dict[str, str] = json.loads(context.cursor) if context.cursor else {}
     requests, skipped = [], []
     with get_session() as session:
         for exchange in sorted(EXCHANGES):
-            latest = session.execute(
+            rows = session.execute(
                 select(DriftMetric.date, DriftMetric.value, DriftMetric.drifted)
                 .where(
                     DriftMetric.metric_name == "share_drifted",
                     DriftMetric.exchange == exchange,
                 )
                 .order_by(DriftMetric.date.desc(), DriftMetric.id.desc())
-                .limit(1)
-            ).first()
-            if latest is None or not latest.drifted:
-                skipped.append(exchange)
+                .limit(90)
+            ).all()
+            latest_per_day: dict[dt.date, tuple[float, bool]] = {}
+            for row in rows:  # newest computation first, so the first seen per date stands
+                latest_per_day.setdefault(row.date, (row.value, row.drifted))
+            if not latest_per_day:
+                skipped.append(f"{exchange} (no drift check yet)")
                 continue
-            day = str(latest.date)
+            day_, (share, _) = next(iter(latest_per_day.items()))
+            day = str(day_)
             if fired.get(exchange) == day:
-                skipped.append(f"{exchange} (already retrained for {day})")
+                skipped.append(f"{exchange} (already requested for {day})")
+                continue
+            records = context.instance.get_run_records(
+                filters=dg.RunsFilter(
+                    job_name=training_job.name,
+                    tags={"trigger": "drift", "exchange": exchange},
+                    statuses=[dg.DagsterRunStatus.SUCCESS],
+                ),
+                limit=1,
+            )
+            last = records[0] if records else None
+            last_day = (
+                drift_day_of(last.dagster_run.tags.get("dagster/run_key"), exchange)
+                if last
+                else None
+            )
+            # A run's start, or its creation if no start was recorded (a succeeded run has one).
+            began = (
+                None
+                if last is None
+                else dt.datetime.fromtimestamp(last.start_time, tz=dt.UTC)
+                if last.start_time
+                else last.create_timestamp
+            )
+            promoted = began is not None and promoted_after(exchange, began)
+            due, reason = drift_retrain_due(
+                ((d, drifted) for d, (_, drifted) in latest_per_day.items()), last_day, promoted
+            )
+            if not due:
+                skipped.append(f"{exchange} ({reason})")
                 continue
             requests.append(
                 dg.RunRequest(
-                    run_key=f"drift-retrain-{exchange}-{day}",
-                    tags={
-                        "trigger": "drift",
-                        "exchange": exchange,
-                        "drift_share": str(latest.value),
-                    },
+                    run_key=f"{DRIFT_RUN_KEY_PREFIX}{exchange}-{day}",
+                    tags={"trigger": "drift", "exchange": exchange, "drift_share": str(share)},
                 )
             )
             fired[exchange] = day
 
     if not requests:
-        return dg.SensorResult(skip_reason=f"no drift beyond threshold: {', '.join(skipped)}")
+        return dg.SensorResult(skip_reason=f"no drift retrain due: {'; '.join(skipped)}")
     return dg.SensorResult(run_requests=requests, cursor=json.dumps(fired))
 
 
