@@ -4,8 +4,9 @@
 against this project's own model and the momentum rule, on dates Kronos never saw in training. It
 only measures; nothing in production changes because of it.
 
-**Status: pre-registered, not yet measured.** This page reaches `main` before any forecast on the
-test dates exists, under the rule in
+**Status: run 2026-10-22, and by its own rule not clean, so not read** (see Results). The sections
+down to the results are the pre-registration, which reached `main` before any forecast on the test
+dates existed, under the rule in
 [How to measure things here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
 
 ## Why
@@ -107,4 +108,43 @@ the sign of a market's verdict, no action is taken on that market's reading.
 
 ## Results
 
-Not yet measured.
+**Run 2026-10-21/22, as-of 2026-10-21 20:00 UTC, commit `4a192a8`: not a clean run.** Every arm
+completed on every date (27 per market, 4 arms, 3 markets). London's random control, which should
+sit near zero, came out at a mean IC of −0.078 with a two-sided 95% interval of [−0.142, −0.013].
+Under rule 3 the run is not clean, and nothing below is read.
+
+**Looking for the defect found none.** The random arm's score vectors are uncorrelated from one
+date to the next (mean −0.04 on London), as independent draws should be; London's labels hold no
+outliers or unit glitches (−29% to +32% over 21 sessions); and the other two markets' controls sit
+at −0.016 and −0.023. Independent random scores simulated 2,000 times against London's own labels
+gave a mean as far from zero 1.7% of the time. So this looks like chance, about a one-in-twenty
+event across three markets, rather than a broken evaluation.
+
+**The flaw is in the control as designed.** A single random draw per date is as noisy as the arms
+it guards, so it fails by chance at its nominal rate: about one market in twenty, and one run in
+seven across three markets. A control meant to catch a broken evaluation needs a known, small
+false-alarm rate: the mean over many random draws per date, or a label-permutation null. Rule 3 also
+did not say what to do when no defect can be found. Both are recorded in
+[measurement.md](../measurement.md#a-negative-control-needs-a-small-known-false-alarm-rate).
+
+**The figures, for the record and not read under the rule** (mean IC over the 27 dates; Kronos
+minus each arm with one-sided 95% bounds, Newey-West lag 1):
+
+| market | Kronos | recipe | momentum | random | Kronos − recipe | Kronos − momentum |
+|---|---|---|---|---|---|---|
+| XNYS | −0.016 | +0.003 | −0.021 | −0.016 | −0.019 [−0.158, +0.120] | +0.005 [−0.127, +0.136] |
+| XJSE | −0.110 | −0.009 | +0.073 | −0.023 | −0.101 [−0.225, +0.023] | −0.183 [−0.332, −0.033] |
+| XLON | −0.119 | +0.035 | +0.055 | −0.078 | −0.154 [−0.270, −0.038] | −0.174 [−0.381, +0.034] |
+
+Kronos's mean IC is below zero in all three markets, and none of its own skill bounds clears zero.
+Had the run been clean, the rule's reading would have been ahead of the recipe in no market, skill
+in no market, and so record the null and do not pursue Kronos. That is what the unread figures
+point to, and it is not a reading. The strict window (12 dates after 2025-09-09) reverses no sign
+against the recipe except on XNYS (+0.038, unresolved).
+
+**What follows is the owner's call**, since the rule does not cover a control that fails by chance:
+leave the run unread, which changes nothing in practice because nothing was going to be acted on
+short of a clean "ahead"; or pre-register a properly powered control, apply it to the scores
+already computed (the four arms' numbers cannot move), and read the rule then. Evidence:
+`~/quantpulse-experiments/kronos-zero-shot-asof-2026-10-21/` (`run.py`, `summarize.py`,
+`control_check.py`, `out/`, `summary.txt`, `control_check.txt`, `image-packages.txt`).
