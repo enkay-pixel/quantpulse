@@ -151,12 +151,11 @@ def champion_forward(
     Returns one row per forward session; `attrs` carries the window, both reproduction checks, the
     replayed comparison and the served-only one.
     """
-    import mlflow.lightgbm
     from mlflow import MlflowClient
 
     from quantpulse.features.store import load_price_bars
     from quantpulse.ml.pipeline import build_dataset
-    from quantpulse.ml.registry import model_name, predict_with
+    from quantpulse.ml.registry import load_booster, model_name, predict_with
 
     cfg = cfg or TrainConfig()
     horizon = cfg.horizon_days
@@ -169,7 +168,7 @@ def champion_forward(
     if not run_id:
         raise ValueError(f"{name} v{version} has no training run, so its holdout IC is unknown")
     recorded_holdout_ic = client.get_run(run_id).data.metrics.get("holdout_ic")
-    booster = mlflow.lightgbm.load_model(f"models:/{name}/{version}")
+    booster = load_booster(f"models:/{name}/{version}")
 
     full = build_dataset(engine, cfg, exchange)
 
