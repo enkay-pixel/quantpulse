@@ -309,3 +309,16 @@ def test_a_step_memory_record_that_fails_never_fails_the_step(
     context = SimpleNamespace(run_id="r", job_name="process_job", step_key="features", log=log)
     hooks._record(context)  # type: ignore[arg-type]
     assert warnings == ["Could not record this step's peak memory"]
+
+
+def test_every_job_runs_at_most_two_steps_at_once() -> None:
+    """Each step is its own process of about 285 MiB. Left at the default, a run starts one per
+    CPU, and the research job's four at once held the daemon at 89% of its cap."""
+    from quantpulse.orchestration.definitions import MAX_CONCURRENT_STEPS, STEP_EXECUTOR
+
+    resolved = STEP_EXECUTOR.apply_config_mapping({}).value
+    assert resolved["config"]["max_concurrent"] == MAX_CONCURRENT_STEPS == 2
+    named = {job.name: job for job in defs.resolve_all_job_defs() if not job.name.startswith("__")}
+    assert "option_resnapshot_job" in named, "the sensor-only capture job was not examined"
+    for name, job in named.items():
+        assert job.executor_def is STEP_EXECUTOR, f"{name} runs with its own executor"

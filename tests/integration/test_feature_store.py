@@ -49,3 +49,33 @@ def test_store_and_load_features_roundtrip(db_engine: Engine) -> None:
     assert set(windowed["date"]) == {dates[1]}
 
     assert load_features(db_engine, "missing-version").empty
+
+
+def test_rows_are_stored_across_chunks_and_unchanged_ones_skipped(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rows are built a chunk at a time; a chunk boundary must neither drop nor repeat one, and
+    a row whose values did not change is not written again."""
+    from quantpulse.data.universe import UniverseEntry, sync_universe
+    from quantpulse.features import store
+
+    monkeypatch.setattr(store, "UPSERT_CHUNK_ROWS", 3)
+    dates = [dt.date(2024, 7, d) for d in range(1, 6)]
+    frame = feature_frame(dates, ["AAPL", "SPY"])  # 10 rows: chunks of 3, 3, 3, 1
+
+    with Session(db_engine) as session:
+        sync_universe(session, [UniverseEntry("AAPL", "stock"), UniverseEntry("SPY", "etf")])
+        assert store_features(session, frame, version="chunk-v") == 10
+        session.commit()
+        assert store_features(session, frame, version="chunk-v") == 0
+        changed = frame.copy()
+        changed.loc[7, FEATURE_COLUMNS[2]] = -1.0
+        assert store_features(session, changed, version="chunk-v") == 1
+        session.commit()
+
+    loaded = (
+        load_features(db_engine, "chunk-v").sort_values(["ticker", "date"]).reset_index(drop=True)
+    )
+    expected = changed.sort_values(["ticker", "date"]).reset_index(drop=True)
+    assert len(loaded) == 10
+    assert np.array_equal(loaded[FEATURE_COLUMNS].to_numpy(), expected[FEATURE_COLUMNS].to_numpy())

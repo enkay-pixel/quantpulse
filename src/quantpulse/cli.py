@@ -103,18 +103,22 @@ def _backfill(
 
 
 def _features() -> None:
-    from quantpulse.db import get_engine, get_session
-    from quantpulse.features.engineering import FEATURE_VERSION, compute_features
-    from quantpulse.features.store import load_price_bars, store_features
+    from quantpulse.db import get_engine
+    from quantpulse.features.engineering import FEATURE_VERSION
+    from quantpulse.features.store import refresh_features
 
-    bars = load_price_bars(get_engine())
-    if bars.empty:
+    per_market = refresh_features(get_engine(), FEATURE_VERSION)
+    if not per_market:
         logger.error("No price bars stored — run `quantpulse backfill` first")
         sys.exit(1)
-    features = compute_features(bars)
-    with get_session() as session:
-        written = store_features(session, features, FEATURE_VERSION)
-    logger.info("Stored %d feature rows (version %s)", written, FEATURE_VERSION)
+    for code, r in per_market.items():
+        logger.info(
+            "%s: %d feature rows, %d new or changed (version %s)",
+            code,
+            r.computed,
+            r.written,
+            FEATURE_VERSION,
+        )
 
 
 def _train(exchange: str | None = None) -> None:
