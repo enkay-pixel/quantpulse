@@ -135,7 +135,8 @@ processing.
    per market, checked against each index's current composition), the dbt `benchmarks` entries,
    and canonical English Wikipedia titles.
 3. **Backfill and prove nothing moved.** Fingerprint the three markets, sync the universe,
-   backfill all four from 2018, build features, compare: the three must be identical.
+   backfill all four from 2018, list the one-day moves that may be uncredited corporate actions
+   (see Risks), build features, compare: the three must be identical.
 4. **First champions** through the unchanged gate. Any market whose first model misses the Sharpe
    floor shows its data and research without a model. Then replay-score each market's history,
    build the marts, and read every market in the browser, prices included.
@@ -151,6 +152,7 @@ processing.
 | Phase 0 moves a number in a frozen market | Row-for-row fingerprint before and after, as for London; the shadow verdict depends on it |
 | Seven markets outgrow the cap anyway | Phase 0's measurement decides before anything is backfilled; raising the cap is the fallback |
 | A listing quoted in another currency | `quantpulse backfill` refuses it before storing a bar |
+| A spin-off or merger Yahoo does not credit | Found in the [Kronos replication](../findings/kronos-fresh-stocks.md#what-the-data-held-found-while-checking-it): Holcim −48% on 2025-06-16 (Amrize), Sulzer −35% in 2021 (medmix), Stellantis +95% in 2021 (the merger). The unit repair catches only ×100 glitches. Phase 3 lists every one-day move beyond −25% or +35% and checks each against the company's filings before features are computed |
 | The weekly retrain no longer fits the laptop's Saturday window | Saturday's three-market duration is read first; seven markets roughly double it |
 | Placeholder margins promote a lucky challenger | The placeholder is the widest measured margin, and phase 5 measures each before the first challenger |
 | English Wikipedia is a weak attention signal for a mid cap | The ownership-free markets already rely on it; it is a feature, not a gate |

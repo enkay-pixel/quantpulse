@@ -4,9 +4,13 @@
 [first study](kronos-zero-shot.md). It uses the same dates, settings and competitors, on 117
 German, French and Swiss stocks that study never touched, and a control that can only fail when
 the evaluation itself is broken. It only measures; nothing in production changes because of it.
+**It came back clean and null.** Kronos ranked these stocks no better than the project's recipe
+in any market, and showed no skill of its own in any; its average was below zero in all three.
+Kronos stays not pursued.
 
-**Status: pre-registered; not yet run.** This page reached `main` before any forecast on its test
-dates existed, under the rule in [How to measure things
+**Status: run 2026-10-22/23, clean; the null is recorded** (see [Results](#results)). The
+sections down to the results are the pre-registration, which reached `main` before any forecast
+on its test dates existed, under the rule in [How to measure things
 here](../measurement.md#fix-the-decision-rule-before-the-run-where-the-merge-cannot-erase-it).
 
 ## Why
@@ -156,3 +160,94 @@ difference against the recipe, no action is taken on that market's reading.
   - The scripts, prices, scores, the image's package versions and the commit are kept in
     `~/quantpulse-experiments/kronos-fresh-stocks-asof-2026-10-21/` (`choose_stocks.py`,
     `run_fresh.py`, `summarize_fresh.py`, `run_all.sh`).
+
+## Results
+
+**Run 2026-10-22 16:30 to 2026-10-23 00:54 SAST, commit `2b65e98` (the pre-registration's merge),
+Kronos code `67b630e6`: clean.** Every arm scored every member on every date:
+
+- 27 dates for XETR, 28 for XPAR and 27 for XSWX;
+- 40, 40 and 37 members each date;
+- no missing label;
+- the same members in every arm.
+
+**The control, read first.** Its mean IC was +0.0018 on XETR, −0.0004 on XPAR and +0.0013 on
+XSWX. All three are within twice their expected noise of about 0.001 and far inside the 0.01
+tolerance, so the run is clean under rule 3.
+
+**The reading** (mean IC over the dates; Kronos minus each arm, with one-sided 95% bounds,
+Newey-West lag 1):
+
+| market | window | dates | Kronos | recipe | momentum | Kronos − recipe | Kronos − momentum | Kronos skill, lower bound |
+|---|---|---|---|---|---|---|---|---|
+| XETR | full | 27 | −0.049 | +0.029 | +0.041 | −0.078 [−0.197, +0.041] not resolved | −0.091 [−0.250, +0.069] not resolved | −0.128 |
+| XETR | strict | 12 | +0.076 | −0.023 | −0.084 | +0.099 [−0.092, +0.291] not resolved | +0.160 [−0.091, +0.412] not resolved | −0.049 |
+| XPAR | full | 28 | −0.059 | −0.092 | +0.039 | +0.034 [−0.019, +0.086] not resolved | −0.097 [−0.189, −0.005] **behind** | −0.109 |
+| XPAR | strict | 13 | −0.037 | −0.101 | +0.028 | +0.064 [−0.014, +0.142] not resolved | −0.065 [−0.224, +0.095] not resolved | −0.125 |
+| XSWX | full | 27 | −0.053 | −0.032 | +0.004 | −0.021 [−0.122, +0.079] not resolved | −0.057 [−0.175, +0.061] not resolved | −0.118 |
+| XSWX | strict | 12 | −0.065 | −0.023 | +0.031 | −0.042 [−0.136, +0.053] not resolved | −0.096 [−0.248, +0.057] not resolved | −0.156 |
+
+**Under the rule:**
+
+- **Against the recipe,** Kronos was ahead in no market and behind in none.
+- **Kronos had skill** in no market. Its mean IC was below zero in all three, and no skill
+  bound clears zero.
+- **So: record the null, and Kronos stays not pursued.**
+- **The strict window** reverses the sign against the recipe on XETR (−0.078 over the full
+  window, +0.099 after 2025-09-09, unresolved both ways). Under the rule no action is taken on
+  XETR's reading, which changes nothing, since the action is the null.
+- **Against momentum,** the one resolved reading is that Kronos is behind it on XPAR.
+
+**What it does not show.** That Kronos is useless. As the pre-registration said, only gaps of
+about 0.05 in mean IC could clear the bound, and the Kronos-minus-recipe intervals span 0.10
+to 0.38. It also leaves open whether a fine-tuned Kronos or another configuration would do better:
+this was zero-shot, with one fixed configuration.
+
+The recipe was weak here too: below zero on XPAR and XSWX. That says these are hard markets to
+rank in 21-session windows over this period. It is not a judgement of the live models, which
+trade other markets.
+
+The direction matches the first study's unread figures, where Kronos was below zero in all three
+markets. That study stays unread and is not pooled with this one.
+
+### What the data held, found while checking it
+
+**Holcim's spin-off is not credited in Yahoo's series.** `HOLN.SW` falls 48% on 2025-06-16, when
+Holcim distributed Amrize, so its label at the 2025-06-04 test date (−35%) is a corporate action,
+not a loss. Its momentum and volatility inputs are distorted for weeks after. Every arm saw the
+same bars and was judged on the same label.
+
+Removing Holcim from XSWX's evaluation is a check made after the reading, not part of the rule.
+It moves nothing:
+
+- Kronos − recipe becomes −0.030 [−0.132, +0.072], still not resolved;
+- Kronos's skill bound becomes −0.124;
+- the control is +0.0005.
+
+The recipe still trained on Holcim's bars.
+
+**Other one-day moves beyond −25% or +35%** in the 117 series:
+
+- Avolta, March 2020, and Temenos, February 2024: real crashes, both before the test window.
+- Stellantis's merger in January 2021 (+39% and +95%) and Sulzer's medmix spin-off in September
+  2021 (−35%): corporate actions, in training history only.
+- Stellantis on 2026-02-06 (−25%): inside the test window and taken as a real fall; it has not
+  been checked against filings.
+
+The same fetcher serves production, so [M13](../plans/m13-europe-wave.md)'s backfill must check
+for this before computing features.
+
+**A correction to the pre-registration's list of exclusions.** Roche was not missing from Yahoo.
+`ROG.SW`, its non-voting certificates, returns nothing, but its bearer shares (`RO.SW`) have full
+history. They were not among the candidates, so XSWX ran without Roche as registered.
+
+**Timing.** Kronos took about 380, 315 and 280 seconds per date on XETR, XPAR and XSWX, against
+441 s in the dry run. The whole run took 8 hours 23 minutes.
+
+**Evidence:** `~/quantpulse-experiments/kronos-fresh-stocks-asof-2026-10-21/`:
+
+- the scripts: `run_fresh.py`, `summarize_fresh.py`, `run_all.sh`, `choose_stocks.py`;
+- the data: `prices.csv`, `selection.json`;
+- the run's output: `out/` (scores, per-date ICs, `summary.json`), `summary.txt`, `run.log`;
+- the sensitivity check: `sensitivity_holcim.py` and `.txt`;
+- the provenance: `commit.txt`, `kronos-code-commit.txt`, `image-packages.txt`.
