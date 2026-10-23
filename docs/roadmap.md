@@ -242,6 +242,13 @@ result you should not quote.
 - **No shorting constraints.** The long/short books assume every name is shortable at the
   modeled borrow rate. Hard-to-borrow names cost far more, and sometimes are simply
   unavailable — which is exactly why the `long_only` book exists alongside them.
+- **Dividends, mostly left out (measured 2026-10-23).** The JSE and London prices credit each
+  dividend at a hundredth of its size, so their labels and books run on price returns, and no
+  market credits a dividend paid after its first load, the NYSE included since 2026-07-18.
+  Longs miss dividends and shorts are never charged them; the net effect on any record is
+  unmeasured. A share split after a market's first load would be stored as a fall of half or
+  more. Unlike the biases above this one is free to fix, and the fix waits for the shadow
+  verdict: [Corporate actions the stored prices do not credit](findings/uncredited-corporate-actions.md).
 
 Fixed on 2026-07-22: the backtest previously charged a **flat** turnover equal to the
 quantile width (0.4) rather than measuring position churn, so costs were blind to
