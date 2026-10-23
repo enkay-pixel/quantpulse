@@ -1,7 +1,7 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phase 0 built and proven, deploying after 2026-10-24's
-retrain.** It follows the checklist London produced
+**Status: APPROVED 2026-10-22; phase 0 deployed 2026-10-23 16:56 SAST, being measured.** It
+follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -19,7 +19,7 @@ markets is changed to work one market at a time.
 |---|---|
 | Which markets | **The four European markets together.** London's time zone, Yahoo data of the same kind, English Wikipedia pages for nearly every company, and an index fund with history from 2018 in each. Canada, then Asia-Pacific, then the rest follow as later waves. |
 | How to make room | **Change the code first, then measure.** The features step, which holds every market in memory, works one market at a time, and a run executes at most two steps at once. A larger memory cap is the fallback if the measurement still says so. Raising it first would leave the next wave with the same problem and less room to run experiments. |
-| When | **After Saturday 2026-10-24's retrain.** It is London's first challenger and the retrain-duration reading the runbook needs; nothing should change under it. Phase 0 deploys on 2026-10-25 at the earliest. |
+| When | **Brought forward to 2026-10-23** (the owner's decision that day). The plan was to deploy after Saturday 2026-10-24's retrain, so nothing changed under London's first challenger. Then the 10-23 01:00 processing run and that day's 13:00 research job held 99% and 98% of the daemon's cap in memory it cannot reclaim. Nothing was killed. The retrain is a single step, so neither phase 0 change touches its duration reading. |
 
 ## What was verified first (not assumed)
 
