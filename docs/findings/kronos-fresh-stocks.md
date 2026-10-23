@@ -235,7 +235,9 @@ The recipe still trained on Holcim's bars.
   been checked against filings.
 
 The same fetcher serves production, so [M13](../plans/m13-europe-wave.md)'s backfill must check
-for this before computing features.
+for this before computing features. The live markets' stored prices were scanned for the same
+thing on 2026-10-23, and dividends turned out to be the larger problem there: see
+[Corporate actions the stored prices do not credit](uncredited-corporate-actions.md).
 
 **A correction to the pre-registration's list of exclusions.** Roche was not missing from Yahoo.
 `ROG.SW`, its non-voting certificates, returns nothing, but its bearer shares (`RO.SW`) have full
