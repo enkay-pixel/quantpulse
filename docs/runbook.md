@@ -349,8 +349,9 @@ image is removed only if all of these hold:
 Removal is never forced, so Docker itself also refuses an image a container still uses. The
 first dry run listed eight images, about 4 GB, and kept ten.
 
-Experiment images are tagged `:local`, such as `quantpulse-kronos:local`, and are removed by
-hand once their study is written up.
+Experiment images are tagged `:local` and removed by hand once their study is written up. The
+Kronos studies' `quantpulse-kronos:local` went that way on 2026-10-23; how to rebuild it is in
+`~/quantpulse-experiments/kronos/README.md`.
 
 Scheduled weekly on the dev machine via a launchd agent
 (`~/Library/LaunchAgents/com.quantpulse.prune-cache.plist`, Sundays 03:00, logging to
