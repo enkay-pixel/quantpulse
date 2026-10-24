@@ -368,6 +368,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   retrain is one: drift is measured against the champion's training data, which a rejected
   candidate does not change, so London refitted on three straight days of the same 0.308 share.
   It now fires once per drift episode per champion (`catchup.drift_retrain_due`).
+- **A training run's date is not the last session it used.** A drift retrain is created at 01:05
+  SAST, after midnight in Johannesburg and London, so dating it by its creation claimed a session
+  that had not traded yet and blocked that session's fill-only retry (London 2026-10-22, seven
+  bars the vendor had). `catchup.latest_training_day` is the newest session with a bar stored
+  before the run. Separately, a date scored on part of its listings stays partial: scoring fills
+  dates with no predictions, never names. `late_bars_rescore_sensor` re-scores the newest date
+  while its book row does not exist; after that, adding names would rewrite a published book.
 - **`dg.RunsFilter(created_after=...)` ignores `tzinfo`** — it compares wall-clock fields
   against the naive-UTC `create_timestamp` column, so an aware local datetime silently
   shifts the boundary by the offset (incident 30: the same filter matched 3 runs as

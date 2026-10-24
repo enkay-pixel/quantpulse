@@ -48,6 +48,8 @@ class MarketStatus:
     shadow_in_window: int
     trained_through: dt.date | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
+    #: Listings with a bar on the newest scored session that were never scored for it.
+    unscored: tuple[str, ...] = ()
 
 
 def expected_session(exchange: str) -> dt.date:
@@ -62,7 +64,11 @@ def expected_session(exchange: str) -> dt.date:
 
 def market_status(engine: Engine, exchange: str) -> MarketStatus:
     from quantpulse.ml.shadow_forward import SCHEDULE_ZONE, due, saturdays
-    from quantpulse.orchestration.catchup import latest_training_day, missing_tickers
+    from quantpulse.orchestration.catchup import (
+        latest_training_day,
+        missing_tickers,
+        unscored_listings,
+    )
 
     params = {"ex": exchange}
     with engine.connect() as conn:
@@ -153,7 +159,51 @@ def market_status(engine: Engine, exchange: str) -> MarketStatus:
         shadow_due=len(shadow_due),
         shadow_in_window=len(window),
         trained_through=latest_training_day(exchange),
+        unscored=tuple(unscored_listings(pred[0], exchange)) if pred else (),
     )
+
+
+def market_lines(m: MarketStatus) -> list[str]:
+    """One market's lines in `quantpulse status`: freshness, the recent sessions and what is
+    missing from them, and the champion.
+
+    Kept apart from the query so what a check-in reads can be tested without a database.
+    """
+    behind = [
+        name
+        for name, day in (
+            ("prices", m.prices),
+            ("features", m.features),
+            ("predictions", m.predictions),
+        )
+        if day is None or day < m.expected
+    ]
+    lines = [
+        f"{m.exchange}: expected {m.expected} | prices {m.prices} | features {m.features} | "
+        f"predictions {m.predictions} (v{m.predictions_version})"
+        + (f" — BEHIND: {', '.join(behind)}" if behind else ""),
+        "  last sessions: "
+        + ", ".join(f"{s.day:%m-%d} {s.covered}/{s.universe}" for s in m.recent),
+    ]
+    for s in m.recent:
+        if not s.missing:
+            continue
+        if m.trained_through is None or s.day > m.trained_through:
+            fate = "the sensor fills it until the next retrain"
+        else:
+            fate = "a retrain has used it, so nothing will fill it"
+        lines.append(f"  {s.day} missing {len(s.missing)}: {', '.join(s.missing)} — {fate}")
+    if m.unscored:
+        lines.append(
+            f"  {m.predictions} scored without {len(m.unscored)} listing(s) that had a bar: "
+            f"{', '.join(m.unscored)} — re-scored by the late-bars sensor if they arrived after "
+            "scoring, until the session's book row is written"
+        )
+    lines.append(
+        f"  champion v{m.champion} since {m.champion_since} · "
+        f"{m.rejections} rejection(s) since · {shadow_summary(m)}"
+    )
+    return lines
 
 
 def shadow_summary(m: MarketStatus) -> str:

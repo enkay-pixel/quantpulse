@@ -5,6 +5,7 @@ import datetime as dt
 from quantpulse.monitoring.status import (
     MarketStatus,
     live_sessions_reached,
+    market_lines,
     next_retrain,
     sessions_ahead,
     shadow_summary,
@@ -63,3 +64,29 @@ def test_a_market_added_after_the_shadow_run_was_registered_is_not_counted_again
     weeks of evidence, in a run whose verdict London was never part of."""
     assert shadow_summary(_market("XLON")).startswith("not in the shadow run")
     assert shadow_summary(_market("XNYS")) == "shadow weeks recorded 0 of 2 due (8 in window)"
+
+
+def test_a_session_scored_without_listings_that_had_a_bar_is_reported() -> None:
+    """The report counted prices per session, so New York's 2026-10-23, scored on 33 of its 50
+    listings, read as a whole session."""
+    from dataclasses import replace
+
+    lines = market_lines(replace(_market("XNYS"), unscored=("AAPL", "MSFT")))
+    (line,) = [ln for ln in lines if "scored without" in ln]
+    assert line.startswith("  2026-10-16 scored without 2 listing(s) that had a bar: AAPL, MSFT")
+    assert not any("scored without" in ln for ln in market_lines(_market("XNYS")))
+
+
+def test_a_gap_a_retrain_has_used_is_reported_as_unfillable() -> None:
+    from dataclasses import replace
+
+    from quantpulse.monitoring.status import Session
+
+    day = dt.date(2026, 10, 16)
+    gap = Session(day, 49, 50, ("KO",))
+    used = market_lines(replace(_market("XNYS"), recent=(gap,), trained_through=day))
+    open_ = market_lines(
+        replace(_market("XNYS"), recent=(gap,), trained_through=day - dt.timedelta(days=1))
+    )
+    assert any("nothing will fill it" in ln for ln in used)
+    assert any("the sensor fills it" in ln for ln in open_)

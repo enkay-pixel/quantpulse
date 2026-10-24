@@ -668,45 +668,16 @@ def _status(verdict_dir: str | None) -> None:
     from quantpulse.monitoring.decisions import collect, evaluate, load
     from quantpulse.monitoring.status import (
         live_sessions_reached,
+        market_lines,
         market_status,
         next_retrain,
-        shadow_summary,
         shadow_verdict_eta,
     )
 
     engine = get_engine()
     for code in sorted(EXCHANGES):
-        m = market_status(engine, code)
-        behind = [
-            name
-            for name, day in (
-                ("prices", m.prices),
-                ("features", m.features),
-                ("predictions", m.predictions),
-            )
-            if day is None or day < m.expected
-        ]
-        print(
-            f"{code}: expected {m.expected} | prices {m.prices} | features {m.features} | "
-            f"predictions {m.predictions} (v{m.predictions_version})"
-            + (f" — BEHIND: {', '.join(behind)}" if behind else "")
-        )
-        print(
-            "  last sessions: "
-            + ", ".join(f"{s.day:%m-%d} {s.covered}/{s.universe}" for s in m.recent)
-        )
-        for s in m.recent:
-            if not s.missing:
-                continue
-            if m.trained_through is None or s.day > m.trained_through:
-                fate = "the sensor fills it until the next retrain"
-            else:
-                fate = "a retrain has used it, so nothing will fill it"
-            print(f"  {s.day} missing {len(s.missing)}: {', '.join(s.missing)} — {fate}")
-        print(
-            f"  champion v{m.champion} since {m.champion_since} · "
-            f"{m.rejections} rejection(s) since · {shadow_summary(m)}"
-        )
+        for line in market_lines(market_status(engine, code)):
+            print(line)
 
     snapshot = collect(engine, _verdict_dir(verdict_dir))
     outcomes = evaluate(load(get_settings().quantpulse_decisions_file), snapshot)

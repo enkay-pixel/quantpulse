@@ -172,15 +172,133 @@ def ticker_gaps_to_retry(
 
 
 def latest_training_day(exchange: str = DEFAULT_EXCHANGE) -> dt.date | None:
-    """The exchange-time date of this market's newest training run, or None if it has none."""
+    """The newest session this market's newest training run could have used, or None.
+
+    That is the newest session with a bar stored before the run was created, the panel
+    `build_dataset(known_by=...)` reloads, and not the run's own date. A drift retrain is created
+    at 01:05 SAST, after midnight in Johannesburg and London. Dated by its creation, it claimed a
+    session that had not traded yet, and so blocked that session's fill-only retry: London's
+    2026-10-22 kept seven missing bars the vendor had (docs/findings/partial-cross-sections.md).
+    """
     with get_engine().connect() as conn:
-        newest: dt.datetime | None = conn.execute(
+        used: dt.date | None = conn.execute(
             text(
-                "SELECT max(created_at) FROM model_runs WHERE run_type = 'train' AND exchange = :ex"
+                "SELECT max(p.date) FROM prices p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex "
+                "WHERE p.ingested_at <= (SELECT max(created_at) FROM model_runs "
+                "WHERE run_type = 'train' AND exchange = :ex)"
             ),
             {"ex": exchange},
         ).scalar_one()
-    return newest.astimezone(get_exchange(exchange).tz).date() if newest else None
+    return used
+
+
+#: How many times a market's newest scored session may be re-scored for bars that arrived after
+#: its processing run. Late bars come in batches (New York's 2026-10-23 arrived in four), and a
+#: listing whose features cannot be computed yet must not ask again on every tick.
+MAX_RESCORES_PER_SESSION = 3
+
+#: Run tags on a re-score: which market and session it is for, and how many late listings it was
+#: requested to score.
+RESCORE_TAG = "quantpulse/rescore"
+UNSCORED_TAG = "quantpulse/unscored"
+
+# Active listings with a bar on the session and no prediction for it. With :late, only those
+# whose bar was stored after the session was first scored: the ones a second pass can still
+# reach, since a listing that was unscorable at the first pass stays so.
+_UNSCORED_LISTINGS = """
+    SELECT u.ticker FROM universe u
+    JOIN prices p ON p.ticker = u.ticker AND p.date = :day
+    WHERE u.exchange = :ex AND u.active
+      AND NOT EXISTS (SELECT 1 FROM predictions pr WHERE pr.ticker = u.ticker AND pr.date = :day)
+      AND (NOT :late OR p.ingested_at > (
+          SELECT min(pr.created_at) FROM predictions pr
+          JOIN universe pu ON pu.ticker = pr.ticker AND pu.exchange = :ex
+          WHERE pr.date = :day))
+    ORDER BY u.ticker
+"""
+
+
+def newest_scored_session(exchange: str = DEFAULT_EXCHANGE) -> dt.date | None:
+    """The newest session this market has any prediction for."""
+    with get_engine().connect() as conn:
+        day: dt.date | None = conn.execute(
+            text(
+                "SELECT max(p.date) FROM predictions p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex"
+            ),
+            {"ex": exchange},
+        ).scalar_one()
+    return day
+
+
+def unscored_listings(
+    day: dt.date, exchange: str = DEFAULT_EXCHANGE, late: bool = False
+) -> list[str]:
+    """Listings that had a bar on `day` but were never scored for it.
+
+    Scoring fills dates with no predictions at all and re-scores only the newest one, so a name
+    whose bar landed after its session was scored stays unscored: New York's 2026-10-23 was
+    scored on 33 of 50. `late` keeps only the bars stored after that first scoring.
+    """
+    with get_engine().connect() as conn:
+        rows = conn.execute(
+            text(_UNSCORED_LISTINGS), {"ex": exchange, "day": day, "late": late}
+        ).all()
+    return [r.ticker for r in rows]
+
+
+def rescore_candidate(exchange: str = DEFAULT_EXCHANGE) -> tuple[dt.date, list[str]] | None:
+    """The newest scored session and its late, unscored listings, if a second pass can fix them.
+
+    Two conditions keep a re-score from changing anything already published:
+    - **The session is still the market's newest.** Once the next session's bars are stored, the
+      nightly run scores that one, and the newest-date re-score no longer reaches this date.
+    - **Its book row does not exist yet.** A book row for a date is written once the next
+      session's return is known. After that, adding names would rewrite a published book.
+    """
+    day = newest_scored_session(exchange)
+    if day is None:
+        return None
+    with get_engine().connect() as conn:
+        newest_bar: dt.date | None = conn.execute(
+            text(
+                "SELECT max(p.date) FROM prices p "
+                "JOIN universe u ON u.ticker = p.ticker AND u.exchange = :ex"
+            ),
+            {"ex": exchange},
+        ).scalar_one()
+        booked: dt.date | None = conn.execute(
+            text("SELECT max(date) FROM portfolio_snapshots WHERE exchange = :ex"),
+            {"ex": exchange},
+        ).scalar_one()
+    if newest_bar is not None and newest_bar > day:
+        return None
+    if booked is not None and booked >= day:
+        return None
+    late = unscored_listings(day, exchange, late=True)
+    return (day, late) if late else None
+
+
+def rescore_attempt(unscored: int, runs: Iterable[tuple[str, str | None]]) -> int | None:
+    """Which re-score attempt to request for a session, or None to wait or stop.
+
+    `runs` holds each earlier re-score of that session as (Dagster status, the unscored count it
+    was requested for). Wait while one is in flight. Stop once one has succeeded with the same
+    count, since another pass would score nothing new: that is a listing whose features cannot be
+    computed yet, which would otherwise ask again every tick. And stop at
+    MAX_RESCORES_PER_SESSION, the bound every "re-run until X appears" trigger here carries.
+    """
+    if unscored <= 0:
+        return None
+    earlier = list(runs)
+    if any(status in IN_FLIGHT_STATUSES for status, _ in earlier):
+        return None
+    if any(status == "SUCCESS" and count == str(unscored) for status, count in earlier):
+        return None
+    if len(earlier) >= MAX_RESCORES_PER_SESSION:
+        return None
+    return len(earlier) + 1
 
 
 #: Active tickers absent on a session they were already trading before it. A ticker with no

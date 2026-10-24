@@ -170,9 +170,18 @@ Two sensors keep the pipeline honest without any paid service:
   trading), and retries are budgeted from Dagster's run history with attempt-numbered
   run_keys — max 3 runs that actually reached the feed per session, never a reused key.
   A session that landed but is missing particular tickers is retried too, fill-only — just
-  those tickers, nothing stored is rewritten — until a training run has used it. Nothing is
-  requested for yesterday while today's session is trading. See the
+  those tickers, nothing stored is rewritten — until a training run has used it. A run has
+  used a session when that session's bars were stored before the run was created; until
+  2026-10-24 it went by the run's local date, which blocked London's 2026-10-22 retry (see
+  [partial cross-sections](findings/partial-cross-sections.md)). Nothing is requested for
+  yesterday while today's session is trading. See the
   [data dictionary](data-dictionary.md) for why each bound is there.
+- **`late_bars_rescore_sensor`** — every 30 minutes it looks for bars that landed after their
+  session was scored, which processing never revisits. It runs `rescore_job`, which holds
+  features and predictions and nothing else, so the newest-date re-score fills those names. It
+  does so only while the session is still the market's newest and before its book row exists,
+  at most three times a session. The `predictions_cover_priced_listings` check and `quantpulse
+  status` report a session scored without more than one listing that had a bar, either way.
 
 Check both from the Dagster UI (Automation → Sensors) or `GET /alerts`.
 

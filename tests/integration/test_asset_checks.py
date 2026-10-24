@@ -275,3 +275,54 @@ def test_registry_check_follows_a_demotion(
         session.commit()
     _stub_registry(monkeypatch, {"XNYS": "1", "XJSE": None})
     assert assets.champion_registry_agrees().passed, "v2 was demoted; v1 is the champion"
+
+
+def _scored(engine: Engine, day: dt.date, tickers: list[str]) -> None:
+    from quantpulse.db import Prediction
+
+    with Session(engine) as session:
+        for t in tickers:
+            session.add(Prediction(ticker=t, date=day, model_version="1", score=0.0))
+        session.commit()
+
+
+def test_a_session_scored_on_every_listing_with_a_bar_passes(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from quantpulse.orchestration import catchup
+
+    monkeypatch.setattr(catchup, "get_engine", lambda: db_engine)
+    day = dt.date(2026, 10, 23)
+    _seed_prices(db_engine, [day], TICKERS, 100.0)
+    _scored(db_engine, day, TICKERS[:-1])  # one late name is within the allowance
+
+    result = assets.predictions_cover_priced_listings()
+    assert result.passed
+    assert result.metadata["XNYS/unscored_listings"].value == 1
+
+
+def test_a_session_scored_on_part_of_its_listings_is_reported(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """New York's 2026-10-23: scored on 33 of its 50 listings and reported by nothing."""
+    from quantpulse.orchestration import catchup
+
+    monkeypatch.setattr(catchup, "get_engine", lambda: db_engine)
+    day = dt.date(2026, 10, 23)
+    _seed_prices(db_engine, [day], TICKERS, 100.0)
+    _scored(db_engine, day, TICKERS[:2])
+
+    result = assets.predictions_cover_priced_listings()
+    assert not result.passed
+    (line,) = result.metadata["short"].value
+    assert line.startswith("XNYS 2026-10-23: 3 listing(s) with a bar not scored")
+
+
+def test_a_market_with_no_predictions_is_left_to_the_freshness_check(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from quantpulse.orchestration import catchup
+
+    monkeypatch.setattr(catchup, "get_engine", lambda: db_engine)
+    _seed_prices(db_engine, [dt.date(2026, 10, 23)], TICKERS, 100.0)
+    assert assets.predictions_cover_priced_listings().passed

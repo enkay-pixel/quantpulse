@@ -4,12 +4,12 @@ import datetime as dt
 
 import pandas as pd
 import pytest
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, select, text
 from sqlalchemy.orm import Session
 
 from quantpulse.data.ingest import BAR_COLUMNS, upsert_prices
 from quantpulse.data.universe import UniverseEntry, sync_universe
-from quantpulse.db import ModelRun, OptionQuote, Price
+from quantpulse.db import ModelRun, OptionQuote, PortfolioSnapshot, Prediction, Price
 from quantpulse.orchestration import catchup
 
 pytestmark = pytest.mark.integration
@@ -135,21 +135,38 @@ def seeded_with_benchmark(db_engine: Engine, monkeypatch) -> Engine:  # type: ig
         upsert_prices(session, _bar(BENCHMARK, DAYS[0]))
         upsert_prices(session, _bar(BENCHMARK, DAYS[2]))
         session.commit()
+    _stored_on_their_day(db_engine)
     return db_engine
 
 
-def _trained_on(engine: Engine, day: dt.date) -> None:
+def _stored_on_their_day(engine: Engine) -> None:
+    """Stamp every bar as stored at 18:30 New York on its own date, as the nightly ingest does.
+
+    A run is judged by the bars stored before it, so a fixture whose bars were all stored
+    "now" would make every training run in it look as if it had seen nothing.
+    """
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE prices SET ingested_at = "
+                "(date + time '18:30') AT TIME ZONE 'America/New_York'"
+            )
+        )
+
+
+def _trained_at(engine: Engine, when: dt.datetime) -> None:
     with Session(engine) as session:
         session.add(
             ModelRun(
-                run_type="train",
-                exchange="XNYS",
-                metrics={},
-                decision="rejected",
-                created_at=dt.datetime.combine(day, dt.time(9), tzinfo=NEW_YORK),
+                run_type="train", exchange="XNYS", metrics={}, decision="rejected", created_at=when
             )
         )
         session.commit()
+
+
+def _trained_on(engine: Engine, day: dt.date) -> None:
+    """A training run that evening, after the day's bars were stored."""
+    _trained_at(engine, dt.datetime.combine(day, dt.time(21), tzinfo=NEW_YORK))
 
 
 def test_a_benchmark_gap_is_found_on_an_otherwise_complete_day(
@@ -205,6 +222,21 @@ def test_a_session_after_the_newest_retrain_is_still_requested(
     assert catchup.ticker_gap_days(DAYS) == [DAYS[1]]
 
 
+def test_a_run_created_before_the_session_traded_has_not_used_it(
+    seeded_with_benchmark: Engine,
+) -> None:
+    """London's 2026-10-22: a drift retrain created at 00:06 local time, hours before that
+    session opened, was dated by its creation and blocked the session's retry, though the
+    vendor had the bars. A run has used only the sessions whose bars were stored before it."""
+    _trained_at(seeded_with_benchmark, dt.datetime.combine(DAYS[1], dt.time(0, 6), tzinfo=NEW_YORK))
+    assert catchup.latest_training_day() == DAYS[0]
+    assert catchup.ticker_gap_days(DAYS) == [DAYS[1]]
+
+
+def test_no_training_run_means_nothing_is_used(seeded_with_benchmark: Engine) -> None:
+    assert catchup.latest_training_day() is None
+
+
 def test_a_complete_session_asks_for_nothing(seeded_with_benchmark: Engine) -> None:
     assert catchup.ticker_gap_days([DAYS[0], DAYS[2]]) == []
 
@@ -248,3 +280,117 @@ def test_a_fill_adds_what_is_missing_and_rewrites_nothing(db_engine: Engine) -> 
     assert written == 1, "only the absent bar is written, and the count says so"
     assert float(closes["T0"]) == pytest.approx(101.0), "a stored bar was rewritten"
     assert float(closes["T1"]) == pytest.approx(50.0)
+
+
+# --- Late bars: a session scored before every listing's bar arrived ---------------------------
+
+SCORED = DAYS[1]
+SCORED_AT = dt.datetime.combine(SCORED, dt.time(19), tzinfo=NEW_YORK)
+
+
+def _scored(engine: Engine, day: dt.date, tickers: list[str], when: dt.datetime) -> None:
+    with Session(engine) as session:
+        for ticker in tickers:
+            session.add(
+                Prediction(ticker=ticker, date=day, model_version="1", score=0.0, created_at=when)
+            )
+        session.commit()
+
+
+def _store_late(engine: Engine, day: dt.date, tickers: list[str], when: dt.datetime) -> None:
+    with Session(engine) as session:
+        upsert_prices(session, pd.concat([_bar(t, day) for t in tickers]))
+        session.commit()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE prices SET ingested_at = :when WHERE date = :day AND ticker = ANY(:tickers)"
+            ),
+            {"when": when, "day": day, "tickers": tickers},
+        )
+
+
+@pytest.fixture
+def late(db_engine: Engine, monkeypatch) -> Engine:  # type: ignore[no-untyped-def]
+    """DAYS[0] scored and booked whole; DAYS[1] scored at 19:00 on T0-T5, before T6-T9's bars
+    landed at 01:30 the next morning, and not booked yet."""
+    monkeypatch.setattr(catchup, "get_engine", lambda: db_engine)
+    with Session(db_engine) as session:
+        _universe(session)
+        upsert_prices(session, pd.concat([_bars(DAYS[0], 10), _bar(BENCHMARK, DAYS[0])]))
+        upsert_prices(session, pd.concat([_bars(SCORED, 6), _bar(BENCHMARK, SCORED)]))
+        session.commit()
+    _stored_on_their_day(db_engine)
+    _scored(db_engine, DAYS[0], [*TICKERS, BENCHMARK], SCORED_AT - dt.timedelta(days=1))
+    _scored(db_engine, SCORED, [*TICKERS[:6], BENCHMARK], SCORED_AT)
+    _store_late(db_engine, SCORED, TICKERS[6:], SCORED_AT + dt.timedelta(hours=6, minutes=30))
+    with Session(db_engine) as session:
+        session.add(
+            PortfolioSnapshot(
+                date=DAYS[0],
+                exchange="XNYS",
+                variant="daily",
+                equity=1.0,
+                daily_return=0.0,
+                gross_exposure=1.0,
+                net_exposure=0.0,
+                turnover=0.0,
+                positions={},
+            )
+        )
+        session.commit()
+    return db_engine
+
+
+def test_listings_scored_without_are_found(late: Engine) -> None:
+    assert catchup.newest_scored_session() == SCORED
+    assert catchup.unscored_listings(SCORED) == TICKERS[6:]
+    assert catchup.unscored_listings(DAYS[0]) == []
+
+
+def test_only_bars_stored_after_scoring_count_as_late(late: Engine) -> None:
+    """A bar that was there when the session was scored and still got no prediction could not
+    be scored then; a second pass would not score it either."""
+    _store_late(late, SCORED, ["T5"], SCORED_AT - dt.timedelta(hours=1))
+    with late.begin() as conn:
+        conn.execute(
+            text("DELETE FROM predictions WHERE ticker = 'T5' AND date = :d"), {"d": SCORED}
+        )
+    assert "T5" in catchup.unscored_listings(SCORED)
+    assert "T5" not in catchup.unscored_listings(SCORED, late=True)
+
+
+def test_the_newest_session_is_a_rescore_candidate_before_its_book_row_exists(late: Engine) -> None:
+    assert catchup.rescore_candidate() == (SCORED, TICKERS[6:])
+
+
+def test_a_booked_session_is_never_rescored(late: Engine) -> None:
+    """Its book row is published: adding names now would rewrite it."""
+    with Session(late) as session:
+        session.add(
+            PortfolioSnapshot(
+                date=SCORED,
+                exchange="XNYS",
+                variant="daily",
+                equity=1.0,
+                daily_return=0.0,
+                gross_exposure=1.0,
+                net_exposure=0.0,
+                turnover=0.0,
+                positions={},
+            )
+        )
+        session.commit()
+    assert catchup.rescore_candidate() is None
+
+
+def test_a_session_overtaken_by_the_next_is_not_rescored(late: Engine) -> None:
+    """Once the next session's bars are in, the nightly run scores that one, and re-scoring the
+    newest date would no longer reach this one."""
+    _store_late(late, DAYS[2], ["T0"], SCORED_AT + dt.timedelta(days=1))
+    assert catchup.rescore_candidate() is None
+
+
+def test_nothing_scored_means_no_candidate(seeded_with_benchmark: Engine) -> None:
+    assert catchup.newest_scored_session() is None
+    assert catchup.rescore_candidate() is None
