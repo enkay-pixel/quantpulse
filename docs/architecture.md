@@ -8,7 +8,7 @@ forecasts to the dashboard, and the main design choice behind each layer.
 | Service | Purpose | Port | Memory cap |
 |---|---|---|---|
 | `postgres` | 3 databases: `market` (app data), `dagster` (orchestrator storage), `mlflow` (tracking backend) | 5432 | 512M |
-| `dagster-webserver` + `dagster-daemon` | Pipeline UI; schedules/sensors/run launcher. Both load the code location in-process from the shared image (one fewer container than a gRPC code server — deliberate on 16 GB) | 3000, published by `web` | 768M + 1.5G |
+| `dagster-webserver` + `dagster-daemon` | Pipeline UI; schedules/sensors/run launcher. Both load the code location in-process from the shared image (one fewer container than a gRPC code server — deliberate on 16 GB) | 3000, published by `web` | 768M + 2G |
 | `mlflow` | Experiment tracking + model registry (single worker) | 5001→5000 | 1G |
 | `api` | FastAPI serving layer | 8000 | 384M |
 | `web` *(M5)* | React dashboard behind nginx; also Dagster's UI, behind a host check | 8080, 3000 | 128M |
@@ -34,8 +34,9 @@ Whether a browser lets a public page reach 127.0.0.1 at all varies by browser an
 controls do not depend on it.
 
 Total idle footprint target: **≤ 2.5 GB**, sized for a 16 GB MacBook. Docker Desktop's VM has
-7.75 GiB (`docker info`, 2026-10-22). The caps above sum to about 4.3 GB, which leaves room for
-one 3 GB experiment container at a time beside the stack.
+7.75 GiB (`docker info`, 2026-10-22). The caps above sum to about 4.8 GB, which leaves room for
+one 2.5 GB experiment container at a time beside the stack. The daemon's cap rose from 1.5 GiB on
+2026-10-24 ([M13 plan](plans/m13-europe-wave.md#headroom-and-why-it-comes-first)).
 
 ## Data flow
 

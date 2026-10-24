@@ -115,7 +115,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M  # runs execute in-process under the daemon's launcher
+          # Runs execute in-process under the daemon's launcher. 2 GiB since 2026-10-24: with every
+          # run at most two steps at once, the heaviest night still held 87% of 1.5 GiB (M13 plan).
+          memory: 2048M
 
   api:
     build:
