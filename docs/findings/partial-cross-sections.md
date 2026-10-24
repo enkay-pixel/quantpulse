@@ -161,6 +161,15 @@ owner chose it on 2026-10-24. As proposed, then built:
   That pass also re-scores the 33 names scored that night, because their cross-sectional ranks
   now include all 50. No book has used those scores yet.
 
+**Verified after the deploy (2026-10-24):**
+
+- The sensor launched one re-score at 19:13 SAST. It ran for 55 s and peaked at 1,302 MiB, 64%
+  of the daemon's cap.
+- New York's 2026-10-23 now has 50 predictions, all by champion v10, against 33 before.
+  `predictions_cover_priced_listings` passes with none unscored.
+- Prices, features, predictions and books through 2026-10-22 are identical before and after:
+  `fingerprint-before-deploy.txt` and `fingerprint-after-rescore.txt` in the evidence folder.
+
 Evidence is in `~/quantpulse-experiments/partial-cross-sections-asof-2026-10-24/`:
 `per_date.sql`, `holes.sql`, `book_sides.sql` and their CSVs, `summarize.py`, `summary.txt`,
 `refetch_check.py` and `.txt`, and `as_of.txt`.
