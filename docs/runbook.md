@@ -48,7 +48,7 @@ Durations measured 2026-09-19 over the preceding nine days.
 | 01:00 Tue–Sat | processing | 4–7 min | recovered by the catch-up sensor |
 | 07:00 daily | backup | about a minute | skipped for that day |
 | 13:00 Mon–Fri | research: short interest, attention, ownership filings, fundamentals | a minute or two | caught up by the next run, which fetches whatever it has not stored |
-| 15:00 Saturday | retrain | under a minute | re-run on return, unless killed mid-run |
+| 15:00 Saturday | retrain | 1.4 min with three markets (2026-10-24) | re-run on return, unless killed mid-run |
 
 The launchd checks in [Host agents](#host-agents-launchd) are reports: a skipped one loses
 nothing but that report. Scheduled jobs whose time passes while the Mac is **asleep** run on
@@ -579,4 +579,5 @@ whole situation.
   pipeline is idempotent (upserts). There is no second source.
 - **Memory pressure**: `docker stats` to inspect; every service carries a compose memory limit.
   Docker Desktop's VM has 7.75 GiB (Settings → Resources; measured 2026-10-22). The compose caps
-  sum to about 4.3 GB, so run one 3 GB experiment container at a time beside the stack.
+  sum to about 4.8 GB since the daemon's rose to 2 GiB on 2026-10-24, so run one 2.5 GB
+  experiment container (`docker run -m 2500m`) at a time beside the stack.

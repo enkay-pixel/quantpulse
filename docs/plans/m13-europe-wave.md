@@ -1,7 +1,7 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phase 0 deployed 2026-10-23 16:56 SAST, being measured.** It
-follows the checklist London produced
+**Status: APPROVED 2026-10-22; phase 0 deployed 2026-10-23; daemon cap raised to 2 GiB
+2026-10-24.** It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -55,7 +55,8 @@ the first three markets, the stock selection of the
 
 ## Headroom, and why it comes first
 
-The daemon's container is capped at 1.5 GiB. Each step runs in its own process, and every process
+The daemon's container was capped at 1.5 GiB, and is at 2 GiB since 2026-10-24 (below). Each step
+runs in its own process, and every process
 starts at about 285 MiB because it loads the whole stack. Measured with three markets (120
 listings):
 
@@ -96,6 +97,22 @@ Phase 0 therefore changes how the work is laid out. It does not change what is c
      containers shrink to match.
    - **Postgres is recorded with each reading.** It stood at 412 of its 512 MiB that evening,
      mostly reclaimable cache, and seven markets' data will add to it.
+
+**The first night on phase 0 (2026-10-24 01:00):**
+
+| | 2026-10-23, before | 2026-10-24, phase 0 |
+|---|---|---|
+| `features` step peak | 806 MiB, 34 s | **417 MiB, 20 s** |
+| Feature rows written | all 256,114 | **103** (the new day's) |
+| Heaviest run, container's unreclaimable memory | 1,527 MiB, **99%** of the cap | 1,336 MiB, **87%** |
+
+- **The freeze proof is identical.** Prices, features and predictions are unchanged through
+  2026-10-22, and the nine books through 2026-10-21, their last row before the deploy (evidence
+  in `~/quantpulse-experiments/m13-europe/phase0-deploy/`).
+- **87% is over the gate,** so the cap rose to 2 GiB after that day's retrain, as the plan says.
+  The same run sits at 65% of it.
+- **The retrain itself took 1.4 minutes** for three markets and peaked at 76% of the old cap.
+- **Experiment containers shrink to 2.5 GB,** so the caps still fit Docker's 7.75 GiB.
 
 ## The markets
 
