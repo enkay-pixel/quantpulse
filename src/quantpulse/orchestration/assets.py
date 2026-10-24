@@ -54,6 +54,10 @@ RETRY_POLICY = dg.RetryPolicy(max_retries=2, delay=60)
 # larger gap means scoring is silently writing nothing.
 MAX_PREDICTION_LAG_DAYS = 4
 
+# Listings a market's newest scored session may leave out while its book is still taken as whole.
+# One late name moves a ten-a-side book by at most one position; New York's 2026-10-23 left out 17.
+MAX_UNSCORED_LISTINGS = 1
+
 
 def partition_date_and_exchange(context: dg.AssetExecutionContext) -> tuple[dt.date, str]:
     """Unpack a (date, exchange) partition key."""
@@ -315,6 +319,39 @@ def predictions_are_current() -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=not stale,
         metadata={**metadata, **({"stale": dg.MetadataValue.json(stale)} if stale else {})},
+    )
+
+
+@dg.asset_check(asset=predictions, blocking=False)
+def predictions_cover_priced_listings() -> dg.AssetCheckResult:
+    """Report a market whose newest scored session left out listings that had a bar.
+
+    `predictions_are_current` counts dates; this counts names. Processing scores whatever bars
+    have arrived by 19:00 New York, and a vendor that delivers late leaves the rest unscored: New
+    York's 2026-10-23 was scored on 33 of its 50 listings, so its book formed on two thirds of
+    the market, and nothing reported it (docs/findings/partial-cross-sections.md). The late-bars
+    sensor re-scores such a session while it can; this says when one happened, either way.
+    """
+    from quantpulse.data.universe import active_tickers
+    from quantpulse.orchestration.catchup import newest_scored_session, unscored_listings
+
+    metadata: dict[str, dg.MetadataValue] = {}
+    short = []
+    with get_session() as session:
+        configured = [e for e in sorted(EXCHANGES) if active_tickers(session, e)]
+    for exchange in configured:
+        day = newest_scored_session(exchange)
+        if day is None:
+            continue  # no champion yet: predictions_are_current reports that
+        missing = unscored_listings(day, exchange)
+        metadata[f"{exchange}/unscored_listings"] = dg.MetadataValue.int(len(missing))
+        if len(missing) > MAX_UNSCORED_LISTINGS:
+            short.append(
+                f"{exchange} {day}: {len(missing)} listing(s) with a bar not scored: {missing[:8]}"
+            )
+    return dg.AssetCheckResult(
+        passed=not short,
+        metadata={**metadata, **({"short": dg.MetadataValue.json(short)} if short else {})},
     )
 
 

@@ -248,7 +248,8 @@ local-first platform actually hits:
   tickers barely move the ratio) — for the benchmark that deletes the whole day from the CAPM
   marts, and for any ticker it stretches its features across the gap. That retry is
   fill-only (just the missing tickers, never overwriting a stored bar), expires after five
-  sessions, and stops once a training run has used the session, per
+  sessions, and stops once a training run has used the session (its bars were stored before
+  the run was created), per
   [ADR 0006](adr/0006-price-data-is-filled-not-rewritten.md). Each session gets three attempts
   per day and the budget resets daily, so an outage that exhausts it recovers on its own; and
   nothing is requested for yesterday while today's session is trading.
@@ -262,6 +263,14 @@ local-first platform actually hits:
 - `predictions_are_current` (asset check) — fails when a configured market's predictions
   fall > 4 days behind its features, i.e. scoring is silently writing nothing (no champion,
   or a renamed registry). Nothing else surfaces "the numbers just stopped moving".
+- `predictions_cover_priced_listings` (asset check) — fails when a market's newest scored
+  session left out more than one listing that had a bar. Processing scores what has arrived by
+  19:00 New York, so a late vendor leaves the rest unscored: New York's 2026-10-23 was scored
+  on 33 of 50 ([finding](findings/partial-cross-sections.md)).
+- `late_bars_rescore_sensor` — runs `rescore_job` (features and predictions only) when bars
+  land after their session was scored. Scoring re-scores only the newest date, so this fills
+  the late names while the session is still the newest and before its book row exists. Three
+  passes a session at most, and none once a pass has scored nothing new.
 - `option_snapshot_repair_sensor` — re-runs **today's** option snapshot when it landed
   below 80% ticker coverage, capped at 3 attempts a day. Scoped to today on purpose:
   chains are live-only, so an incomplete past day is a permanent hole and re-running

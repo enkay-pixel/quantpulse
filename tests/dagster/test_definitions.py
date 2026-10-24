@@ -69,6 +69,7 @@ def test_schedules_and_sensors_registered() -> None:
         "pipeline_failure_alert",
         "missed_partition_catchup_sensor",
         "option_snapshot_repair_sensor",
+        "late_bars_rescore_sensor",
     } <= sensor_names
 
 
@@ -322,3 +323,12 @@ def test_every_job_runs_at_most_two_steps_at_once() -> None:
     assert "option_resnapshot_job" in named, "the sensor-only capture job was not examined"
     for name, job in named.items():
         assert job.executor_def is STEP_EXECUTOR, f"{name} runs with its own executor"
+
+
+def test_the_rescore_job_scores_and_does_nothing_else() -> None:
+    """A second scoring pass for late bars runs off-hours. process_job's option snapshot taken
+    then would overwrite good rows, and the books form a date only once its next return is known,
+    so the job holds features and predictions and nothing more."""
+    job = defs.resolve_job_def("rescore_job")
+    keys = {key.to_user_string() for key in job.asset_layer.executable_asset_keys}
+    assert keys == {"features", "predictions"}

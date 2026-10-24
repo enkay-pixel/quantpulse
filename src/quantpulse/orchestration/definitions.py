@@ -66,6 +66,15 @@ options_book_job = dg.define_asset_job(
     "options_book_job", selection=[qp_assets.option_book], hooks=STEP_HOOKS
 )
 
+# A second scoring pass for bars that arrived after their session's processing run: features and
+# predictions only. Never the rest of process_job, whose option snapshot taken off-hours would
+# overwrite good rows, and never the books, which form a date only once its next return is known.
+rescore_job = dg.define_asset_job(
+    "rescore_job",
+    selection=dg.AssetSelection.assets(qp_assets.features, qp_assets.predictions),
+    hooks=STEP_HOOKS,
+)
+
 # Catch-up bounds: how far back to look for skipped sessions, and how many to request
 # per sensor tick (so a long sleep doesn't stampede the queue).
 LOOKBACK_DAYS = 30
@@ -463,6 +472,60 @@ def option_snapshot_repair_sensor(context: dg.SensorEvaluationContext) -> dg.Sen
     )
 
 
+@dg.sensor(
+    job=rescore_job,
+    minimum_interval_seconds=1800,
+    default_status=dg.DefaultSensorStatus.RUNNING,
+)
+def late_bars_rescore_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+    """Score the listings whose bars arrived after their session was processed.
+
+    Processing runs at 19:00 New York and scores whatever has arrived by then. Bars that land
+    later, usually through the catch-up's fill-only retry, get no prediction: scoring fills dates
+    with no predictions at all, never a missing name on a date already scored. New York's
+    2026-10-23 was scored on 33 of its 50 listings that way
+    (docs/findings/partial-cross-sections.md).
+
+    The newest scored date is always re-scored by the champion of that day, so running features
+    and predictions again fills them in. That holds only while the date is still the market's
+    newest and before its book row exists (`catchup.rescore_candidate`), so nothing published
+    changes. One run serves every market, so a tick requests at most one.
+    """
+    from quantpulse.orchestration.catchup import (
+        RESCORE_TAG,
+        UNSCORED_TAG,
+        rescore_attempt,
+        rescore_candidate,
+    )
+
+    notes: list[str] = []
+    for exchange in sorted(EXCHANGES):
+        found = rescore_candidate(exchange)
+        if found is None:
+            continue
+        day, late = found
+        key = f"{exchange}|{day}"
+        history = context.instance.get_run_records(
+            filters=dg.RunsFilter(job_name=rescore_job.name, tags={RESCORE_TAG: key})
+        )
+        attempt = rescore_attempt(
+            len(late),
+            [(r.dagster_run.status.value, r.dagster_run.tags.get(UNSCORED_TAG)) for r in history],
+        )
+        if attempt is None:
+            notes.append(f"{exchange} {day}: {len(late)} late listing(s) unscored, not re-scoring")
+            continue
+        return dg.SensorResult(
+            run_requests=[
+                dg.RunRequest(
+                    run_key=f"rescore-{exchange}-{day}-{attempt}",
+                    tags={RESCORE_TAG: key, UNSCORED_TAG: str(len(late))},
+                )
+            ]
+        )
+    return dg.SensorResult(skip_reason="; ".join(notes) if notes else "no late, unscored listings")
+
+
 # Each step is its own process, and each starts at about 285 MiB because it loads the whole stack.
 # Left at the default, a run starts one per CPU: the research job's four steps at once held the
 # container at 1,373 MiB of its 1,536 on 2026-10-22. Two at a time costs seconds per run.
@@ -496,6 +559,7 @@ defs = dg.Definitions(
         qp_assets.benchmark_freshness,
         qp_assets.option_snapshot_quality,
         qp_assets.predictions_are_current,
+        qp_assets.predictions_cover_priced_listings,
         qp_assets.champion_registry_agrees,
         qp_assets.resource_headroom,
     ],
@@ -506,6 +570,7 @@ defs = dg.Definitions(
         research_job,
         watchlist_job,
         options_book_job,
+        rescore_job,
     ],
     schedules=[
         *ingest_schedules,
@@ -520,6 +585,7 @@ defs = dg.Definitions(
         pipeline_failure_alert,
         missed_partition_catchup_sensor,
         option_snapshot_repair_sensor,
+        late_bars_rescore_sensor,
     ],
     resources={"dbt": dbt_resource},
     executor=STEP_EXECUTOR,
