@@ -169,6 +169,8 @@ owner chose it on 2026-10-24. As proposed, then built:
   `predictions_cover_priced_listings` passes with none unscored.
 - Prices, features, predictions and books through 2026-10-22 are identical before and after:
   `fingerprint-before-deploy.txt` and `fingerprint-after-rescore.txt` in the evidence folder.
+- On 2026-10-27 New York's 2026-10-23 book row formed from all 50 predictions, with 11 longs and
+  20 shorts. From the 33 first scored it would have held about seven a side.
 
 Evidence is in `~/quantpulse-experiments/partial-cross-sections-asof-2026-10-24/`:
 `per_date.sql`, `holes.sql`, `book_sides.sql` and their CSVs, `summarize.py`, `summary.txt`,

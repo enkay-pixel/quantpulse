@@ -1,7 +1,7 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phase 0 deployed 2026-10-23; daemon cap raised to 2 GiB
-2026-10-24.** It follows the checklist London produced
+**Status: APPROVED 2026-10-22; phase 0 deployed 2026-10-23, daemon cap 2 GiB 2026-10-24, headroom
+gate cleared 2026-10-27; phase 1 next.** It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -113,6 +113,17 @@ Phase 0 therefore changes how the work is laid out. It does not change what is c
   The same run sits at 65% of it.
 - **The retrain itself took 1.4 minutes** for three markets and peaked at 76% of the old cap.
 - **Experiment containers shrink to 2.5 GB,** so the caps still fit Docker's 7.75 GiB.
+
+**Night two, on the 2 GiB cap (2026-10-26/27), and the gate is cleared:**
+
+- **Processing (01:00):** 1,430 MiB at its heaviest, **70%** of the cap.
+- **Research job:** its first full runs at two steps at once reached 1,287 MiB on 10-26 (63%) and
+  1,339 MiB on 10-27 (65%), against 98% when it ran four steps at once.
+- **`resource_headroom` passed,** its first pass since phase 0.
+- **What 10-27's research reading is:** the job's 13:00 run and retry failed on a brief DNS
+  outage, and the 65% is from the re-run at 13:24.
+
+Every run since the cap rose is under the 85% line, so phase 1 can start.
 
 ## The markets
 
