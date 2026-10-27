@@ -391,7 +391,12 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   backfilling a gap while the market is still trading can write *today's* price under
   *yesterday's* date. The `dropna(subset=["close"])` calls in `data/ingest.py` are what stop
   it (the live bar has no close yet) — load-bearing, never fillna them. Don't backfill a
-  window ending on a session still trading.
+  window ending on a session still trading. The request runs to the end plus one day, so
+  while today trades that includes a window ending yesterday. `quantpulse backfill` enforces
+  this per market: its default end is `ingest.newest_safe_end()`, and it refuses an `--end`
+  that `ingest.fetch_reaches_open_session()` flags. A script calling `fetch_daily_bars`
+  directly has no such guard. Until 2026-10-27 the default was `last_trading_day()`, which
+  is today's session from midnight, open or not.
 - **Widening the fetch window does not recover a missing bar** — it only invents one. Measured
   on STX40.JO 2026-08-14: narrow one-day windows and a wide window return *identical* closes
   for every genuinely published date (08-11 10857, 08-12 10770). The only row the wide window
