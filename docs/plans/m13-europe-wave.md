@@ -1,7 +1,7 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phase 0 deployed 2026-10-23, daemon cap 2 GiB 2026-10-24, headroom
-gate cleared 2026-10-27; phase 1 next.** It follows the checklist London produced
+**Status: APPROVED 2026-10-22; phases 0–3 done by 2026-10-27 (Europe backfilled, the three live
+markets proven unchanged); phase 4, first champions, next.** It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -213,6 +213,25 @@ processing.
 3. **Backfill and prove nothing moved.** Fingerprint the three markets, sync the universe,
    backfill all four from 2018, list the one-day moves that may be uncredited corporate actions
    (see Risks), build features, compare: the three must be identical.
+
+   **Done 2026-10-27.** Phase 2 was deployed at 14:51 SAST, and every step ran in a throwaway
+   container.
+
+   - **Universe:** sync-universe added 151 listings and deactivated none.
+   - **Backfill:** 338,514 bars, 2018-01-02 to 2026-10-26. The end is given explicitly, because
+     the default (today) would have stored the European session then trading as its close. The
+     currency guard refused nothing.
+   - **One-day moves:** the stored moves beyond −25% or +35% are the five real ones found in
+     phase 2.
+   - **Features:** 329,001 rows for the four new markets. The other three wrote **0 rows**: their
+     256,354 rows came out identical.
+   - **Page views:** 141 titles from 2018.
+   - **The fingerprint of XNYS, XJSE and XLON** prices, features, predictions and books through
+     2026-10-26 is **identical** before and after.
+   - **The dashboard** lists all seven markets. The new four show their data and say no champion
+     is trained yet.
+
+   Evidence: `~/quantpulse-experiments/m13-europe/phase3/`.
 4. **First champions** through the unchanged gate. Any market whose first model misses the Sharpe
    floor shows its data and research without a model. Then replay-score each market's history,
    build the marts, and read every market in the browser, prices included.
