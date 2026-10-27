@@ -551,6 +551,11 @@ the Johannesburg Stock Exchange, XLON the London Stock Exchange.
 
 `code` · The exchange's standard four-letter code, such as XNYS or XJSE.
 
+## Market name
+
+`display_name` · The market's plain name, by the city it trades in, such as New York or
+Johannesburg.
+
 ## Market value — market capitalization
 
 `market_cap` · The share price times the shares outstanding.

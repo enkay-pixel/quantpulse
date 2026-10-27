@@ -198,6 +198,9 @@ def test_exchanges_endpoint_lists_markets_and_flags_configured(
     assert by_code["XNYS"]["has_options"] is True
     assert by_code["XJSE"]["has_options"] is False
     assert by_code["XJSE"]["display_divisor"] == 100.0  # ZAc -> ZAR
+    # The market menu names each market beside its code.
+    assert by_code["XNYS"]["display_name"] == "New York"
+    assert all(e["display_name"] for e in body), "every market needs a name for the menu"
 
 
 def test_unknown_exchange_is_rejected_rather_than_silently_empty(

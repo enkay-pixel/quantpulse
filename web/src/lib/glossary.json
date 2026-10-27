@@ -290,6 +290,10 @@
     "label": "Price divisor",
     "meaning": "What stored prices are divided by before display. The JSE stores prices in cents, so its divisor is 100."
   },
+  "display_name": {
+    "label": "Market name",
+    "meaning": "The market's plain name, by the city it trades in, such as New York or Johannesburg."
+  },
   "display_symbol": {
     "label": "Currency symbol",
     "meaning": "The symbol shown in front of prices for this market."

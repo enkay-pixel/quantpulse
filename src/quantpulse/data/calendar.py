@@ -21,6 +21,9 @@ class Exchange:
     """One market's calendar, clock, currency and benchmark."""
 
     code: str  # our key, and the exchange_calendars name
+    # The market's plain name, by the city it trades in. The dashboard's market menu shows it
+    # beside the code: with seven markets, four-letter codes such as XSWX alone are a quiz.
+    display_name: str
     timezone: str
     close_hour: int  # local hour the session ends; IV/marks are only meaningful after it
     currency: str  # quote currency as the data vendor reports it
@@ -72,6 +75,7 @@ class Exchange:
 
 XNYS = Exchange(
     code="XNYS",
+    display_name="New York",
     timezone="America/New_York",
     close_hour=16,
     currency="USD",
@@ -82,6 +86,7 @@ XNYS = Exchange(
 
 XJSE = Exchange(
     code="XJSE",
+    display_name="Johannesburg",
     timezone="Africa/Johannesburg",
     close_hour=17,
     currency="ZAc",  # South African cents: a 79787 quote is R797.87
@@ -96,6 +101,7 @@ XJSE = Exchange(
 
 XLON = Exchange(
     code="XLON",
+    display_name="London",
     timezone="Europe/London",
     close_hour=17,  # the session ends 16:30; the first whole hour after it
     currency="GBp",  # pence: a 1428 quote is £14.28

@@ -51,6 +51,7 @@ export interface EquityPoint {
 
 export interface Exchange {
   code: string;
+  display_name: string;
   timezone: string;
   currency: string;
   benchmark: string;
