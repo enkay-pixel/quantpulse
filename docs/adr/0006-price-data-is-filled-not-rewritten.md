@@ -39,6 +39,9 @@ vendor had the absent NYSE bars by the next afternoon.
    operator's decision, and while a pre-registered shadow window is open it is not taken.
 4. **No fetch ends on a session still trading.** A one-day request runs to the next calendar day,
    so yesterday is not fetched while today trades (`catchup.fetch_would_end_in_open_session`).
+   Since 2026-10-27 `quantpulse backfill` holds to the same rule for its whole window: its default
+   end stops short of an open session, and an `--end` that would reach one is refused
+   (`ingest.fetch_reaches_open_session`).
 
 Whole missing days are the exception to 3: the catch-up sensor still re-ingests a session below
 the coverage floor whenever it can, because a missing day costs more than a lost refit.

@@ -220,7 +220,9 @@ processing.
    - **Universe:** sync-universe added 151 listings and deactivated none.
    - **Backfill:** 338,514 bars, 2018-01-02 to 2026-10-26. The end is given explicitly, because
      the default (today) would have stored the European session then trading as its close. The
-     currency guard refused nothing.
+     currency guard refused nothing. The CLI has since been fixed to choose a safe end itself
+     ([data dictionary](../data-dictionary.md)). At that hour it would also have refused the
+     26th for the four new markets, since the request ran to the 27th while they traded.
    - **One-day moves:** the stored moves beyond −25% or +35% are the five real ones found in
      phase 2.
    - **Features:** 329,001 rows for the four new markets. The other three wrote **0 rows**: their

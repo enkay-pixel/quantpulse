@@ -237,6 +237,23 @@ def is_post_close(now: dt.datetime | None = None, exchange: str | None = None) -
     return is_trading_day(local.date(), ex.code) and local.hour >= ex.close_hour
 
 
+def last_closed_session(now: dt.datetime | None = None, exchange: str | None = None) -> dt.date:
+    """Newest session of this exchange that had closed by `now`.
+
+    `last_trading_day` goes by the date alone, so until the close it returns a session still to
+    finish, whose close the vendor reports as the live price. A session counts as closed when
+    `is_post_close` says so, from the exchange's `close_hour`.
+    """
+    ex = get_exchange(exchange)
+    now = now or dt.datetime.now(ex.tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ex.tz)
+    today = now.astimezone(ex.tz).date()
+    if is_post_close(now, ex.code):
+        return today
+    return last_trading_day(today - dt.timedelta(days=1), ex.code)
+
+
 def session_in_progress(now: dt.datetime | None = None, exchange: str | None = None) -> bool:
     """Is one of this exchange's sessions trading at `now`?
 

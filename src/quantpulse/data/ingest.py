@@ -14,6 +14,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from quantpulse.data.calendar import (
+    get_exchange,
+    is_post_close,
+    is_trading_day,
+    last_closed_session,
+    last_trading_day,
+    session_in_progress,
+)
 from quantpulse.data.cleaning import repair_price_units
 from quantpulse.db import Price
 from quantpulse.utils import chunked
@@ -53,6 +61,38 @@ def _download_yfinance(tickers: list[str], start: dt.date, end: dt.date) -> pd.D
         threads=True,
         progress=False,
     )
+
+
+def fetch_reaches_open_session(
+    end: dt.date, now: dt.datetime | None = None, exchange: str | None = None
+) -> bool:
+    """Would a fetch ending on `end` ask the vendor for a session that has not closed?
+
+    Two ways it can. A window holding today's session before its close gets the live price back
+    as that day's close. And while today trades, a window ending the day before is exposed too:
+    the request runs to `end` + 1 day, and the live bar can come back under the window's last
+    date (data-dictionary.md; `catchup.fetch_would_end_in_open_session` is the one-day case). A
+    stored bar is never rewritten (ADR 0006), so either close would stay.
+    """
+    ex = get_exchange(exchange)
+    now = now or dt.datetime.now(ex.tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ex.tz)
+    today = now.astimezone(ex.tz).date()
+    if not is_trading_day(today, ex.code) or is_post_close(now, ex.code):
+        return False  # no session today still to close
+    reach = end + dt.timedelta(days=1) if session_in_progress(now, ex.code) else end
+    return reach >= today
+
+
+def newest_safe_end(now: dt.datetime | None = None, exchange: str | None = None) -> dt.date:
+    """The newest session a fetch can end on at `now`: the last one closed, or while today trades
+    and that one is yesterday, the session before it."""
+    now = now or dt.datetime.now(dt.UTC)
+    end = last_closed_session(now, exchange)
+    if fetch_reaches_open_session(end, now, exchange):
+        end = last_trading_day(end - dt.timedelta(days=1), exchange)
+    return end
 
 
 def normalize_yfinance(raw: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:

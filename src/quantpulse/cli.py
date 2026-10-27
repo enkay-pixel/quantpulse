@@ -55,19 +55,48 @@ def _backfill(
     end: dt.date | None,
     exchange: str | None = None,
     batch_size: int = 25,
+    now: dt.datetime | None = None,
 ) -> None:
-    from quantpulse.data.calendar import EXCHANGES, get_exchange, last_trading_day
-    from quantpulse.data.ingest import fetch_daily_bars, upsert_prices, wrong_currency
+    from quantpulse.data.calendar import EXCHANGES, get_exchange
+    from quantpulse.data.ingest import (
+        fetch_daily_bars,
+        fetch_reaches_open_session,
+        newest_safe_end,
+        upsert_prices,
+        wrong_currency,
+    )
     from quantpulse.data.universe import active_tickers
     from quantpulse.db import get_session
 
     settings = get_settings()
     code = get_exchange(exchange).code if exchange else None
+    markets = [code] if code else sorted(EXCHANGES)
     start = start or dt.date.fromisoformat(settings.quantpulse_history_start)
-    # The end date follows the requested market's own calendar.
-    end = end or last_trading_day(exchange=code)
+    # A stored bar is never rewritten (ADR 0006), so a backfill must not reach a session that has
+    # not closed: the vendor would answer with its live price as the close. Each market is judged
+    # on its own calendar and clock, so one still trading does not hold back another's end.
+    now = now or dt.datetime.now(dt.UTC)
+    if end is not None:
+        still_open = [m for m in markets if fetch_reaches_open_session(end, now, m)]
+        if still_open:
+            logger.error(
+                "--end %s reaches a session that has not closed in %s — end earlier, or wait for "
+                "the close",
+                end,
+                ", ".join(f"{m} (newest safe end {newest_safe_end(now, m)})" for m in still_open),
+            )
+            sys.exit(1)
+    ends = {m: end or newest_safe_end(now, m) for m in markets}
+    before_start = {m: e for m, e in ends.items() if e < start}
+    if before_start:
+        logger.error(
+            "Nothing to fetch from %s: the end comes first in %s",
+            start,
+            ", ".join(f"{m} ({e})" for m, e in before_start.items()),
+        )
+        sys.exit(1)
     with get_session() as session:
-        by_market = {c: active_tickers(session, c) for c in ([code] if code else sorted(EXCHANGES))}
+        by_market = {c: active_tickers(session, c) for c in markets}
     tickers = [t for members in by_market.values() for t in members]
     if not tickers:
         target = code or "any market"
@@ -88,17 +117,20 @@ def _backfill(
             ", ".join(f"{t} ({why})" for t, why in sorted(refused.items())),
         )
         sys.exit(1)
-    logger.info(
-        "Backfilling %d %s tickers from %s to %s", len(tickers), code or "all-market", start, end
-    )
     total = 0
-    for i in range(0, len(tickers), batch_size):
-        batch = tickers[i : i + batch_size]
-        bars = fetch_daily_bars(batch, start, end)
-        with get_session() as session:
-            written = upsert_prices(session, bars)
-        total += written
-        logger.info("Batch %s..%s: wrote %d rows", batch[0], batch[-1], written)
+    for market, members in by_market.items():
+        if not members:
+            continue
+        logger.info(
+            "Backfilling %d %s tickers from %s to %s", len(members), market, start, ends[market]
+        )
+        for i in range(0, len(members), batch_size):
+            batch = members[i : i + batch_size]
+            bars = fetch_daily_bars(batch, start, ends[market])
+            with get_session() as session:
+                written = upsert_prices(session, bars)
+            total += written
+            logger.info("Batch %s..%s: wrote %d rows", batch[0], batch[-1], written)
     logger.info("Backfill complete: %d rows", total)
 
 
@@ -1196,7 +1228,14 @@ def main(argv: list[str] | None = None) -> None:
 
     backfill = sub.add_parser("backfill", help="Fetch and upsert daily bars for the universe")
     backfill.add_argument("--start", type=dt.date.fromisoformat, default=None)
-    backfill.add_argument("--end", type=dt.date.fromisoformat, default=None)
+    backfill.add_argument(
+        "--end",
+        type=dt.date.fromisoformat,
+        default=None,
+        help="Last date to fetch. Default: each market's newest closed session, or the one before "
+        "it while that market trades. A date whose fetch would reach a session that has not "
+        "closed is refused",
+    )
     backfill.add_argument("--exchange", default=None, help="Limit to one market, e.g. XJSE")
 
     quality = sub.add_parser("quality", help="Run data-quality checks on stored prices")

@@ -170,6 +170,10 @@ already having a bad day.
 Practical rule: **do not backfill a window whose end falls on a session still trading.** Wait
 for that session to close. Do not reach for a wider range instead — widening is what produces
 the phantom, and it recovers nothing that a one-day window would not already have returned.
+The end here is the request's, which is the window's last date plus one day, so while today
+trades a window ending yesterday is exposed too. Since 2026-10-27 `quantpulse backfill` keeps
+to this for each market: without `--end` it stops at the newest session it can fetch safely,
+and it refuses an `--end` whose request would reach a session that has not closed.
 
 Whatever the cause, the gap is left as a gap. Carrying the previous close forward or
 interpolating would fabricate the observation the CAPM decomposition divides by, and a
