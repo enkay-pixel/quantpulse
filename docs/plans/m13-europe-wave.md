@@ -139,7 +139,7 @@ XSWX = Exchange(code="XSWX", timezone="Europe/Zurich", close_hour=18,  # SIX end
                 currency="CHF", benchmark="CSSMI.SW", display_symbol="CHF ", ...)
 XAMS = Exchange(code="XAMS", timezone="Europe/Amsterdam", close_hour=18,
                 currency="EUR", benchmark="IAEX.AS", display_symbol="€", ...)
-# all: has_options=False, display_divisor=1.0, quantile_width=0.25,
+# all: has_options=False, display_divisor=1.0, quantile_width=0.25 (XAMS 0.33, set in phase 2),
 # ic_promotion_margin=0.027 and learning_rate_ceiling=0.02 until measured (phase 5)
 ```
 
@@ -169,6 +169,47 @@ processing.
 2. **Configure.** The four registry entries, the universe blocks (the 40 largest eligible names
    per market, checked against each index's current composition), the dbt `benchmarks` entries,
    and canonical English Wikipedia titles.
+
+   **Done 2026-10-27, not deployed: it goes live with phase 3's backfill.**
+
+   **Candidates.** The index members on English Wikipedia: DAX and MDAX; CAC 40 and CAC Next 20
+   (the SBF 120 page lists no members); SMI and SMIM; AEX and AMX.
+
+   **Chosen.** The same rule as London and the Kronos replication: quoted in the market's
+   currency, bars from early 2018, then the largest by market value.
+
+   | market | eligible | chosen | a side |
+   |---|---|---|---|
+   | XETR | 78 | 40 | 10 |
+   | XPAR | 50 | 40 | 10 |
+   | XSWX | 37 | 37 | 9 |
+   | XAMS | 30 | 30 | 10, at a 0.33 width (the owner's choice) |
+
+   **Left out:**
+   - companies another market here already holds: Shell, Unilever and RELX in London, Prosus on
+     the JSE, and Airbus, which goes to Paris;
+   - by the owner's choice, Holcim (the Amrize spin-off) and Stellantis (the 2021 merger), whose
+     histories carry corporate actions Yahoo does not credit.
+
+   Amsterdam has 30 rather than 35 because Wikipedia's AMX table still lists companies that have
+   left the market.
+
+   **The dividend check passes in all four markets.** It is the
+   [corporate-actions finding](../findings/uncredited-corporate-actions.md#proposed-checks-where-bars-arrive)'s
+   `dividends_credited`, run on every chosen name. The median share of each dividend that the
+   adjusted series credits is 1.026 to 1.029, so these markets are total returns, unlike the JSE's
+   and London's hundredth.
+
+   **One-day moves beyond −25% or +35%** among the chosen are all real: Delivery Hero (2022
+   guidance), Avolta and Fugro (March 2020), and Temenos (the 2024 short report).
+
+   **Wikipedia titles.** Each was checked against its article's first sentence, because a title
+   can resolve and still be the wrong page: Temenos is also a Greek word, Fresenius a surname, and
+   "OCI" redirects to a Korean company. Six companies have no English article of their own and are
+   listed as `null`: Helvetia Baloise, IMCD, TKH, Basic-Fit, OCI and AMG. The page-view fetch
+   leaves them out.
+
+   Evidence: `~/quantpulse-experiments/m13-europe/phase2/`.
 3. **Backfill and prove nothing moved.** Fingerprint the three markets, sync the universe,
    backfill all four from 2018, list the one-day moves that may be uncredited corporate actions
    (see Risks), build features, compare: the three must be identical.

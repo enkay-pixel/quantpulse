@@ -37,14 +37,41 @@ class FakeWiki:
 
 def test_every_configured_title_loads_as_a_string() -> None:
     titles = load_titles(PROJECT_ROOT / "configs/attention.yaml")
-    by_market = {
-        "XJSE": [k for k in titles if k.endswith(".JO")],
-        "XLON": [k for k in titles if k.endswith(".L")],
-        "XNYS": [k for k in titles if "." not in k or k == "BRK-B"],
+    suffixes = {
+        "XJSE": ".JO",
+        "XLON": ".L",
+        "XETR": ".DE",
+        "XPAR": ".PA",
+        "XSWX": ".SW",
+        "XAMS": ".AS",
     }
-    # Every stock in each market has a title; a drop here is a title lost, not a count to update.
-    assert {m: len(v) for m, v in by_market.items()} == {"XJSE": 28, "XLON": 40, "XNYS": 40}
-    assert all(isinstance(t, str) and t for t in titles.values())
+    by_market = {m: [k for k in titles if k.endswith(s)] for m, s in suffixes.items()}
+    by_market["XNYS"] = [k for k in titles if "." not in k or k == "BRK-B"]
+    # Every stock in each market has a title, less the six European companies with no English
+    # article; a drop here is a title lost, not a count to update.
+    assert {m: len(v) for m, v in by_market.items()} == {
+        "XJSE": 28,
+        "XLON": 40,
+        "XNYS": 40,
+        "XETR": 40,
+        "XPAR": 40,
+        "XSWX": 36,
+        "XAMS": 25,
+    }
+    assert all(isinstance(t, str) and t and t != "None" for t in titles.values())
+
+
+def test_a_company_with_no_english_article_is_named_not_counted(tmp_path: Path) -> None:
+    """`null` is a decision that no article stands for the company. It must not become the string
+    "None", which the fetch would then look up as a title."""
+    from quantpulse.research.attention import without_article
+
+    f = tmp_path / "attention.yaml"
+    f.write_text("titles:\n  ASML.AS: ASML\n  IMCD.AS: null  # no English article\n")
+    assert load_titles(f) == {"ASML.AS": "ASML"}
+    assert without_article(f) == {"IMCD.AS"}
+    configured = without_article(PROJECT_ROOT / "configs/attention.yaml")
+    assert configured == {"HBAN.SW", "IMCD.AS", "TWEKA.AS", "BFIT.AS", "OCI.AS", "AMG.AS"}
 
 
 def test_titles_with_ampersands_and_spaces_survive_the_url() -> None:

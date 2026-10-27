@@ -545,7 +545,8 @@ genuinely out-of-sample.
 ## Market — exchange
 
 `exchange` · Which stock exchange the figures belong to. XNYS is the New York Stock Exchange, XJSE
-the Johannesburg Stock Exchange, XLON the London Stock Exchange.
+the Johannesburg Stock Exchange, XLON the London Stock Exchange, XETR Xetra in Frankfurt, XPAR
+Euronext Paris, XSWX the SIX Swiss Exchange in Zurich and XAMS Euronext Amsterdam.
 
 ## Market code
 

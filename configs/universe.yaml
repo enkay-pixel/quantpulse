@@ -143,3 +143,174 @@ exchanges:
       - CRDA.L
       - FRES.L
       - IAG.L
+
+  # The first wave of more markets (docs/plans/m13-europe-wave.md), chosen 2026-10-27 by one
+  # rule: index members on English Wikipedia (DAX and MDAX; CAC 40 and CAC Next 20; SMI and SMIM;
+  # AEX and AMX), quoted by Yahoo in the market's currency with bars from early 2018, the 40
+  # largest by market value. Left out: companies another market here already holds (Shell,
+  # Unilever and RELX in London, Prosus on the JSE, Airbus taken by Paris), and Holcim and
+  # Stellantis, whose histories carry corporate actions Yahoo does not credit. Evidence:
+  # ~/quantpulse-experiments/m13-europe/phase2/.
+  XETR:
+    etfs:
+      - EXS1.DE
+    stocks:
+      - SAP.DE
+      - SIE.DE
+      - ALV.DE
+      - DTE.DE
+      - MUV2.DE
+      - IFX.DE
+      - DHL.DE
+      - MRK.DE
+      - DB1.DE
+      - DBK.DE
+      - EOAN.DE
+      - RHM.DE
+      - BAS.DE
+      - RWE.DE
+      - BAYN.DE
+      - CBK.DE
+      - MBG.DE
+      - VOW3.DE
+      - BMW.DE
+      - HNR1.DE
+      - TLX.DE
+      - HEN3.DE
+      - HOT.DE
+      - ADS.DE
+      - FRE.DE
+      - HEI.DE
+      - MTX.DE
+      - BEI.DE
+      - VNA.DE
+      - SY1.DE
+      - CON.DE
+      - DHER.DE
+      - G1A.DE
+      - FME.DE
+      - EVK.DE
+      - QIA.DE
+      - BNR.DE
+      - TKA.DE
+      - NDX1.DE
+      - LHA.DE
+  XPAR:
+    etfs:
+      - CAC.PA
+    stocks:
+      - OR.PA
+      - MC.PA
+      - TTE.PA
+      - AIR.PA
+      - SU.PA
+      - RMS.PA
+      - SAF.PA
+      - AI.PA
+      - BNP.PA
+      - SAN.PA
+      - CS.PA
+      - EL.PA
+      - DG.PA
+      - ENGI.PA
+      - HO.PA
+      - ACA.PA
+      - GLE.PA
+      - BN.PA
+      - ORA.PA
+      - STMPA.PA
+      - LR.PA
+      - SGO.PA
+      - DSY.PA
+      - PUB.PA
+      - VIE.PA
+      - KER.PA
+      - DIM.PA
+      - CAP.PA
+      - ENX.PA
+      - RI.PA
+      - EN.PA
+      - ERF.PA
+      - BVI.PA
+      - GET.PA
+      - RXL.PA
+      - BIM.PA
+      - AC.PA
+      - LI.PA
+      - FGR.PA
+      - CA.PA
+  XSWX:
+    etfs:
+      - CSSMI.SW
+    stocks:
+      - RO.SW
+      - NOVN.SW
+      - NESN.SW
+      - ABBN.SW
+      - UBSG.SW
+      - CFR.SW
+      - ZURN.SW
+      - SREN.SW
+      - LONN.SW
+      - GIVN.SW
+      - SCHP.SW
+      - SIKA.SW
+      - SLHN.SW
+      - HBAN.SW
+      - SGSN.SW
+      - EMSN.SW
+      - LISP.SW
+      - GEBN.SW
+      - VACN.SW
+      - SOON.SW
+      - PGHN.SW
+      - STMN.SW
+      - BAER.SW
+      - LOGN.SW
+      - SPSN.SW
+      - BEAN.SW
+      - UHR.SW
+      - PSPN.SW
+      - AVOL.SW
+      - BARN.SW
+      - FHZN.SW
+      - SQN.SW
+      - TEMN.SW
+      - GF.SW
+      - GALE.SW
+      - ADEN.SW
+      - CLN.SW
+  XAMS:
+    etfs:
+      - IAEX.AS
+    stocks:
+      - ASML.AS
+      - INGA.AS
+      - HEIA.AS
+      - MT.AS
+      - ASM.AS
+      - ABN.AS
+      - AD.AS
+      - PHIA.AS
+      - NN.AS
+      - WKL.AS
+      - KPN.AS
+      - ASRNL.AS
+      - BESI.AS
+      - AGN.AS
+      - AKZA.AS
+      - RAND.AS
+      - VPK.AS
+      - IMCD.AS
+      - SBMO.AS
+      - AALB.AS
+      - ARCAD.AS
+      - APAM.AS
+      - TWEKA.AS
+      - BFIT.AS
+      - CRBN.AS
+      - FLOW.AS
+      - FUR.AS
+      - OCI.AS
+      - AMG.AS
+      - PNL.AS

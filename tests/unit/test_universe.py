@@ -54,17 +54,19 @@ def test_every_registered_market_is_fully_onboarded() -> None:
     by the backfill instead (`test_quote_currency.py`).
     """
     from quantpulse.data.calendar import EXCHANGES
-    from quantpulse.research.attention import load_titles
+    from quantpulse.research.attention import load_titles, without_article
 
     root = Path(__file__).parents[2]
     entries = load_universe(root / "configs" / "universe.yaml")
     titles = load_titles(root / "configs" / "attention.yaml")
+    # Listed as having no English article is a decision; absent is an omission.
+    titles_or_none = set(titles) | without_article(root / "configs" / "attention.yaml")
     for code, ex in EXCHANGES.items():
         stocks = [e.ticker for e in entries if e.exchange == code and e.asset_type == "stock"]
         etfs = {e.ticker for e in entries if e.exchange == code and e.asset_type == "etf"}
         assert ex.benchmark in etfs, f"{code}: its benchmark {ex.benchmark} is not in its universe"
         assert round(len(stocks) * ex.quantile_width) >= 8, f"{code}: too few names per side"
-        missing = [t for t in stocks if t not in titles]
+        missing = [t for t in stocks if t not in titles_or_none]
         assert not missing, f"{code}: no Wikipedia title for {missing}"
 
 

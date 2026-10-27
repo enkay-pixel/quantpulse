@@ -75,9 +75,25 @@ class NoPageViewsReturned(RuntimeError):
 
 
 def load_titles(path: Path) -> dict[str, str]:
+    """Each stock's article title. A stock listed as `null` has no English article of its own and
+    is left out; `without_article` names them."""
+    titles = _titles(path)
+    return {str(ticker): str(title) for ticker, title in titles.items() if title is not None}
+
+
+def without_article(path: Path) -> set[str]:
+    """Stocks the file lists with no English article (`null`), as opposed to stocks it forgot.
+
+    Six European companies have none. Counting a near-miss page instead would measure interest in
+    something else; IMCD's title, for one, leads to a page on kidney anatomy.
+    """
+    return {str(ticker) for ticker, title in _titles(path).items() if title is None}
+
+
+def _titles(path: Path) -> dict[object, object]:
     data = yaml.safe_load(path.read_text())
     titles = data.get("titles", {}) if isinstance(data, dict) else {}
-    return {str(ticker): str(title) for ticker, title in titles.items()}
+    return dict(titles or {})
 
 
 def article_path(title: str) -> str:
