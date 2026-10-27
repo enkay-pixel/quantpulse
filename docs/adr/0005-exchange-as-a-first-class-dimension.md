@@ -66,8 +66,9 @@ Before ingesting:
    late; the freshness check reports that).
 5. **Breadth.** `quantile_width` gives about ten names a side, and every stock has a canonical
    Wikipedia title. `test_every_registered_market_is_fully_onboarded` checks both.
-6. **Registry.** Timezone, close hour, currency, display unit, `has_options`, the dbt `benchmarks`
-   entry, and an `ic_promotion_margin`, which has no default.
+6. **Registry.** A `display_name` (the city, shown in the dashboard's market menu), timezone,
+   close hour, currency, display unit, `has_options`, the dbt `benchmarks` entry, and an
+   `ic_promotion_margin`. Neither the name nor the margin has a default.
 
 Onboarding:
 

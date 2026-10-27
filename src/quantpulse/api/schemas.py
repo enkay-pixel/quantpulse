@@ -626,6 +626,7 @@ class ExchangeOut(BaseModel):
     """One market the dashboard can switch to."""
 
     code: str
+    display_name: str
     timezone: str
     currency: str
     benchmark: str

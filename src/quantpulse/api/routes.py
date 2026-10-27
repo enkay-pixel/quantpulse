@@ -522,6 +522,7 @@ def exchanges(session: SessionDep) -> list[schemas.ExchangeOut]:
     return [
         schemas.ExchangeOut(
             code=ex.code,
+            display_name=ex.display_name,
             timezone=ex.timezone,
             currency=ex.currency,
             benchmark=ex.benchmark,

@@ -159,6 +159,13 @@ processing.
    identical, all 256,001 of them (`phase0_proof.py` in the evidence folder).
 1. **Generic changes.** The dashboard's market picker becomes a menu: seven four-letter buttons do
    not fit a phone's width. Nothing else on the dashboard names a market, which London proved.
+   **Done 2026-10-27:**
+   - The picker is a native menu.
+   - Each option names its market by city beside its code, as in "Johannesburg (XJSE)". The
+     names come from a required `display_name` in the registry, served by `/exchanges`, so a
+     new market cannot be registered without one.
+   - Checked in the browser at desktop and phone width: the menu is 164 px wide at 375 px, with
+     no sideways scroll.
 2. **Configure.** The four registry entries, the universe blocks (the 40 largest eligible names
    per market, checked against each index's current composition), the dbt `benchmarks` entries,
    and canonical English Wikipedia titles.

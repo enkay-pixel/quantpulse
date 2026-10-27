@@ -20,6 +20,9 @@ terms:
   code:
     label: Market code
     meaning: The exchange's standard four-letter code, such as XNYS or XJSE.
+  display_name:
+    label: Market name
+    meaning: The market's plain name, by the city it trades in, such as New York or Johannesburg.
   asset_type:
     label: Kind
     meaning: Whether the ticker is a company's stock or a fund (ETF) that holds many stocks.
