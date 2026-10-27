@@ -18,4 +18,9 @@ describe("BenchmarkEquityChart", () => {
     expect(screen.getByText("Index fund (STX40.JO), bought and held")).toBeInTheDocument();
     expect(screen.queryByText(/SPY/)).not.toBeInTheDocument();
   });
+
+  it("says a market without a model has no book yet, not that the pipeline has yet to run", () => {
+    render(<BenchmarkEquityChart curve={{ ...curve, points: [] }} />);
+    expect(screen.getByText(/once a model clears the promotion gate/)).toBeInTheDocument();
+  });
 });

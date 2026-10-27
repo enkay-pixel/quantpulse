@@ -1,7 +1,8 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phases 0–3 done by 2026-10-27 (Europe backfilled, the three live
-markets proven unchanged); phase 4, first champions, next.** It follows the checklist London produced
+**Status: APPROVED 2026-10-22; phases 0–4 done by 2026-10-28 (Europe backfilled, the three live
+markets proven unchanged, Zurich's first champion promoted, Frankfurt, Paris and Amsterdam without
+a model); phase 5, the margin and ceiling studies, next.** It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -125,6 +126,17 @@ Phase 0 therefore changes how the work is laid out. It does not change what is c
 
 Every run since the cap rose is under the 85% line, so phase 1 can start.
 
+**Night three, the first with seven markets (2026-10-27/28), after the backfill:**
+
+- **Processing (01:00):** 1,441 MiB at its heaviest, **70%** of the cap, against 1,430 MiB with
+  three markets.
+- **The `features` step** took 418 MiB in 41 s, against 417 MiB in 20 s with three markets. Its
+  memory follows the largest market and its time the sum, as phase 0 intended.
+- **The four European ingests at 21:30 SAST** held at most 1,198 MiB, 58%.
+- **`resource_headroom` passed.** Postgres stood at 190 of its 512 MiB at 01:15.
+- **Not yet read with seven markets:** the research job, whose first such run is 13:00 on
+  2026-10-28.
+
 ## The markets
 
 The calendar codes and timezones below are verified. The trading hours and Roche's listing come
@@ -237,6 +249,42 @@ processing.
 4. **First champions** through the unchanged gate. Any market whose first model misses the Sharpe
    floor shows its data and research without a model. Then replay-score each market's history,
    build the marts, and read every market in the browser, prices included.
+
+   **Done 2026-10-28, from 01:10 SAST, once that night's processing run had been checked.** Every
+   step ran in a throwaway container. **Zurich has its first champion. Frankfurt, Paris and
+   Amsterdam do not**, and show their data and research without a model.
+
+   | market | holdout IC | momentum's IC | needed | holdout Sharpe | outcome |
+   |---|---|---|---|---|---|
+   | XETR | 0.022 | −0.002 | 0.025 | 0.65 | rejected: short of momentum plus the margin |
+   | XPAR | −0.043 | 0.015 | 0.042 | −1.14 | rejected: IC below zero |
+   | XSWX | 0.024 | −0.025 | 0.002 | 1.34 | **promoted, v1** |
+   | XAMS | −0.003 | 0.042 | 0.069 | −1.08 | rejected: IC below zero |
+
+   *Needed* is momentum's IC plus the market's margin, the 0.027 placeholder. Each holdout runs
+   from 2025-06-19 or 06-20 to 2026-09-28, 320 to 327 days.
+
+   - **Frankfurt missed on the placeholder margin, by 0.003.** A first model must beat momentum
+     by the market's margin, and Europe's is the placeholder until phase 5 measures it. At a
+     margin of 0.024 or less this candidate would have been promoted. The gate stays unchanged;
+     Saturday's retrain fits a new candidate, judged on the measured margin.
+   - **Paris and Amsterdam fail on their own IC,** which is below zero, so no margin would have
+     promoted them.
+   - **Zurich, replayed:** 81,775 predictions from 2018-04-04 to 2026-10-27, and three books
+     through 2026-10-26. The daily book's in-sample replay is +42.7% over 2,151 days, Sharpe 0.65.
+     Its live record starts with the next processing run.
+   - **The marts** built with all 145 dbt models and tests passing.
+   - **The fingerprint of XNYS, XJSE and XLON** prices, features, predictions and books through
+     2026-10-27 is **identical** before and after.
+   - **The dashboard, read for all seven markets.** Zurich shows prices in CHF beside CSSMI.SW,
+     champion v1, and its replay labelled in-sample. The three without a model showed no price at
+     all, because the price panel cycles through the model's forecasts and they have none. It now
+     cycles through the market's stocks instead (in €), and the empty panels say no model has
+     cleared the gate rather than that nothing has been trained.
+   - **`predictions_are_current` fails every night** until those three have champions, because it
+     reports a market with no predictions. It does not block anything or raise an alert.
+
+   Evidence: `~/quantpulse-experiments/m13-europe/phase4/`.
 5. **Measure before the first challenger.** For each market, a margin study (about 10 minutes)
    and a learning-rate ceiling study (about 1.5 hours). They run one at a time in throwaway
    containers, about 7 hours in all, and must finish before the next Saturday retrain. Then

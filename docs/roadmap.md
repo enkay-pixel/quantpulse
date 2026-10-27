@@ -485,8 +485,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     rest follow, each after the previous wave's headroom reading. Phase 0 makes the features step
     work one market at a time, so its memory follows the largest market rather than the sum, and
     caps every run at two steps at once. It was deployed 2026-10-23, a day early: that night's
-    processing run had held 99% of the daemon's cap. It is measured against the 85% line before
-    anything is backfilled.
+    processing run had held 99% of the daemon's cap. Measured against the 85% line, it cleared at
+    70% on a 2 GiB cap, and stayed at 70% with seven markets. Europe was backfilled on 2026-10-27,
+    with the three live markets proven unchanged. On 2026-10-28 Zurich's first model was promoted,
+    while Frankfurt's, Paris's and Amsterdam's did not clear the gate. Next are each market's margin
+    and learning-rate ceiling studies, before the 2026-10-31 retrain.
 
 ## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 

@@ -37,6 +37,6 @@ describe("PredictionsTable", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/No predictions yet/)).toBeInTheDocument();
+    expect(screen.getByText(/once a model clears the promotion gate/)).toBeInTheDocument();
   });
 });

@@ -1,10 +1,33 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useRotatingTicker } from "../hooks/useRotatingTicker";
+import type { UniverseMember } from "../api/types";
+import { priceTickers, useRotatingTicker } from "../hooks/useRotatingTicker";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
+
+describe("priceTickers", () => {
+  const universe: UniverseMember[] = [
+    { ticker: "SAP.DE", exchange: "XETR", asset_type: "stock", active: true },
+    { ticker: "EXS1.DE", exchange: "XETR", asset_type: "etf", active: true },
+    { ticker: "OLD.DE", exchange: "XETR", asset_type: "stock", active: false },
+    { ticker: "NESN.SW", exchange: "XSWX", asset_type: "stock", active: true },
+  ];
+
+  it("cycles through the forecasts when the market has them", () => {
+    expect(priceTickers(["NESN.SW"], universe, "XSWX")).toEqual(["NESN.SW"]);
+  });
+
+  it("falls back to the market's active stocks when it has no forecasts", () => {
+    // Frankfurt's first model did not clear the gate (2026-10-28): its prices still show.
+    expect(priceTickers([], universe, "XETR")).toEqual(["SAP.DE"]);
+  });
+
+  it("shows nothing while the forecasts are still loading", () => {
+    expect(priceTickers(undefined, universe, "XETR")).toEqual([]);
+  });
+});
 
 describe("useRotatingTicker", () => {
   it("starts on the first ticker and advances on each interval", () => {

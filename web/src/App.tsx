@@ -67,12 +67,13 @@ import {
   useQuintiles,
   useRisk,
   useTrackRecord,
+  useUniverse,
   useWatchlist,
 } from "./hooks/useApi";
 import { ExchangePicker } from "./components/ExchangePicker";
 import { useExchange } from "./hooks/useExchange";
 import { useHashTab } from "./hooks/useHashTab";
-import { useRotatingTicker } from "./hooks/useRotatingTicker";
+import { priceTickers, useRotatingTicker } from "./hooks/useRotatingTicker";
 import {
   USD,
   formatDate,
@@ -133,10 +134,14 @@ function OverviewTab({
   const predictions = usePredictions(exchange);
   const drift = useDrift(exchange);
   const trackRecord = useTrackRecord(exchange);
+  const history = useModelHistory(exchange);
+  const universe = useUniverse();
 
-  const tickers = predictions.data?.rows.map((r) => r.ticker) ?? [];
+  const forecasts = predictions.data?.rows.map((r) => r.ticker);
+  const tickers = priceTickers(forecasts, universe.data, exchange);
   const rotation = useRotatingTicker(tickers);
   const activeTicker = rotation.ticker;
+  const hasForecasts = (forecasts?.length ?? 0) > 0;
 
   // The headline row reports the live phase, not the replay. A paper return that includes
   // the in-sample replay is the largest number on the page and the least meaningful one;
@@ -160,7 +165,8 @@ function OverviewTab({
               ? `holdout IC ${formatNumber(model.data.metrics.holdout_ic, 3)}`
               : emptyReason(
                   model.isError ? "error" : model.data ? "ready" : "loading",
-                  "not trained yet",
+                  // Trained and rejected is not the same as never trained.
+                  history.data?.length ? "none has cleared the gate" : "not trained yet",
                 )
           }
         />
@@ -198,7 +204,9 @@ function OverviewTab({
                 >
                   {rotation.isPinned
                     ? "Pinned — rotation resumes in a few minutes."
-                    : "Cycling through today's strongest forecasts — select a stock in the list to keep it here."}
+                    : hasForecasts
+                      ? "Cycling through today's strongest forecasts — select a stock in the list to keep it here."
+                      : "Cycling through this market's stocks — there are no forecasts until a model clears the promotion gate."}
                 </p>
                 <PriceChart ticker={activeTicker} money={money} />
               </>
