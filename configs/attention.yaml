@@ -122,3 +122,159 @@ titles:
   CRDA.L: Croda International
   FRES.L: Fresnillo plc
   IAG.L: International Airlines Group
+
+  # Europe (M13). Six companies have no English article of their own; `null` says so, and the
+  # page-view fetch leaves them out rather than counting a different page. Checked 2026-10-27
+  # against each article's first sentence, since a title can resolve and still be the wrong page
+  # (Temenos is also a Greek word, Fresenius a surname).
+  # Frankfurt
+  SAP.DE: SAP
+  SIE.DE: Siemens
+  ALV.DE: Allianz
+  DTE.DE: Deutsche Telekom
+  MUV2.DE: Munich Re
+  IFX.DE: Infineon Technologies
+  DHL.DE: DHL Group
+  MRK.DE: Merck Group
+  DB1.DE: Deutsche Börse
+  DBK.DE: Deutsche Bank
+  EOAN.DE: E.ON
+  RHM.DE: Rheinmetall
+  BAS.DE: BASF
+  RWE.DE: RWE
+  BAYN.DE: Bayer
+  CBK.DE: Commerzbank
+  MBG.DE: Mercedes-Benz Group
+  VOW3.DE: Volkswagen Group
+  BMW.DE: BMW
+  HNR1.DE: Hannover Re
+  TLX.DE: Talanx
+  HEN3.DE: Henkel
+  HOT.DE: Hochtief
+  ADS.DE: Adidas
+  FRE.DE: Fresenius (company)
+  HEI.DE: Heidelberg Materials
+  MTX.DE: MTU Aero Engines
+  BEI.DE: Beiersdorf
+  VNA.DE: Vonovia
+  SY1.DE: Symrise
+  CON.DE: Continental AG
+  DHER.DE: Delivery Hero
+  G1A.DE: GEA Group
+  FME.DE: Fresenius Medical Care
+  EVK.DE: Evonik Industries
+  QIA.DE: Qiagen
+  BNR.DE: Brenntag
+  TKA.DE: ThyssenKrupp
+  NDX1.DE: Nordex
+  LHA.DE: Lufthansa
+  # Paris
+  OR.PA: "L'Oréal"
+  MC.PA: LVMH
+  TTE.PA: TotalEnergies
+  AIR.PA: Airbus
+  SU.PA: Schneider Electric
+  RMS.PA: Hermès
+  SAF.PA: Safran
+  AI.PA: Air Liquide
+  BNP.PA: BNP Paribas
+  SAN.PA: Sanofi
+  CS.PA: Axa
+  EL.PA: EssilorLuxottica
+  DG.PA: Vinci SA
+  ENGI.PA: Engie
+  HO.PA: Thales Group
+  ACA.PA: Crédit Agricole
+  GLE.PA: Société Générale
+  BN.PA: Danone
+  ORA.PA: Orange Group
+  STMPA.PA: STMicroelectronics
+  LR.PA: Legrand (company)
+  SGO.PA: Saint-Gobain
+  DSY.PA: Dassault Systèmes
+  PUB.PA: Publicis
+  VIE.PA: Veolia
+  KER.PA: Kering
+  DIM.PA: Sartorius AG
+  CAP.PA: Capgemini
+  ENX.PA: Euronext
+  RI.PA: Pernod Ricard
+  EN.PA: Bouygues
+  ERF.PA: Eurofins Scientific
+  BVI.PA: Bureau Veritas
+  GET.PA: Getlink
+  RXL.PA: Rexel
+  BIM.PA: BioMérieux
+  AC.PA: Accor
+  LI.PA: Klépierre
+  FGR.PA: Eiffage
+  CA.PA: Carrefour
+  # Zurich
+  RO.SW: Roche
+  NOVN.SW: Novartis
+  NESN.SW: Nestlé
+  ABBN.SW: ABB
+  UBSG.SW: UBS
+  CFR.SW: Richemont
+  ZURN.SW: Zurich Insurance Group
+  SREN.SW: Swiss Re
+  LONN.SW: Lonza Group
+  GIVN.SW: Givaudan
+  SCHP.SW: Schindler Group
+  SIKA.SW: Sika AG
+  SLHN.SW: Swiss Life
+  HBAN.SW: null  # no English article for the merged Helvetia Baloise; Bâloise covers only the former half
+  SGSN.SW: SGS S.A.
+  EMSN.SW: Ems-Chemie
+  LISP.SW: Lindt
+  GEBN.SW: Geberit
+  VACN.SW: VAT Group
+  SOON.SW: Sonova
+  PGHN.SW: Partners Group
+  STMN.SW: Straumann
+  BAER.SW: Julius Baer Group
+  LOGN.SW: Logitech
+  SPSN.SW: Swiss Prime Site
+  BEAN.SW: BELIMO Holding
+  UHR.SW: The Swatch Group
+  PSPN.SW: PSP Swiss Property
+  AVOL.SW: Avolta
+  BARN.SW: Barry Callebaut
+  FHZN.SW: Flughafen Zürich AG
+  SQN.SW: Swissquote
+  TEMN.SW: Temenos AG
+  GF.SW: Georg Fischer (company)
+  GALE.SW: Galenica
+  ADEN.SW: Adecco
+  CLN.SW: Clariant
+  # Amsterdam
+  ASML.AS: ASML
+  INGA.AS: ING Group
+  HEIA.AS: Heineken N.V.
+  MT.AS: ArcelorMittal
+  ASM.AS: ASM International
+  ABN.AS: ABN AMRO
+  AD.AS: Ahold Delhaize
+  PHIA.AS: Philips
+  NN.AS: NN Group
+  WKL.AS: Wolters Kluwer
+  KPN.AS: KPN
+  ASRNL.AS: ASR Nederland
+  BESI.AS: Besi
+  AGN.AS: Aegon
+  AKZA.AS: AkzoNobel
+  RAND.AS: Randstad NV
+  VPK.AS: Vopak
+  IMCD.AS: null  # no English article: "IMCD" leads to a kidney anatomy page
+  SBMO.AS: SBM Offshore
+  AALB.AS: Aalberts
+  ARCAD.AS: Arcadis
+  APAM.AS: Aperam
+  TWEKA.AS: null  # no English article (TKH Group)
+  BFIT.AS: null  # no English article
+  CRBN.AS: Corbion
+  FLOW.AS: Flow Traders
+  FUR.AS: Fugro
+  OCI.AS: null  # no English article: "OCI N.V." redirects to Orascom Construction, a separate company
+  AMG.AS: null  # no English article (AMG Critical Materials)
+  PNL.AS: PostNL

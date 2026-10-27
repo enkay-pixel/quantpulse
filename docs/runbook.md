@@ -42,6 +42,7 @@ Durations measured 2026-09-19 over the preceding nine days.
 |---|---|---|---|
 | 19:30 Mon–Fri | JSE ingest | seconds | recovered by the catch-up sensor |
 | 20:30 Mon–Fri | London ingest (21:30 from late October to late March) | seconds | recovered by the catch-up sensor |
+| 20:30 Mon–Fri | Frankfurt, Paris, Zurich and Amsterdam ingests, from M13's backfill (21:30 from late October to late March) | seconds each; they queue one at a time behind London | recovered by the catch-up sensor |
 | ~22:10–22:35 Mon–Fri | options snapshot | 3–11 min | **recoverable only until 06:00** |
 | 23:30 Mon–Fri | research watchlist: bars and chains | under a minute | that evening's watchlist chains are not captured; bars catch up the next evening |
 | 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |

@@ -114,7 +114,69 @@ XLON = Exchange(
     quantile_width=0.25,  # 40 names -> 10 per side, matching the other markets
 )
 
-EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE, XLON)}
+# The first wave of more markets (docs/plans/m13-europe-wave.md). Each European session ends at
+# 17:30 local time, so the first whole hour after it is 18. Their margins and ceilings are
+# placeholders until measured before the first challenger (the plan's phase 5): 0.027 is the
+# widest margin measured on any market, so no challenger is promoted on too small a one, and 0.02
+# is the ceiling both non-US markets needed.
+XETR = Exchange(
+    code="XETR",
+    display_name="Frankfurt",
+    timezone="Europe/Berlin",
+    close_hour=18,  # Xetra ends 17:30
+    currency="EUR",
+    benchmark="EXS1.DE",  # iShares Core DAX
+    has_options=False,  # no free Eurex chain data
+    ic_promotion_margin=0.027,  # placeholder until measured
+    learning_rate_ceiling=0.02,  # placeholder until measured
+    display_symbol="€",
+    quantile_width=0.25,  # 40 names -> 10 per side
+)
+
+XPAR = Exchange(
+    code="XPAR",
+    display_name="Paris",
+    timezone="Europe/Paris",
+    close_hour=18,  # Euronext ends 17:30
+    currency="EUR",
+    benchmark="CAC.PA",  # Amundi CAC 40
+    has_options=False,
+    ic_promotion_margin=0.027,  # placeholder until measured
+    learning_rate_ceiling=0.02,  # placeholder until measured
+    display_symbol="€",
+    quantile_width=0.25,  # 40 names -> 10 per side
+)
+
+XSWX = Exchange(
+    code="XSWX",
+    display_name="Zurich",
+    timezone="Europe/Zurich",
+    close_hour=18,  # SIX ends 17:30
+    currency="CHF",
+    benchmark="CSSMI.SW",  # iShares SMI
+    has_options=False,
+    ic_promotion_margin=0.027,  # placeholder until measured
+    learning_rate_ceiling=0.02,  # placeholder until measured
+    display_symbol="CHF ",  # a word, not a sign, so it needs the space: CHF 12.50
+    quantile_width=0.25,  # 37 names -> 9 per side
+)
+
+XAMS = Exchange(
+    code="XAMS",
+    display_name="Amsterdam",
+    timezone="Europe/Amsterdam",
+    close_hour=18,  # Euronext ends 17:30
+    currency="EUR",
+    benchmark="IAEX.AS",  # iShares AEX
+    has_options=False,
+    ic_promotion_margin=0.027,  # placeholder until measured
+    learning_rate_ceiling=0.02,  # placeholder until measured
+    display_symbol="€",
+    quantile_width=0.33,  # 30 names -> 10 per side, as the JSE takes 35% of 29
+)
+
+
+EXCHANGES: dict[str, Exchange] = {e.code: e for e in (XNYS, XJSE, XLON, XETR, XPAR, XSWX, XAMS)}
 DEFAULT_EXCHANGE = XNYS.code
 
 
