@@ -12,7 +12,8 @@ export function PredictionsTable({ predictions, selectedTicker, onSelect }: Prop
   if (predictions.rows.length === 0) {
     return (
       <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-        No predictions yet — they appear after the first training and scoring runs.
+        No predictions yet — they appear once a model clears the promotion gate. The Model &amp;
+        Book tab shows each training decision.
       </p>
     );
   }

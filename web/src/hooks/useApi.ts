@@ -18,6 +18,14 @@ export const useHealth = () =>
     refetchInterval: REFRESH_MS,
   });
 
+// The listings change only when the universe file is synced, so one fetch per page load.
+export const useUniverse = () =>
+  useQuery({
+    queryKey: ["universe"],
+    queryFn: api.universe,
+    staleTime: Infinity,
+  });
+
 export const usePredictions = (exchange: string) =>
   useQuery({
     queryKey: ["predictions", exchange],

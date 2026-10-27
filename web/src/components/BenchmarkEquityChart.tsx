@@ -78,7 +78,7 @@ export function BenchmarkEquityChart({
   if (curve.points.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>
-        No portfolio history yet — the daily pipeline populates this after its first runs.
+        No paper book yet — it starts once a model clears the promotion gate and scores the market.
       </div>
     );
   }
