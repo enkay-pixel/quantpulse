@@ -36,19 +36,20 @@ switching off at 08:00 skips them, which loses nothing but the report.
 
 ### What runs in those windows
 
-Durations measured 2026-09-19 over the preceding nine days.
+Durations measured 2026-09-19 over the preceding nine days; the European ingests, processing and
+research re-measured on the first nights with seven markets (2026-10-27/28).
 
 | time (SAST) | what | duration | if the laptop is off |
 |---|---|---|---|
 | 19:30 Mon–Fri | JSE ingest | seconds | recovered by the catch-up sensor |
 | 20:30 Mon–Fri | London ingest (21:30 from late October to late March) | seconds | recovered by the catch-up sensor |
-| 20:30 Mon–Fri | Frankfurt, Paris, Zurich and Amsterdam ingests, from M13's backfill (21:30 from late October to late March) | seconds each; they queue one at a time behind London | recovered by the catch-up sensor |
+| 20:30 Mon–Fri | Frankfurt, Paris, Zurich and Amsterdam ingests (21:30 from late October to late March) | 17–25 s each; they queue one at a time behind London, and all five were done by 21:32 on 2026-10-27 | recovered by the catch-up sensor |
 | ~22:10–22:35 Mon–Fri | options snapshot | 3–11 min | **recoverable only until 06:00** |
 | 23:30 Mon–Fri | research watchlist: bars and chains | under a minute | that evening's watchlist chains are not captured; bars catch up the next evening |
 | 00:30 Tue–Sat | NYSE ingest | seconds | recovered by the catch-up sensor |
-| 01:00 Tue–Sat | processing | 4–7 min | recovered by the catch-up sensor |
+| 01:00 Tue–Sat | processing | about 6.5 min with seven markets (3–4 with three) | recovered by the catch-up sensor |
 | 07:00 daily | backup | about a minute | skipped for that day |
-| 13:00 Mon–Fri | research: short interest, attention, ownership filings, fundamentals | a minute or two | caught up by the next run, which fetches whatever it has not stored |
+| 13:00 Mon–Fri | research: short interest, attention, ownership filings, fundamentals | about 3 min with seven markets (under a minute with three) | caught up by the next run, which fetches whatever it has not stored |
 | 15:00 Saturday | retrain | 1.4 min with three markets (2026-10-24) | re-run on return, unless killed mid-run |
 
 The launchd checks in [Host agents](#host-agents-launchd) are reports: a skipped one loses

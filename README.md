@@ -5,8 +5,9 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![React 19](https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=black)](web/package.json)
 
-A local-first MLOps platform for a **self-adapting ML investing model**, running **two markets —
-NYSE and the JSE** side by side. Fully free, fully open-source, runs on one machine via Docker:
+A local-first MLOps platform for a **self-adapting ML investing model**, running **seven markets**
+side by side: New York, Johannesburg and London, and since October 2026 Frankfurt, Paris, Zurich
+and Amsterdam. Fully free, fully open-source, runs on one machine via Docker:
 automated per-market data pipelines, scheduled retraining with champion/challenger promotion, drift
 monitoring, a serving API, and a live dashboard with a market switcher.
 
@@ -16,44 +17,49 @@ model's signals are research output in a sandbox — not trade recommendations.
 ## The live record
 
 The only numbers here worth judging. Each market's live phase starts at its first champion
-promotion; everything before that is an in-sample replay, kept separate on purpose.
+promotion; everything before that is an in-sample replay, kept separate on purpose. The table
+covers the two markets with enough live sessions to read. London's first champion was promoted on
+2026-10-18 and Zurich's on 2026-10-28, so both are still below the 20-session floor under which
+ratios are withheld; Frankfurt, Paris and Amsterdam have no champion yet, because their first
+candidates did not clear the gate.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
-| Live sessions | 63 (2026-07-20 to 2026-10-15) | 59 (2026-07-23 to 2026-10-15) |
-| Total return | **+1.77%** | **+1.40%** |
-| Sharpe | **+0.65** | **+0.80** |
-| Max drawdown | −4.16% | −2.23% |
-| Alpha (annualized) | +4.7% ± 24.0% | +2.4% ± 16.2% |
-| Alpha t-statistic | **+0.19** | **+0.15** |
-| Information ratio | −0.47 | −0.26 |
-| Beta / R² | −0.08 / 0.005 | −0.03 / 0.004 |
-| Win rate | 52.4% | 49.2% |
+| Live sessions | 70 (2026-07-20 to 2026-10-26) | 66 (2026-07-23 to 2026-10-26) |
+| Total return | **+2.29%** | **+0.46%** |
+| Sharpe | **+0.74** | **+0.27** |
+| Max drawdown | −4.89% | −2.58% |
+| Alpha (annualized) | +5.7% ± 22.6% | −2.0% ± 14.9% |
+| Alpha t-statistic | **+0.25** | **−0.13** |
+| Information ratio | −0.13 | +0.04 |
+| Beta / R² | −0.12 / 0.013 | 0.00 / 0.000 |
+| Win rate | 54.3% | 50.0% |
 
 **Neither market has produced a result yet.** After three months live, both books are up, the
-NYSE by 1.8% and the JSE by 1.4%, and neither is distinguishable from zero. Each alpha's standard
-error is larger than the estimate: t of +0.19 and +0.15, against the ~2 that would separate
-either from noise. The NYSE book was up 3.5% two sessions earlier, which is how much a few days
+NYSE by 2.3% and the JSE by 0.5%, and neither is distinguishable from zero. Each alpha's standard
+error is larger than the estimate: t of +0.25 and −0.13, against the ~2 that would separate
+either from noise. The JSE's alpha was +2.4% seven sessions earlier, which is how much a few days
 move a figure this young. On the JSE the champion's own forward skill is about zero
-([scored against momentum](docs/findings/champion-vs-momentum.md)), and the standing decision to
-keep running it comes up for review at 60 live sessions, around 2026-10-20.
+([scored against momentum](docs/findings/champion-vs-momentum.md)); the standing decision to keep
+running it was reviewed at 60 live sessions on 2026-10-20 and kept; the shadow run's verdict is the
+next moment to change it.
 
 An earlier version of this table, a month in, quoted a −22.6% NYSE alpha and argued "the sign is
 the sign". Two months later the same alpha is positive. A sign is only a sign once it clears its
 own error bar, and neither has. The annualized figures are a few percent of total return scaled
 up to a year, not a rate anything has sustained.
 
-Beta −0.08 and −0.03, with R² below 0.01, confirm both books are genuinely market-neutral, so
-whatever these returns are, they are not disguised market exposure. The information ratio is
-negative on both markets even though both made money: it is benchmark-relative and not
-beta-adjusted, so a market-neutral book that sits out a rising index scores badly on it by
-construction. Alpha and the information ratio answer different questions and are expected to
-disagree here.
+Beta −0.12 and 0.00, with R² near zero (0.013 and below 0.001), confirm both books are genuinely
+market-neutral, so whatever these returns are, they are not disguised market exposure. The
+information ratio is negative on the NYSE even though its book made money: it is
+benchmark-relative and not beta-adjusted, so a market-neutral book that sits out a rising index
+scores badly on it by construction. Alpha and the information ratio answer different questions
+and are expected to disagree here.
 
 Ratios stay withheld below 20 sessions, because a handful of days annualizes into a
 confident-looking number that is pure noise. The floor is necessary and not sufficient, which is
 what the standard error column is for: clearing 20 days does not make an estimate mean anything,
-and at 60 it still does not here.
+and at 70 it still does not here.
 
 The replay figures below are in-sample throughout. They describe a fit, not a forecast.
 
@@ -72,7 +78,7 @@ Model &amp; Book, and Research tabs</summary>
 
 The CAPM decomposition is what makes the record readable: **a low beta and near-zero R²
 confirm the book is genuinely market-neutral**, so comparing its raw return to SPY was never
-the right test. The screenshots (taken 2026-10-17) show the live phase — 63 sessions out of
+the right test. The screenshots (taken 2026-10-28) show the live phase — 70 sessions out of
 sample on the NYSE — where alpha's error band still spans zero, and the panel says so rather
 than leaving the headline number to speak. The same decomposition for both markets is in the
 table at the top of this page.
@@ -110,10 +116,10 @@ built on the two mechanics behind GameStop in January 2021. For each name with o
 shows the short interest, meaning shares sold short and not yet bought back. Beside that is the
 stock dealers would have to buy per 1% rise if they had sold every listed call. On 2026-10-16 the
 most-shorted of the 40 stocks was ADBE, at 5.1% of its float; GameStop's was above 100% then. The
-strike chart shows where a name's hedging exposure sits against its price. Below that, for both
-markets, is **attention**: each stock's daily Wikipedia views against its usual level. That is the
-one research measure the JSE has free. GameStop's reached 42× its usual on 28 January 2021, but
-only 2.1× on the 22nd, when its price had already tripled.
+strike chart shows where a name's hedging exposure sits against its price. Below that, for every
+market, is **attention**: each stock's daily Wikipedia views against its usual level. That is the
+one research measure the markets outside New York have free. GameStop's reached 42× its usual on
+28 January 2021, but only 2.1× on the 22nd, when its price had already tripled.
 
 Between them, for US stocks, is **ownership** from the filings US law requires: insiders' trades
 in their own company's stock (Form 4) and every holder over 5% (Schedules 13D and 13G). Only
@@ -170,9 +176,9 @@ when one fires.
 Switching to XJSE re-scopes everything: **beta is measured against STX40.JO** (not SPY —
 comparing a JSE book to the S&P would measure the rand, not the strategy), the Options tab
 is gone (no free JSE chain data), and the numbers are the JSE champion's. Its in-sample
-replay looked strong — alpha +16%, IR 0.42, all three books positive — but live, over 59
-sessions to 2026-10-15, its alpha is +2.4% ± 16.2% a year (the current champion is up 1.7%
-over its 57): nothing it could claim in either direction.
+replay looked strong — alpha +16%, IR 0.42, all three books positive — but live, over 66
+sessions to 2026-10-26, its alpha is −2.0% ± 14.9% a year (the current champion is up 0.7%
+over its 64): nothing it could claim in either direction.
 
 There is a sharper caveat than that. `quantpulse baseline` scores every champion against
 simple rules on the same holdout, and on the JSE **a plain 63-day momentum rule beats the
@@ -204,10 +210,11 @@ flowchart LR
     API --> WEB[React dashboard]
 ```
 
-- **Two markets, one platform** — NYSE and the JSE run side by side. `exchange` is a first-class
-  dimension: per-market calendars and post-close schedules (in each market's timezone),
-  cross-sectional features ranked *within* a market, one champion per market, and a dashboard
-  switcher. Cross-sectional ranking that mixed Naspers with Apple would be noise, so it never does.
+- **Seven markets, one platform** — New York, Johannesburg, London, Frankfurt, Paris, Zurich and
+  Amsterdam run side by side. `exchange` is a first-class dimension: per-market calendars and
+  post-close schedules (in each market's timezone), cross-sectional features ranked *within* a
+  market, one champion per market, and a dashboard market menu. Cross-sectional ranking that mixed
+  Naspers with Apple would be noise, so it never does.
 - **Ingestion** — daily OHLCV bars for a configurable multi-market universe
   ([configs/universe.yaml](configs/universe.yaml)), with retries, rate-limit respect, vendor
   unit-glitch repair (Yahoo occasionally reports JSE prices in Rand not cents), and data-quality
@@ -282,7 +289,7 @@ market ingests after its own close in its own timezone, processing runs once aft
 latest close, and retraining runs weekly plus on detected drift. The dashboard's
 pre-champion equity history is an **in-sample replay** to seed the charts — the live track
 record accrues from the first scheduled runs onward. Switch markets on the dashboard with
-the XNYS / XJSE toggle (also in the URL: `?market=XJSE`).
+the market menu (also in the URL: `?market=XJSE`).
 
 | UI | URL |
 |---|---|
