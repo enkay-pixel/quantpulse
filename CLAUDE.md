@@ -132,6 +132,9 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   same way: CI pins `setup-uv` and the rev must match the `uv-pre-commit` hook, or the
   two write lock files in formats the other did not expect. Note the locally installed
   uv is a third version and is nobody's to pin — keep it near the other two by hand.
+  CI's **Python** is pinned the same way, to the pipeline image's (`python-version` on setup-uv
+  against `docker/dagster.Dockerfile`): unnamed, it was the runner's, and `ubuntu-latest` moving
+  to 26.04 on 2026-10-28 made that 3.14, where the locked dbt stack fails to import.
 - mypy strict-ish; pytest markers: `integration` needs live Postgres.
 - dbt: `transform/`, profiles via env vars, tests use the `arguments:` nesting,
   package pins in `transform/package-lock.yml` (committed). Marts join the Dagster

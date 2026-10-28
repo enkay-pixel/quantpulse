@@ -448,7 +448,11 @@ The Docker Hub base images (python, node, nginx) are pinned by tag and digest, s
 the same tag upstream cannot change what is built; Dependabot proposes new digests monthly. A
 python digest bump changes the image the weekly retrain runs in, usually by a patch release
 (3.12.14 to 3.12.15 was waiting on 2026-10-17). Merge it like any dependency patch, but not in
-the days before the shadow verdict is read. The mlflow image is pinned by exact version only: a
+the days before the shadow verdict is read. A minor-version bump (3.12 to 3.13) also moves the
+Python CI tests on: `check_tool_pins.py` fails the pull request until the workflow's
+`python-version` matches, and `--fix` writes it. CI names its Python because the runner's own is
+nobody's choice: `ubuntu-latest` moved to Ubuntu 26.04 on 2026-10-28, whose python3 is 3.14, and
+the locked dbt stack does not import there. The mlflow image is pinned by exact version only: a
 digest beside its tag would make `check_tool_pins.py` check a tag Docker ignores.
 
 ## Resource headroom
