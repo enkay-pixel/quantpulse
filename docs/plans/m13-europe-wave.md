@@ -281,8 +281,10 @@ processing.
      all, because the price panel cycles through the model's forecasts and they have none. It now
      cycles through the market's stocks instead (in €), and the empty panels say no model has
      cleared the gate rather than that nothing has been trained.
-   - **`predictions_are_current` fails every night** until those three have champions, because it
-     reports a market with no predictions. It does not block anything or raise an alert.
+   - **`predictions_are_current` failed every night** on those three, because it reported any
+     market with no predictions. Since 2026-10-28 a market that has never had a champion passes
+     and is listed under `awaiting_first_champion`, so the check can still go red for a market
+     that really has stopped (the owner's choice).
 
    Evidence: `~/quantpulse-experiments/m13-europe/phase4/`.
 5. **Measure before the first challenger.** For each market, a margin study (about 10 minutes)

@@ -262,7 +262,10 @@ local-first platform actually hits:
   numbers rather than corrupting them.
 - `predictions_are_current` (asset check) — fails when a configured market's predictions
   fall > 4 days behind its features, i.e. scoring is silently writing nothing (no champion,
-  or a renamed registry). Nothing else surfaces "the numbers just stopped moving".
+  or a renamed registry). Nothing else surfaces "the numbers just stopped moving". A market
+  that has never had a champion passes, listed under `awaiting_first_champion`: no predictions
+  is correct there, and failing on it kept the check red every night from 2026-10-28, when
+  Frankfurt, Paris and Amsterdam's first candidates missed the gate.
 - `predictions_cover_priced_listings` (asset check) — fails when a market's newest scored
   session left out more than one listing that had a bar. Processing scores what has arrived by
   19:00 New York, so a late vendor leaves the rest unscored: New York's 2026-10-23 was scored
