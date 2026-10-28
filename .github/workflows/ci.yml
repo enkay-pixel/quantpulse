@@ -34,7 +34,8 @@ jobs:
       - name: Check the pinned tool versions agree
         # ruff, uv, markdownlint and gitleaks are each pinned twice — a pre-commit rev and a
         # second declaration CI installs from. A disagreement is not a missing tool but a
-        # disagreeing one: the hook formats a commit one way and CI checks it another.
+        # disagreeing one: the hook formats a commit one way and CI checks it another. The same
+        # check holds the MLflow image to its client and CI's Python to the pipeline image's.
         run: python3 scripts/check_tool_pins.py
 
       - name: Install uv
@@ -45,6 +46,10 @@ jobs:
           # tracks whatever uv released this morning while the hook stays where it was,
           # and the lock they disagree about is the one every install reads.
           version: "0.11.29"
+          # The Python the images run (docker/dagster.Dockerfile). Left unnamed, uv takes the
+          # runner's own: ubuntu-latest moved to 26.04 on 2026-10-28, whose python3 is 3.14, and
+          # the locked dbt stack does not import there. check_tool_pins.py holds the two together.
+          python-version: "3.12"
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
