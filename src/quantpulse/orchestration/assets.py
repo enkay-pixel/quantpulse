@@ -272,10 +272,17 @@ def predictions() -> dg.MaterializeResult:
 def predictions_are_current() -> dg.AssetCheckResult:
     """Catch a market whose predictions have quietly stopped updating, or skipped a day.
 
-    A market can have data, features and a universe yet no champion — the registry name
-    changed, or a candidate failed the promotion gate. Scoring then writes nothing while
-    the dashboard keeps serving yesterday's predictions as if they were today's. That is
-    the worst kind of failure here: nothing errors, the numbers just stop moving.
+    A market can have data, features and a universe yet scoring finds no champion — the
+    registry name changed, say. Scoring then writes nothing while the dashboard keeps serving
+    yesterday's predictions as if they were today's. That is the worst kind of failure here:
+    nothing errors, the numbers just stop moving.
+
+    A market that has never had a champion is different: no predictions is what it should
+    have, whether it is newly configured or its first candidates all failed the gate
+    (Frankfurt, Paris and Amsterdam from 2026-10-28). Failing on it kept the check red every
+    night, and a check that is already red cannot report a market that really has gone stale.
+    So it is listed under `awaiting_first_champion` and passes. Once any model has been
+    promoted there, no predictions at all fails again.
 
     Lag alone is not enough. Comparing only the two *maxima* is blind to a hole in the
     middle: when a session goes unscored, the next night's run pushes both maxima forward
@@ -295,14 +302,26 @@ def predictions_are_current() -> dg.AssetCheckResult:
         "FROM predictions p JOIN universe u ON u.ticker = p.ticker GROUP BY u.exchange",
         get_engine(),
     )
+    # Shadow rows never decide, so `run_type` is belt and braces here.
+    ever_promoted = set(
+        pd.read_sql(
+            "SELECT DISTINCT exchange FROM model_runs "
+            "WHERE run_type = 'train' AND decision = 'promoted'",
+            get_engine(),
+        )["exchange"]
+    )
     metadata: dict[str, dg.MetadataValue] = {}
     stale = []
+    awaiting = []
     with get_session() as session:
         configured = {e for e in sorted(EXCHANGES) if active_tickers(session, e)}
     seen = set(rows["exchange"]) if not rows.empty else set()
     for exchange in sorted(configured):
         if exchange not in seen:
-            stale.append(f"{exchange}: no predictions at all")
+            if exchange in ever_promoted:
+                stale.append(f"{exchange}: no predictions at all, though a model was promoted")
+            else:
+                awaiting.append(exchange)
             continue
         row = rows[rows["exchange"] == exchange].iloc[0]
         lag = (row["latest_feature"] - row["latest_prediction"]).days
@@ -316,6 +335,8 @@ def predictions_are_current() -> dg.AssetCheckResult:
         metadata[f"{exchange}/unscored_days"] = dg.MetadataValue.int(len(gaps))
         if gaps:
             stale.append(f"{exchange}: {len(gaps)} feature date(s) never scored: {gaps[:5]}")
+    if awaiting:
+        metadata["awaiting_first_champion"] = dg.MetadataValue.json(awaiting)
     return dg.AssetCheckResult(
         passed=not stale,
         metadata={**metadata, **({"stale": dg.MetadataValue.json(stale)} if stale else {})},

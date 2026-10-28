@@ -17,6 +17,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from quantpulse.data.universe import UniverseEntry, sync_universe
+from quantpulse.db.models import ModelRun
 from quantpulse.features.engineering import FEATURE_COLUMNS, FEATURE_VERSION
 from quantpulse.features.store import store_features
 from quantpulse.ml import pipeline, registry
@@ -204,6 +205,37 @@ def test_the_check_catches_a_hole_that_the_maxima_hide(
     assert result.metadata["XNYS/unscored_days"].value == 1
     assert result.metadata["XNYS/lag_days"].value == 0  # lag alone would have said "fine"
     assert str(LATE) in str(result.metadata["stale"].value)
+
+
+def _record_run(engine: Engine, decision: str) -> None:
+    with Session(engine) as session:
+        session.add(
+            ModelRun(run_type="train", exchange="XNYS", model_version="1", decision=decision)
+        )
+        session.commit()
+
+
+def test_a_market_that_never_had_a_champion_is_expected_to_have_no_predictions(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its first candidate failed the gate, so nothing scores it, and that is correct. Failing
+    here kept the check red every night, where it could not report a market really gone stale."""
+    _record_run(seeded, "rejected")
+    result = _run_check(seeded, monkeypatch)
+    assert result.passed
+    assert result.metadata["awaiting_first_champion"].value == ["XNYS"]
+
+
+def test_no_predictions_after_a_promotion_still_fails(
+    seeded: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A market that has had a champion and has no predictions is the renamed-registry case:
+    scoring finds nothing to load and writes nothing, so it must stay a failure."""
+    _record_run(seeded, "promoted")
+    result = _run_check(seeded, monkeypatch)
+    assert not result.passed
+    assert "XNYS: no predictions at all" in str(result.metadata["stale"].value)
+    assert "awaiting_first_champion" not in result.metadata
 
 
 def test_the_window_widens_to_cover_a_long_outage(
