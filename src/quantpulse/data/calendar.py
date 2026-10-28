@@ -115,10 +115,9 @@ XLON = Exchange(
 )
 
 # The first wave of more markets (docs/plans/m13-europe-wave.md). Each European session ends at
-# 17:30 local time, so the first whole hour after it is 18. Their margins and ceilings are
-# placeholders until measured before the first challenger (the plan's phase 5): 0.027 is the
-# widest margin measured on any market, so no challenger is promoted on too small a one, and 0.02
-# is the ceiling both non-US markets needed.
+# 17:30 local time, so the first whole hour after it is 18. Their margins and ceilings were
+# measured on 2026-10-28, before the first challenger (the plan's phase 5). None of the four
+# needed a ceiling, so all keep the default 0.2; see both findings for the readings.
 XETR = Exchange(
     code="XETR",
     display_name="Frankfurt",
@@ -127,8 +126,7 @@ XETR = Exchange(
     currency="EUR",
     benchmark="EXS1.DE",  # iShares Core DAX
     has_options=False,  # no free Eurex chain data
-    ic_promotion_margin=0.027,  # placeholder until measured
-    learning_rate_ceiling=0.02,  # placeholder until measured
+    ic_promotion_margin=0.006,  # no champion yet: measured on what its tuner chose
     display_symbol="€",
     quantile_width=0.25,  # 40 names -> 10 per side
 )
@@ -141,8 +139,7 @@ XPAR = Exchange(
     currency="EUR",
     benchmark="CAC.PA",  # Amundi CAC 40
     has_options=False,
-    ic_promotion_margin=0.027,  # placeholder until measured
-    learning_rate_ceiling=0.02,  # placeholder until measured
+    ic_promotion_margin=0.017,  # no champion yet: measured on what its tuner chose
     display_symbol="€",
     quantile_width=0.25,  # 40 names -> 10 per side
 )
@@ -155,8 +152,7 @@ XSWX = Exchange(
     currency="CHF",
     benchmark="CSSMI.SW",  # iShares SMI
     has_options=False,
-    ic_promotion_margin=0.027,  # placeholder until measured
-    learning_rate_ceiling=0.02,  # placeholder until measured
+    ic_promotion_margin=0.023,  # measured on its champion v1's specification
     display_symbol="CHF ",  # a word, not a sign, so it needs the space: CHF 12.50
     quantile_width=0.25,  # 37 names -> 9 per side
 )
@@ -169,8 +165,7 @@ XAMS = Exchange(
     currency="EUR",
     benchmark="IAEX.AS",  # iShares AEX
     has_options=False,
-    ic_promotion_margin=0.027,  # placeholder until measured
-    learning_rate_ceiling=0.02,  # placeholder until measured
+    ic_promotion_margin=0.031,  # no champion yet: measured on what its tuner chose
     display_symbol="€",
     quantile_width=0.33,  # 30 names -> 10 per side, as the JSE takes 35% of 29
 )
