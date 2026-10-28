@@ -7,7 +7,8 @@ For *how* it was built and every bug paid for along the way, see
 ## What this project is
 
 A local-first, zero-cost MLOps platform for a self-adapting ML investing model, now running
-**three markets — NYSE, the JSE and London**. Dagster orchestrates daily ingest → features → champion
+**seven markets — NYSE, the JSE and London, and since 2026-10-27 Frankfurt, Paris, Zurich and
+Amsterdam**. Dagster orchestrates daily ingest → features → champion
 scoring → paper books → drift checks per market; weekly and drift-triggered retraining
 promotes challengers through the MLflow registry; dbt builds analytics marts; FastAPI serves
 them; a React dashboard presents the evidence with a market switcher. Everything runs free
