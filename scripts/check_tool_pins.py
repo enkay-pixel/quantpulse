@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Keep every tool version that is written down twice from drifting apart.
 
-Five tools are pinned in two places each. Four are a pre-commit `rev` against the version CI
+Six versions are pinned in two places each. Four are a pre-commit `rev` against the version CI
 installs — `ruff` from the `pyproject.toml` pin, and `uv`, `markdownlint` and `gitleaks` from
 the workflow. The fifth is the MLflow server image against the client in the lock: the
-registry is a client/server pair, and the image comment asks for them to match.
+registry is a client/server pair, and the image comment asks for them to match. The sixth is
+the Python CI tests on against the Python the pipeline image runs: unnamed, CI took whatever
+the runner shipped, and on 2026-10-28 that became 3.14, a version nothing here runs.
 
 When a pair disagrees the failure is not a missing tool but a disagreeing one: the hook
 formats a file one way and CI checks it another, or a client talks to a server built from a
@@ -59,13 +61,23 @@ PINS = (
         prefix="v",
     ),
     # Anchored on the setup-uv block: the first `version:` in the workflow belongs to whatever
-    # action happens to be pinned first, and matching that would compare the wrong thing.
+    # action happens to be pinned first, and matching that would compare the wrong thing. The
+    # key must start its line, or `python-version:` in the same block would match instead.
     Pin(
         "uv",
         WORKFLOW,
-        r'astral-sh/setup-uv(?:.|\n){0,400}?version: "([^"]+)"',
+        r'astral-sh/setup-uv(?:.|\n){0,400}?\n +version: "([^"]+)"',
         CONFIG,
         pre_commit_rev("https://github.com/astral-sh/uv-pre-commit"),
+    ),
+    # The image is the source: Dependabot moves its tag and digest, and CI follows. Major.minor
+    # only, since the image's patch release is whatever that digest holds.
+    Pin(
+        "python",
+        pathlib.Path("docker/dagster.Dockerfile"),
+        r"^FROM python:(\d+\.\d+)[-@]",
+        WORKFLOW,
+        r'astral-sh/setup-uv(?:.|\n){0,800}?\n +python-version: "([^"]+)"',
     ),
     Pin(
         "markdownlint",
