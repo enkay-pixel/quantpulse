@@ -1,8 +1,9 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
-**Status: APPROVED 2026-10-22; phases 0–4 done by 2026-10-28 (Europe backfilled, the three live
-markets proven unchanged, Zurich's first champion promoted, Frankfurt, Paris and Amsterdam without
-a model); phase 5, the margin and ceiling studies, next.** It follows the checklist London produced
+**Status: APPROVED 2026-10-22; phases 0–5 done by 2026-10-28 (Europe backfilled, the three live
+markets proven unchanged, Zurich's first champion promoted, Frankfurt, Paris and Amsterdam
+without a model, and each market's margin and ceiling measured). The 2026-10-31 retrain judges the
+first challengers.** It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -134,13 +135,17 @@ Every run since the cap rose is under the 85% line, so phase 1 can start.
   memory follows the largest market and its time the sum, as phase 0 intended.
 - **The four European ingests at 21:30 SAST** held at most 1,198 MiB, 58%.
 - **`resource_headroom` passed.** Postgres stood at 190 of its 512 MiB at 01:15.
-- **Not yet read with seven markets:** the research job, whose first such run is 13:00 on
-  2026-10-28.
+- **The research job (13:00 on 2026-10-28),** its first run with seven markets, reached
+  1,566 MiB, **76.5%** of the cap, in 3 minutes 14 seconds. Its readings with three markets were
+  63% and 65%. Its steps each peaked at 397 MiB or less, as before, so what grew is the container
+  around them, not any one step.
+
+So with seven markets every run is under the 85% line; the heaviest is about 175 MiB below it.
 
 ## The markets
 
 The calendar codes and timezones below are verified. The trading hours and Roche's listing come
-from this check; the margins and ceilings are placeholders until measured.
+from this check. The margins and ceilings began as placeholders and were measured in phase 5.
 
 ```python
 XETR = Exchange(code="XETR", timezone="Europe/Berlin", close_hour=18,  # Xetra ends 17:30
@@ -155,9 +160,10 @@ XAMS = Exchange(code="XAMS", timezone="Europe/Amsterdam", close_hour=18,
 # ic_promotion_margin=0.027 and learning_rate_ceiling=0.02 until measured (phase 5)
 ```
 
-The 0.027 placeholder is the widest margin measured on any market, so a challenger cannot be
-promoted on a too-small margin before its own is measured. 0.02 is the ceiling both non-US
-markets needed.
+The 0.027 placeholder was the widest margin measured on any market, so that a challenger could not
+be promoted on a too-small margin before its own was measured. 0.02 was the ceiling both non-US
+markets needed. Phase 5 replaced both: margins 0.006 XETR, 0.017 XPAR, 0.023 XSWX and 0.031 XAMS,
+and the default ceiling, 0.2, for all four.
 
 Ingest runs at 20:30 local time: 21:30 SAST from 2026-10-25, when Europe's clocks change, and
 20:30 SAST in summer. That is before New York closes, so all seven markets are in each night's
@@ -292,6 +298,39 @@ processing.
    containers, about 7 hours in all, and must finish before the next Saturday retrain. Then
    update the runbook with the new ingest times and record the headroom with seven markets.
 
+   **Done 2026-10-28, from 17:13 to 21:43 SAST.** The rules were written down before the first
+   fit, and every panel was built from the bars stored by 15:00 UTC that day. Each ceiling study
+   took about an hour and each margin study one or two minutes.
+
+   | market | ceiling | collapses at 0.2 / 0.06 / 0.02 | margin | was |
+   |---|---|---|---|---|
+   | XETR | 0.2 | 2 / 1 / 2 of 18 | **0.006** | 0.027 |
+   | XPAR | 0.2 | 18 / 18 / 18 | **0.017** | 0.027 |
+   | XSWX | 0.2 | 4 / 4 / 5 | **0.023** | 0.027 |
+   | XAMS | 0.2 | 12 / 11 / 11 | **0.031** | 0.027 |
+
+   - **No market needs a ceiling.** Adopting one needs at least three fewer collapses out of 18,
+     and none removes more than one. London's collapses came from the fastest learning rates;
+     Europe's mostly do not ([learning-rate-ceiling.md](../findings/learning-rate-ceiling.md#europe-2026-10-28)).
+   - **Each study measures production.** The newest panel at seed 42 under the placeholder
+     reproduces each first model's holdout IC to four decimals, in all four markets.
+   - **The margins, from 2 sd of a sixteen-seed refit** ([promotion-margin.md](../findings/promotion-margin.md#europe-2026-10-28)).
+     Zurich's is on its champion's specification. The other three are on what the tuner chose,
+     since none has a champion, and each is re-measured on its first one.
+   - **One first decision would have gone the other way on the measured margins: Frankfurt's.**
+     Its model clears 0.006, and Zurich's promotion holds at 0.023. Frankfurt's is not re-judged;
+     the 2026-10-31 retrain fits a new candidate.
+   - **Amsterdam's margin is wider than the placeholder,** which was meant to be a safe upper
+     bound. Its first model scored below zero, so no decision would have been different.
+   - **The runbook carries the European ingest times** ([runbook](../runbook.md)), and the headroom
+     with seven markets is above: research 76.5% and processing 70.4% of the 2 GiB cap.
+   - **The values take effect when the pipeline image is rebuilt,** which has to happen before the
+     2026-10-31 retrain at 15:00 SAST.
+   - **The shadow run is unaffected.** Its verdict reads only XNYS and XJSE, whose settings did not
+     change.
+
+   Evidence: `~/quantpulse-experiments/m13-europe/phase5/`.
+
 ## Risks
 
 | Risk | Mitigation |
@@ -302,7 +341,7 @@ processing.
 | A spin-off or merger Yahoo does not credit | Found in the [Kronos replication](../findings/kronos-fresh-stocks.md#what-the-data-held-found-while-checking-it): Holcim −48% on 2025-06-16 (Amrize), Sulzer −35% in 2021 (medmix), Stellantis +95% in 2021 (the merger). The unit repair catches only ×100 glitches. Phase 3 lists every one-day move beyond −25% or +35% and checks each against the company's filings before features are computed. The same scan of the live markets (2026-10-23) found dividends the larger risk: the JSE and London credit them at a hundredth. One name in each of the four markets credits in full, but run the [dividend check](../findings/uncredited-corporate-actions.md#proposed-checks-where-bars-arrive) on every name before the backfill |
 | The weekly retrain no longer fits the laptop's Saturday window | Saturday's three-market duration is read first; seven markets roughly double it |
 | A post-midnight drift retrain blocks a session's retry | Found 2026-10-24 ([finding](../findings/partial-cross-sections.md#why-nothing-fixes-it-afterwards)): the catch-up counts a session as used by any training run created that local day, and Europe's clocks pass midnight before the 01:05 SAST drift retrain, as London's does. Fixed 2026-10-24: a run has used a session only if the session's bars were stored before it |
-| Placeholder margins promote a lucky challenger | The placeholder is the widest measured margin, and phase 5 measures each before the first challenger |
+| Placeholder margins promote a lucky challenger | The placeholder is the widest measured margin, and phase 5 measures each before the first challenger. Measured 2026-10-28: Amsterdam's, 0.031, is wider, but its first model scored below zero, so nothing was promoted on it |
 | English Wikipedia is a weak attention signal for a mid cap | The ownership-free markets already rely on it; it is a feature, not a gate |
 | The Kronos replication uses three of these markets | It reads prices from its own file, never the database; onboarding starts after it has been read |
 

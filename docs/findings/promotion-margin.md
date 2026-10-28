@@ -3,7 +3,8 @@
 **In short:** A new model replaces the champion only if it scores better by a margin set from how
 much a score moves by chance. Re-measured while adding London, that chance movement had grown
 since the margins were set, to three times the JSE's margin, so the margins were raised to match.
-No past decision changes.
+No past decision changes. The four European markets were measured the same way on 2026-10-28, and
+their margins run from 0.006 to 0.031.
 
 ## What the margin is
 
@@ -63,6 +64,43 @@ The mechanism matches what [three-tree-champion.md](three-tree-champion.md) foun
 early-stopping split, which does not predict the holdout: the round it picks is close to arbitrary,
 and that arbitrariness now shows up in every IC the gate compares.
 
+## Europe (2026-10-28)
+
+Frankfurt, Paris, Zurich and Amsterdam joined on 2026-10-27 with a **placeholder** of 0.027, the
+widest margin then measured, and were measured before their first challenger. Each specification was
+refitted under seeds 0–15 on the bars stored by 2026-10-28 15:00 UTC and scored on the gate's
+holdout, 2025-06-19 or 06-20 to 2026-09-28. This came after each market's learning-rate ceiling was
+settled at 0.2 ([learning-rate-ceiling.md](learning-rate-ceiling.md#europe-2026-10-28)), because the
+ceiling decides which specification the tuner returns.
+
+Only Zurich has a champion, so it is measured on v1's specification, as London was. The other three
+have none, so each is measured on what production's tuner chooses at seed 42 under the new ceiling.
+That was decided before running, as was taking the value whatever it came out as.
+
+| market | specification | learning rate | holdout IC, mean of 16 | sd | **2 sd** | placeholder |
+|---|---|---|---|---|---|---|
+| XETR | tuned | 0.0073 | 0.0249 | 0.0028 | **0.006** | 0.027 |
+| XPAR | tuned | 0.0377 | −0.0328 | 0.0083 | **0.017** | 0.027 |
+| XSWX | champion v1 | 0.0091 | 0.0306 | 0.0115 | **0.023** | 0.027 |
+| XAMS | tuned | 0.0641 | 0.0334 | 0.0156 | **0.031** | 0.027 |
+
+- **Amsterdam's is wider than the placeholder.** The placeholder was chosen as the widest margin
+  then measured, so that no challenger could be promoted on too small a one. Amsterdam shows that
+  was not a bound. It did no harm: Amsterdam's first model scored below zero, which no margin
+  decides.
+- **Frankfurt's is the narrowest measured on any market.** Its first model, judged on 2026-10-28,
+  scored IC 0.0223 against momentum's −0.0017. That clears 0.006 and missed the placeholder by
+  0.003. It is not re-judged: the 2026-10-31 retrain fits a new candidate against the measured
+  margin.
+- **Paris's specification never ranks the market.** All 16 seeds score below zero (−0.043 to
+  −0.013), so the gate's floor of IC ≥ 0 stops its candidates before the margin is reached.
+- **Amsterdam's tuned learning rate is London v1's,** 0.06408 in both. With the same seed and the
+  same bounds, the tuner's first ten trials are the same draws in every market
+  ([tuning-budget.md](tuning-budget.md)). A tuned specification is often one of those fixed draws,
+  not something the market chose.
+
+Scripts and logs: `~/quantpulse-experiments/m13-europe/phase5/`.
+
 ## What changed
 
 | market | before | now |
@@ -70,6 +108,10 @@ and that arbitrariness now shows up in every IC the gate compares.
 | XNYS | 0.006 | **0.009** |
 | XJSE | 0.008 | **0.026** |
 | XLON | — | **0.027** |
+| XETR | 0.027, placeholder | **0.006** |
+| XPAR | 0.027, placeholder | **0.017** |
+| XSWX | 0.027, placeholder | **0.023** |
+| XAMS | 0.027, placeholder | **0.031** |
 
 `ic_promotion_margin` no longer has a default, so a new market must state one deliberately and
 measure it before its first challenger is judged.
@@ -94,3 +136,9 @@ rather than reading the registry, so this change cannot move what either conclud
 - **The spread belongs to the champion's specification.** A challenger with different parameters,
   say a higher learning rate that keeps more rounds, may re-roll narrower or wider. Each
   champion change is a reason to re-measure.
+- **Three of Europe's margins rest on a specification no market has adopted.** Frankfurt's, Paris's
+  and Amsterdam's were measured on what the tuner chose on one panel, and the 2026-10-31 retrain
+  tunes on a newer one and may choose differently. Frankfurt's 0.006 came from a specification that
+  re-rolls unusually narrowly, and one tuned on another panel can be several times noisier:
+  Amsterdam's spread is more than five times Frankfurt's. Each is re-measured on its market's
+  first champion.

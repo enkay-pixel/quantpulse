@@ -489,8 +489,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     processing run had held 99% of the daemon's cap. Measured against the 85% line, it cleared at
     70% on a 2 GiB cap, and stayed at 70% with seven markets. Europe was backfilled on 2026-10-27,
     with the three live markets proven unchanged. On 2026-10-28 Zurich's first model was promoted,
-    while Frankfurt's, Paris's and Amsterdam's did not clear the gate. Next are each market's margin
-    and learning-rate ceiling studies, before the 2026-10-31 retrain.
+    while Frankfurt's, Paris's and Amsterdam's did not clear the gate. The same day each market's
+    margin and learning-rate ceiling were measured: none needs a ceiling, and the margins are 0.006
+    Frankfurt, 0.017 Paris, 0.023 Zurich and 0.031 Amsterdam, against the 0.027 placeholder. The
+    2026-10-31 retrain judges the first challengers on them. With seven markets the heaviest run,
+    the research job, holds 76.5% of the cap.
 
 ## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 
