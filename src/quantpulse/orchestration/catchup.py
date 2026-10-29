@@ -90,9 +90,9 @@ def process_overdue(day: dt.date, now: dt.datetime | None = None) -> bool:
     and processing does not run until 01:00 SAST the next morning.
 
     A checker that expects both the moment ingest lands reports a stall for those hours every
-    weekday. That is what happened on 2026-09-01: features sat a day behind prices, both
-    `check-daily-pipeline` and `stack-check` called it stalled, and the run they were waiting
-    for succeeded on time at 23:00 UTC that night.
+    weekday. That is what happened on 2026-09-01: features sat a day behind prices,
+    `check-daily-pipeline` and a second health check both called it stalled, and the run they
+    were waiting for succeeded on time at 23:00 UTC that night.
 
     Judged in exchange-independent New York time, because the schedule is: `day` is the
     trading date being asked about, and the JSE session on `day` closes the same New York
