@@ -242,14 +242,10 @@ docker compose exec -T api grep -c "some_new_symbol" /app/src/quantpulse/api/rou
 
 ## Host agents (launchd)
 
-Nine scheduled jobs on the dev machine. Each keeps only its *schedule* in
+This repo schedules nine jobs on the dev machine. Each keeps only its *schedule* in
 `~/Library/LaunchAgents/com.quantpulse.*.plist`; the logic lives in `scripts/` or the
 Makefile, so changing behaviour is a code change with a diff. All log to
 `~/Library/Logs/quantpulse-*.log`.
-
-(Other `com.quantpulse.*` agents exist on this machine — `stack-check`, `secret-scan`,
-`wake-digest` and friends — but their scripts live in `~/.claude/scripts/` and belong to the
-separate agent fleet, not this repo. The ones below are the ones a fresh clone can restore.)
 
 | Agent | When | Does |
 |---|---|---|
