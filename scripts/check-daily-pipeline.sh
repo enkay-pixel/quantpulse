@@ -12,6 +12,13 @@
 # separates them by reporting which stage each market reached and which model version did the
 # scoring.
 #
+# A market that has never had a champion is different again: no predictions is what it should
+# have (Frankfurt, Paris and Amsterdam from 2026-10-28, whose first candidates missed the gate).
+# Reporting it as stalled every morning made this alert something to ignore, so it is reported
+# as awaiting its first champion instead, and its prices are still held to the calendar. Once
+# any model has been promoted there, missing predictions is a stall again. It is the same rule
+# as the predictions_are_current asset check.
+#
 # Notifies, never acts. Same rule as the other checks: re-running the pipeline from a script
 # is how a partial day gets written twice, and the catch-up sensor already retries on its own.
 set -uo pipefail
@@ -118,22 +125,33 @@ while read -r code expected proc_expected; do
                coalesce((SELECT max(pr.model_version) FROM predictions pr JOIN universe u
                          ON u.ticker=pr.ticker AND u.exchange='$code'
                          WHERE pr.date=(SELECT max(pr2.date) FROM predictions pr2 JOIN universe u2
-                                        ON u2.ticker=pr2.ticker AND u2.exchange='$code')),'?');")
-    IFS='|' read -r prices feats preds ver <<<"$row"
+                                        ON u2.ticker=pr2.ticker AND u2.exchange='$code')),'?')||'|'||
+               (SELECT count(*) FROM model_runs
+                 WHERE exchange='$code' AND run_type='train' AND decision='promoted');")
+    IFS='|' read -r prices feats preds ver promoted <<<"$row"
+    # Only both together: a failed query leaves `promoted` empty and `preds` not 'none', so
+    # it still reports a stall rather than passing as a market without a model.
+    awaiting=0
+    if [ "$preds" = none ] && [ "$promoted" = 0 ]; then
+        awaiting=1
+        scored="no predictions (awaiting first champion)"
+    else
+        scored="predictions $preds (v$ver)"
+    fi
     if [ "$proc_expected" = "$expected" ]; then
-        printf '  %-5s expected %s | prices %s | features %s | predictions %s (v%s)\n' \
-            "$code" "$expected" "$prices" "$feats" "$preds" "$ver"
+        printf '  %-5s expected %s | prices %s | features %s | %s\n' \
+            "$code" "$expected" "$prices" "$feats" "$scored"
     else
         # Say which date each stage is being held to, so a reader is not left computing the
         # schedule offset themselves to work out why a lagging feature date is fine.
-        printf '  %-5s expected prices %s, features %s (process runs 19:00 NY) | prices %s | features %s | predictions %s (v%s)\n' \
-            "$code" "$expected" "$proc_expected" "$prices" "$feats" "$preds" "$ver"
+        printf '  %-5s expected prices %s, features %s (process runs 19:00 NY) | prices %s | features %s | %s\n' \
+            "$code" "$expected" "$proc_expected" "$prices" "$feats" "$scored"
     fi
     # Prices are what everything downstream depends on, so a stale price date explains the
     # rest and is reported once rather than as three separate findings.
     if [ "$prices" != "$expected" ]; then
         problems+=("$code has no prices for $expected (latest $prices)")
-    elif [ "$preds" != "$proc_expected" ]; then
+    elif [ "$awaiting" = 0 ] && [ "$preds" != "$proc_expected" ]; then
         problems+=("$code ingested $expected but wrote no predictions for $proc_expected")
     fi
 done <<EOF

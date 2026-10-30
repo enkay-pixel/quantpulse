@@ -251,7 +251,7 @@ Makefile, so changing behaviour is a code change with a diff. All log to
 |---|---|---|
 | `backup` | 07:00 daily | Dumps `market`, keeps 14 |
 | `jse-close` | 19:47 weekdays | Checks today's JSE session landed, after the 19:30 ingest; reports any of the last five sessions in either market that is missing tickers or a benchmark bar |
-| `daily-pipeline` | 08:00 Tue–Sat | Reports whether last night's run reached predictions on **both** markets, and which champion scored. Tue–Sat rather than Mon–Fri because the 19:00 New York process job lands at 01:00 local the next day |
+| `daily-pipeline` | 08:00 Tue–Sat | Reports whether last night's run reached predictions on **every** market, and which champion scored. A market that has never had a champion is reported as awaiting one, not as stalled (since 2026-10-30), and its prices are still checked. Tue–Sat rather than Mon–Fri because the 19:00 New York process job lands at 01:00 local the next day |
 | `retrain-check` | Sat 17:37 | Reports the weekly retrain's outcome per market — decision, candidate IC, and the incumbent and baseline it had to beat |
 | `shadow-forward` | Mon 20:37 | Scores the [shadow run](findings/shadow-run.md) forward and notifies when its verdict becomes readable, a week is lost, or the scorer fails |
 | `decisions` | 08:20 Tue–Sat | Evaluates the standing decisions' reopen conditions in `configs/decisions.yaml` and notifies when one fires, reminding weekly until the decision is revisited |
