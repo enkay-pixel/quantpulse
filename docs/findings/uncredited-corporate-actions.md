@@ -126,6 +126,16 @@ its features and the paper book's P&L. The `no_extreme_moves` check would not fl
 tests for moves *beyond* 50%. A 3-for-2 split (−33%) would pass it too. No split has happened in
 the universe since the backfills; nothing would catch the first one.
 
+**Since then (found 2026-10-30): the first step of that kind, on TKA.DE (Frankfurt) on
+2026-10-28.** Yahoo now divides every earlier thyssenkrupp price by 1.1046 and multiplies every
+earlier volume by the same factor, as it does for a split. Its action list shows no split or
+dividend that day, as with National Grid's rights adjustment above. The stored bars keep the old
+basis, so 10-28 is stored as −16.9% where the adjusted move is −8.2%. Nothing flagged it, and
+`actions_since_load` as proposed below would not either, since it reads Yahoo's action list.
+Comparing a fresh fetch's basis with the store's did. The cause is not yet confirmed against
+thyssenkrupp's announcements, and nothing has been changed. Evidence:
+`~/quantpulse-experiments/m13-europe/phase3-end-check/`.
+
 ## Where they fall in the training panels
 
 Rows of the panel production builds today (pinned as above), placed in the champion's windows:

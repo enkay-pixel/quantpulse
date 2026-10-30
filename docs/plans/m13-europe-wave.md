@@ -241,6 +241,9 @@ processing.
      currency guard refused nothing. The CLI has since been fixed to choose a safe end itself
      ([data dictionary](../data-dictionary.md)). At that hour it would also have refused the
      26th for the four new markets, since the request ran to the 27th while they traded.
+     **Checked 2026-10-30: no 10-26 bar is the 10-27 session.** All 151 stored 10-26 bars are
+     the vendor's 10-26 bar; five in Zurich have since been revised by the vendor by a tick or a
+     few hundred shares. Evidence: `~/quantpulse-experiments/m13-europe/phase3-end-check/`.
    - **One-day moves:** the stored moves beyond −25% or +35% are the five real ones found in
      phase 2.
    - **Features:** 329,001 rows for the four new markets. The other three wrote **0 rows**: their
