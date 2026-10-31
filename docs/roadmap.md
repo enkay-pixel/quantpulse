@@ -412,6 +412,12 @@ install, but 3.x changes the chart API across six components, `npm audit` report
 vulnerabilities, and nothing in 3.x is needed. The Dependabot major-ignore stays. *Reopen on
 a security advisory, or when a 3.x-only feature is actually wanted.*
 
+**Keep pandas on 2.x until the shadow run's verdict** (decided 2026-10-31). pandas 3 resolves
+since that day (3.1.0), after three months of not resolving. But the features are computed with
+pandas, and until the [shadow run](findings/shadow-run.md) is read every week's refit has to
+reproduce exactly, so a major that could move a computed value waits. The Dependabot major
+ignore stays, with this reason. *Reopen when the verdict is saved (about 2026-12-29).*
+
 ## Next
 
 1. **Let it run — the shadow run above all.** A fixed-defaults shadow is fitted beside every

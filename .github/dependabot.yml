@@ -8,41 +8,19 @@ updates:
       python-deps:
         patterns: ["*"]
     ignore:
-      # The weekly update job had been failing since at least 07-23 with
-      # dependency_file_not_resolvable on exactly these two, while the rest of the group
-      # still opened a PR. Both reproduce with `uv lock --upgrade-package <pkg>==<latest>`.
+      # pandas 3 is held back by decision, not by the resolver. Until 2026-10-31 this rule
+      # existed because pandas 3 did not resolve (dependency_file_not_resolvable from 07-23,
+      # cause never established); `uv lock --upgrade-package pandas` now reaches 3.1.0. It
+      # stays because the features are computed with pandas, and until the shadow run's
+      # verdict (about 2026-12-29) every week's refit must reproduce exactly, so nothing may
+      # change what a past retrain trained on. A major is the release most likely to. Minor
+      # and patch updates still come through. Recorded as `pandas-2x-until-shadow-verdict`
+      # in configs/decisions.yaml, which reopens it when the verdict is saved.
       #
-      #   dbt-core 1.12 — dagster-dbt caps dbt-core through its latest published release,
-      #                 and no published version accepts 1.12. Confirmed to bite at
-      #                 python 3.13 on darwin, i.e. the environment actually in use, not a
-      #                 hypothetical resolver split. Self-clearing when dagster-dbt widens
-      #                 its range. Note this is the SAME dependency that blocks python 3.14
-      #                 (see the docker ignore below) — dbt is the tightest constraint in
-      #                 this stack, from two directions at once.
-      #
-      #   pandas 3.x  — resolution fails; the cause is NOT established. An earlier version
-      #                 of this comment blamed the ecosystem not supporting pandas 3, which
-      #                 is wrong: nothing in uv.lock caps pandas below 3. Four constraint
-      #                 combinations were tried on 2026-08-01 — bounding requires-python to
-      #                 <3.15, to <3.14, restricting [tool.uv] environments to darwin+linux,
-      #                 and both together — and it stayed blocked in every one. The traces
-      #                 name mlflow version ranges without ever reaching a conclusion line.
-      #                 Treat this as "unexplained", not "understood": if you need pandas 3,
-      #                 the investigation starts fresh rather than from this comment.
-      #
-      # Minor and patch updates for both still come through. Nothing re-checks whether these
-      # blockers have cleared, so they will outlive their reason unless someone re-runs the
-      # command above.
+      # dbt-core had a rule here too, for the same resolver failure (dagster-dbt capped it
+      # below 1.12). It resolved by 2026-10-31 and was taken then, so the rule went.
       - dependency-name: "pandas"
         update-types: ["version-update:semver-major"]
-      # MINOR as well as major: 1.11.12 -> 1.12.0 moves the minor component, so a
-      # major-only rule never matched it and the update job kept failing for a day after
-      # the rule was added. Patches within 1.11.x still come through, which is what we
-      # want — dagster-dbt's cap is on the minor, not on bug fixes.
-      - dependency-name: "dbt-core"
-        update-types:
-          - "version-update:semver-major"
-          - "version-update:semver-minor"
       # mypy is ignored ENTIRELY, not by update-type, and the earlier attempt to ignore only
       # its major was wrong. The major ignore did suppress 2.3.0 — and Dependabot simply fell
       # back to the highest allowed 1.x (1.20.0), which fails the same way:
@@ -65,7 +43,7 @@ updates:
       # pyproject.toml therefore needs an entry below, or it is decorative.
       #
       #   pandas-stubs — the stubs describe the library's API, so they can only move when the
-      #                 runtime library moves. pandas itself is capped above, which means the
+      #                 runtime library moves. pandas itself is held on 2.x above, so the
       #                 stubs must be capped too; a stubs major on its own type-checks the
       #                 code against an API the installed pandas does not have.
       #
