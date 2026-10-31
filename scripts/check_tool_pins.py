@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Keep every tool version that is written down twice from drifting apart.
 
-Six versions are pinned in two places each. Four are a pre-commit `rev` against the version CI
+Seven versions are pinned in two places each. Four are a pre-commit `rev` against the version CI
 installs — `ruff` from the `pyproject.toml` pin, and `uv`, `markdownlint` and `gitleaks` from
 the workflow. The fifth is the MLflow server image against the client in the lock: the
 registry is a client/server pair, and the image comment asks for them to match. The sixth is
 the Python CI tests on against the Python the pipeline image runs: unnamed, CI took whatever
-the runner shipped, and on 2026-10-28 that became 3.14, a version nothing here runs.
+the runner shipped, and on 2026-10-28 that became 3.14, a version nothing here runs. The seventh
+holds the laptop's venv, built from `.python-version`, to the same Python.
 
 When a pair disagrees the failure is not a missing tool but a disagreeing one: the hook
 formats a file one way and CI checks it another, or a client talks to a server built from a
@@ -78,6 +79,15 @@ PINS = (
         r"^FROM python:(\d+\.\d+)[-@]",
         WORKFLOW,
         r'astral-sh/setup-uv(?:.|\n){0,800}?\n +python-version: "([^"]+)"',
+    ),
+    # The laptop's venv (`make install`) takes its Python from .python-version, so it is held to
+    # the image's too: CI, the containers and local tests all run one minor version.
+    Pin(
+        "python-local",
+        pathlib.Path("docker/dagster.Dockerfile"),
+        r"^FROM python:(\d+\.\d+)[-@]",
+        pathlib.Path(".python-version"),
+        r"^(\d+\.\d+)\s*$",
     ),
     Pin(
         "markdownlint",

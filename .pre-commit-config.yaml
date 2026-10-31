@@ -70,7 +70,7 @@ repos:
         entry: python3 scripts/check_tool_pins.py --fix
         language: system
         pass_filenames: false
-        files: (^\.pre-commit-config\.yaml$|^pyproject\.toml$|^\.github/workflows/ci\.yml$|^docker/dagster\.Dockerfile$|^scripts/check_tool_pins\.py$)
+        files: (^\.pre-commit-config\.yaml$|^\.python-version$|^pyproject\.toml$|^\.github/workflows/ci\.yml$|^docker/dagster\.Dockerfile$|^scripts/check_tool_pins\.py$)
 
       - id: doc-links
         name: documentation links resolve, and no wikilinks
