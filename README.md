@@ -270,7 +270,7 @@ flowchart LR
 ```bash
 cp .env.example .env          # adjust if you like
 make up                       # start the Docker stack
-make install                  # install package + dev tools into your venv
+make install                  # build .venv from uv.lock, as CI does
 make test                     # run unit tests
 ```
 

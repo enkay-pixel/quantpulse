@@ -49,12 +49,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    # The QA toolchain is pinned EXACTLY, not floored. CI runs `uv sync --frozen`;
-    # `make install` resolves from this file into the SHARED monorepo venv, which the
-    # root requirements.txt also writes to. A floor lets the local tool drift below the
-    # locked one, so `make lint type test` stops being the check CI actually gates on —
-    # a version whose rules/failures you never see until the PR is red. Pinning makes
-    # both resolve to the same build. Bump these via the Dependabot PR, not by hand.
+    # The QA toolchain is pinned EXACTLY, not floored. CI, the images and `make install` all
+    # sync from uv.lock, so the lock decides what runs. The pins stay because ruff's is the
+    # version the pre-commit hook is checked against (scripts/check_tool_pins.py), and pinning
+    # the rest makes each tool upgrade a visible change here rather than a lock-only one. Until
+    # 2026-10-31 `make install` resolved from this file into the monorepo's shared venv, where
+    # a floor let the local tool drift below the locked one. Bump these via the Dependabot PR,
+    # not by hand.
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "ruff==0.17.1",
@@ -137,11 +138,24 @@ addopts = "-ra --strict-markers"
 markers = [
     "integration: tests that need a running Postgres (deselect with '-m \"not integration\"')",
 ]
-# Warnings are errors, so a deprecation in this project's own code fails the run that
-# introduces it rather than scrolling past in a wall of third-party noise. Anything ignored
-# below is upstream and unfixable from here; each needs the reason and a way out.
+# A warning raised from this project's own code fails the run that introduces it, rather than
+# scrolling past in a wall of third-party noise. That includes a library's deprecation when our
+# call is what triggers it, since the warning names the caller's module. A warning a library
+# raises from its own code is shown, not fatal: until 2026-10-31 every warning was an error, so
+# each upstream deprecation stopped a dependency round until someone wrote an ignore for it
+# (starlette's test client on anyio 4.15 was the last). Leaks and errors escaping a thread or a
+# finalizer stay fatal from anywhere, because they are bugs rather than notices. pytest applies
+# these bottom-up, so a later line wins. The ignores below silence upstream noise that would
+# otherwise print on every run; each needs the reason and a way out.
 filterwarnings = [
-    "error",
+    "default",
+    "error:::quantpulse",
+    # Test modules are imported by file name (there is no tests/__init__.py).
+    "error:::test_",
+    "error:::conftest",
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+    "error::pytest.PytestUnhandledThreadExceptionWarning",
     # exchange_calendars builds numpy timedeltas without an explicit unit, which numpy 2.5
     # deprecates. 4.13.2 is the latest release and still does it, so there is no version to
     # move to. Scoped to the message and the module so our own timedelta misuse still fails.

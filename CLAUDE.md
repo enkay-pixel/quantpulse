@@ -104,8 +104,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 
 ## Environment & commands
 
-- Python venv is SHARED at `../../.venv` (monorepo root). Never create a local one;
-  `make install` syncs it via uv. Node from Homebrew.
+- Python venv is this project's own `.venv` in the main checkout (worktrees use it too).
+  `make install` builds it with `uv sync --frozen --extra dev`, the command CI and the images
+  run, on the Python in `.python-version`; rerun it after `uv lock` or a pull that moves the
+  lock. The sync removes anything the lock does not list, so never install into it by hand.
+  The monorepo's shared `../../.venv` has not been this project's since 2026-10-31
+  ([incident 38](docs/development-history.md#incident-log-root-causes-worth-remembering)).
+  Node from Homebrew.
 - QA loop: `make fmt lint type test` · `make test-all` (integration; needs stack up) ·
   `cd web && npm run lint && npm run test && npm run build` · `make dbt-build`.
 - Stack: `make up` / `make down` (docker compose; Docker Desktop must be running).
@@ -134,7 +139,7 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 
 ## Conventions
 
-- ruff is pinned EXACTLY in pyproject (CI lints from uv.lock — keep venv in sync after
+- ruff is pinned EXACTLY in pyproject (CI lints from uv.lock — `make install` after
   `uv lock`). The **pre-commit hook rev must match that pin**, and CI fails on drift:
   dependabot updates pyproject but has no pre-commit ecosystem configured, so the hook
   silently stays behind and you get commits the hook reformats and CI then rejects. Same

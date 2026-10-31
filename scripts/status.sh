@@ -8,7 +8,7 @@
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON="${VENV_PYTHON:-$REPO/../../.venv/bin/python}"
+PYTHON="${VENV_PYTHON:-$REPO/.venv/bin/python}"
 LOGS="${QP_LOG_DIR:-$HOME/Library/Logs}"
 cd "$REPO" || exit 1
 
