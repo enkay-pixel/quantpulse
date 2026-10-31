@@ -126,15 +126,33 @@ its features and the paper book's P&L. The `no_extreme_moves` check would not fl
 tests for moves *beyond* 50%. A 3-for-2 split (−33%) would pass it too. No split has happened in
 the universe since the backfills; nothing would catch the first one.
 
-**Since then (found 2026-10-30): the first step of that kind, on TKA.DE (Frankfurt) on
-2026-10-28.** Yahoo now divides every earlier thyssenkrupp price by 1.1046 and multiplies every
-earlier volume by the same factor, as it does for a split. Its action list shows no split or
-dividend that day, as with National Grid's rights adjustment above. The stored bars keep the old
-basis, so 10-28 is stored as −16.9% where the adjusted move is −8.2%. Nothing flagged it, and
-`actions_since_load` as proposed below would not either, since it reads Yahoo's action list.
-Comparing a fresh fetch's basis with the store's did. The cause is not yet confirmed against
-thyssenkrupp's announcements, and nothing has been changed. Evidence:
-`~/quantpulse-experiments/m13-europe/phase3-end-check/`.
+**Since then: the first step of that kind, on TKA.DE (Frankfurt) on 2026-10-28, found 2026-10-30
+and left as stored until the fix (decided 2026-10-31).** thyssenkrupp spun off tk accelis, first
+listed that day at one share per 20 thyssenkrupp shares (reported before the event, e.g.
+[onvista](https://www.onvista.de/news/2026/10-21-thyssenkrupp-bringt-tk-accelis-naechste-woche-an-die-boerse-0-20-26566860)).
+Yahoo now divides every earlier TKA.DE price by 1.104629 and multiplies every earlier volume by the
+same factor, as it does for a split, but its action list shows nothing that day, as with National
+Grid's rights adjustment above. The store keeps the old basis, so 10-28 reads −16.9% where the
+adjusted move is −8.2%. Nothing flagged it, and `actions_since_load` as proposed below would not
+either, since it reads Yahoo's action list. Comparing a fresh fetch's basis with the store's did.
+
+- **Trained on before it was found.** The 2026-10-31 retrain promoted XETR v2, so 10-28 to 10-30
+  are fixed under ADR 0006 point 3. Its booster is fitted up to 2025-05-26 and saw nothing of the
+  step. Its holdout holds three TKA labels that span it, of about 13,000. XETR is not a market the
+  [shadow](shadow-run.md) rule was registered for.
+- **What it moves.** Scoring XETR's features with and without the step through v2: TKA's own ranks
+  move a lot (63-day momentum 0.39 against 0.73 on 10-30), but v2 ranks it 3rd, 2nd and 4th of 41
+  as stored against 5th, 8th and 8th corrected, on the long side every day either way.
+- **Why it is left.** Scaling the bars from 10-28 would rewrite sessions v2 trained on, fail
+  champion-forward's holdout reproduction for it, and need a factor on every ingest path until the
+  fix. Setting the ticker aside is worse (the second check below says why). Left, TKA's 5-, 21-
+  and 63-session features stay off until 11-04, 11-26 and 2027-01-29, and 18 more labels (the
+  21 that span it, less v2's three) carry about −9.5 points as they enter weekly holdouts. A
+  replay of XETR's history would book the −16.9% for a TKA long held over 10-27.
+- **For the fix:** TKA.DE, 2026-10-28, spin-off, factor 1.104629, goes in its reviewed table.
+
+Evidence: `~/quantpulse-experiments/m13-europe/phase3-end-check/` and
+`~/quantpulse-experiments/m13-europe/tka-2026-10-28/`.
 
 ## Where they fall in the training panels
 
@@ -212,9 +230,13 @@ bar. A backfill refuses a market that fails the first, before its first bar is s
    loudly on any split, since a split breaks the stock's next 63 sessions of features and the
    book's P&L on the day. It is for an operator to act on, not automatic: while the shadow window
    is open, rewriting the bars before a split is not an option (ADR 0006, point 3). Scaling the
-   new bars to the stored basis, or setting the ticker aside, changes nothing a past retrain
-   trained on. Scaling has its own cost: the options book reads `prices.close` beside strikes that
-   trade on the new basis. That choice is the owner's.
+   new bars to the stored basis changes nothing a past retrain trained on only until a retrain
+   runs after the split: labels reach 21 sessions back, so that retrain's labels already read the
+   new bars. Setting the ticker aside changes every past panel of its market at once:
+   `load_price_bars` reads active listings only and ranks are taken within the market, so a
+   rebuilt panel loses the ticker and re-ranks every other name (corrected 2026-10-31, on TKA.DE).
+   Scaling has its own cost: the options book reads `prices.close` beside strikes that trade on
+   the new basis. That choice is the owner's.
 3. **`unexplained_jumps`.** One-day moves beyond −25% / +35%, and one-bar spikes of 7% or more in
    and out net of the market, on a date where Yahoo lists no event. These are listed for a
    person to classify, never repaired automatically: the scan above found real moves outnumbering
