@@ -75,3 +75,12 @@
   decided: 2026-10-14
   reopen_when:
     - {type: manual, watch: "the daily security check, which reports a fix the day one ships"}
+
+- id: pandas-2x-until-shadow-verdict
+  title: Keep pandas on 2.x until the shadow run's verdict
+  decided: 2026-10-31
+  reopen_when:
+    - {type: shadow_verdict_saved}
+  note: >-
+    pandas 3 resolves since 2026-10-31 (3.1.0). Held because the features are computed with pandas
+    and every shadow week's refit must reproduce exactly until the verdict is read.

@@ -846,6 +846,14 @@ anyio among them (the one #202 then had to move by hand) and starlette at 1.3.1 
 The MLflow image's own Dependabot updates are ignored, since the image follows the client's bump
 through the same repair.
 
+Also on 2026-10-31 the two ignores kept since 07-23 for releases that would not resolve were
+re-checked, and both now resolve. **dbt-core 1.12 was taken** (1.12.6, with dagster-dbt
+unchanged at 0.29.27): dbt builds only the `analytics` marts, and no model trains on them.
+**pandas 3 was held** (3.1.0 resolves): the features are computed with pandas, and until the
+shadow run's verdict every week's refit must reproduce exactly. The rule stays in
+`dependabot.yml` with the new reason, and `configs/decisions.yaml` reopens it once the verdict
+is saved ([roadmap](roadmap.md#decisions-standing-and-what-would-change-them-2026-10-14)).
+
 ## Testing architecture
 
 559 checks total: 429 pytest (269 unit on synthetic data; 141 integration against a
