@@ -248,7 +248,9 @@ result you should not quote.
   market credits a dividend paid after its first load, the NYSE included since 2026-07-18.
   Longs miss dividends and shorts are never charged them; the net effect on any record is
   unmeasured. A share split after a market's first load would be stored as a fall of half or
-  more. Unlike the biases above this one is free to fix, and the fix waits for the shadow
+  more. The first step of that kind, thyssenkrupp's tk accelis spin-off on 2026-10-28, is stored
+  as −16.9% where the adjusted move is −8.2%, and is left until the fix (decided 2026-10-31).
+  Unlike the biases above this one is free to fix, and the fix waits for the shadow
   verdict: [Corporate actions the stored prices do not credit](findings/uncredited-corporate-actions.md).
 
 Fixed on 2026-07-22: the backtest previously charged a **flat** turnover equal to the
