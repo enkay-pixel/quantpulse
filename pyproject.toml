@@ -55,9 +55,9 @@ dev = [
     # locked one, so `make lint type test` stops being the check CI actually gates on —
     # a version whose rules/failures you never see until the PR is red. Pinning makes
     # both resolve to the same build. Bump these via the Dependabot PR, not by hand.
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.17.1",
+    "ruff==0.17.3",
     "mypy==1.19.1",
     "pre-commit>=4.6.1",
     "pandas-stubs>=2.2,<3",
