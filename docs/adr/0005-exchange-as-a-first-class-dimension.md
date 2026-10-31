@@ -77,7 +77,9 @@ Onboarding:
    identical; London's were, row for row.
 2. **Train the first champion** through the unchanged gate: the Sharpe floor and the momentum
    competitor. If none clears it, the market shows its data and research without a model.
-3. **Replay-score the history** (`quantpulse score --replay --exchange X`), build the marts, and
+3. **Replay-score the history** (`quantpulse score --replay --exchange X`) whenever a market's first
+   champion is promoted, including by the weekly retrain, which does not replay (Frankfurt's, on
+   2026-10-31, was replayed by hand the same evening). Then build the marts, and
    read the dashboard in the browser, prices included: the price chart and positions had drawn
    JSE prices as dollars since July, and London's onboarding is what found it.
 4. **Measure the margin and the learning-rate ceiling before the first challenger.** The margin

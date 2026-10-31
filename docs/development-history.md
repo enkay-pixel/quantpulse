@@ -333,6 +333,9 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     which is what the goal actually needed.
     Lesson: a dependency file that has only ever been appended to is not a manifest until a
     clean resolve has been run against it. Nothing here would have surfaced short of trying.
+    **Superseded for this repo on 2026-10-31 (incident 38):** quantpulse no longer installs into
+    the shared venv. `make install` builds its own `.venv` from `uv.lock`, so a lost venv is one
+    command again. The shared venv and its `requirements.txt` remain the monorepo's concern.
 
 32. **Two published findings were sampling artifacts, and the error bar hid it (2026-09-01)**:
     the staleness curves were measured at **five origins**, with the error taken across 25
@@ -495,6 +498,26 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     disables every logger that already exists, so any process migrating in-process — the test
     fixtures, `quantpulse init-db` — silenced every module imported before it. The warning
     naming the missing tickers read as empty in the full suite and passed alone.
+38. **The laptop tested on packages CI never installs (2026-10-31)**: Dependabot's round #202
+    moved pytest to 9.2, and the suite failed on the laptop and in CI for different reasons. CI
+    failed first on anyio 4.14.2, whose pytest plugin imports a pytest internal that 9.2
+    deprecates: the lock still held it because Dependabot's uv groups move only direct
+    dependencies. With anyio at 4.15.1, starlette 1.3.1's test client then tripped anyio's
+    `BlockingPortal` deprecation, a warning raised from starlette's own code that
+    `filterwarnings = error` made fatal. The laptop never reached either: it ran in the
+    monorepo's shared venv, about 870 packages against the lock's 230, with twelve pytest plugins
+    the lock does not list (dash, pytest-asyncio, hypothesis, xdist and more). pytest 9.2 applies
+    the warning filters while plugins load, so dash's import chain and pytest-asyncio's
+    configuration warning stopped collection before any test ran. Neither failure said anything
+    about this project's code. Two fixes: `make install` now builds the project's own `.venv` from
+    the lock with the command CI runs, on the Python in `.python-version`, which the tool-pin
+    check holds to the image's; and a warning is an error only when it is raised from this
+    project's modules or tests, or is a leak or an exception escaping a thread or finalizer.
+    Sabotage confirmed both directions: a library warning from its own code passes, and a
+    deprecation injected into `get_exchange` fails five tests.
+    Lesson: a local run is evidence about CI only when it runs on what CI runs, and a rule meant
+    to catch this project's deprecated calls has to be scoped to this project's code, or every
+    upstream release becomes this project's failure.
 
 ## Fault injection: exercising a path that had never run (2026-08-13)
 
@@ -809,6 +832,11 @@ Under that rule **node 26 was taken** (image built and served) and **python 3.14
 dbt-common's dataclass introspection vs PEP 649). The python-major decline is recorded as
 a `dependabot.yml` ignore with the reason, so it isn't re-proposed. Twelve stale Dependabot
 branches were deleted once the repo's `Protect` ruleset was scoped from `~ALL` to `main`.
+
+On 2026-10-31 local work moved off the monorepo's shared venv onto the project's own `.venv`,
+synced from the lock, and warnings-as-errors was narrowed to this project's own code
+([incident 38](#incident-log-root-causes-worth-remembering)). Until then every upstream
+deprecation stopped a dependency round until someone wrote an ignore for it.
 
 ## Testing architecture
 

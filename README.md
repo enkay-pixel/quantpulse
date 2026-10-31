@@ -19,9 +19,9 @@ model's signals are research output in a sandbox — not trade recommendations.
 The only numbers here worth judging. Each market's live phase starts at its first champion
 promotion; everything before that is an in-sample replay, kept separate on purpose. The table
 covers the two markets with enough live sessions to read. London's first champion was promoted on
-2026-10-18 and Zurich's on 2026-10-28, so both are still below the 20-session floor under which
-ratios are withheld; Frankfurt, Paris and Amsterdam have no champion yet, because their first
-candidates did not clear the gate.
+2026-10-18, Zurich's on 2026-10-28 and Frankfurt's on 2026-10-31, so all three are still below the
+20-session floor under which ratios are withheld; Paris and Amsterdam have no champion yet, because
+no candidate of theirs has cleared the gate.
 
 | | NYSE (XNYS) | JSE (XJSE) |
 |---|---|---|
@@ -270,7 +270,7 @@ flowchart LR
 ```bash
 cp .env.example .env          # adjust if you like
 make up                       # start the Docker stack
-make install                  # install package + dev tools into your venv
+make install                  # build .venv from uv.lock, as CI does
 make test                     # run unit tests
 ```
 

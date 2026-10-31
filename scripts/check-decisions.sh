@@ -11,8 +11,8 @@
 # that nobody looked at is the failure this exists for. Notifies, never acts.
 set -uo pipefail
 
-REPO="/Users/nathankindo/nathan_playground/projects/quantpulse"
-PYTHON="${VENV_PYTHON:-/Users/nathankindo/nathan_playground/.venv/bin/python}"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="${VENV_PYTHON:-$REPO/.venv/bin/python}"
 cd "$REPO" || exit 0
 
 DEDUP_LIB="$(dirname "$0")/lib/dedup.sh"

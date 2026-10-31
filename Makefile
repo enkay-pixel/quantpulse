@@ -1,21 +1,23 @@
 # QuantPulse developer entrypoints.
-# Local Python work uses the monorepo's shared virtualenv unless VENV_PYTHON is overridden.
+# Local Python work runs in this project's own virtualenv, `.venv` in the main checkout, which
+# `make install` builds from uv.lock with the command CI and the images run (`uv sync --frozen
+# --extra dev`), on the Python `.python-version` names. Until 2026-10-31 it was the monorepo's
+# shared venv: about 870 packages against the lock's 230, so the laptop ran other versions than
+# CI, loaded a dozen pytest plugins CI never had, and failed in ways CI could not see.
 #
-# The venv sits two levels above the MAIN checkout (<monorepo>/projects/quantpulse), so
-# resolving it from the CWD only works there. A git worktree lives under
-# .claude/worktrees/<name>, where ../../.venv resolves to <checkout>/.claude/.venv and
-# every target dies with "No such file or directory". Anchor on the main worktree instead
-# — git reports it first from anywhere in the repo, worktrees included — and keep the old
-# relative path as the fallback for when git can't answer (tarball export, no repo).
+# The venv sits in the MAIN checkout, so resolving it from the CWD only works there. A git
+# worktree lives under .claude/worktrees/<name> and has no venv of its own. Anchor on the main
+# worktree instead — git reports it first from anywhere in the repo, worktrees included — and
+# fall back to this directory when git can't answer (tarball export, no repo).
 MAIN_WORKTREE := $(shell git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')
 ifeq ($(MAIN_WORKTREE),)
-VENV_ROOT := ../..
+VENV_DIR := $(CURDIR)/.venv
 else
-VENV_ROOT := $(abspath $(MAIN_WORKTREE)/../..)
+VENV_DIR := $(MAIN_WORKTREE)/.venv
 endif
 
-VENV_PYTHON ?= $(VENV_ROOT)/.venv/bin/python
-VENV_BIN ?= $(VENV_ROOT)/.venv/bin
+VENV_PYTHON ?= $(VENV_DIR)/bin/python
+VENV_BIN ?= $(VENV_DIR)/bin
 
 # Anything that IMPORTS quantpulse at runtime needs this checkout's src ahead of the venv's
 # editable .pth, which is a plain path entry pointing at the main checkout. Without it a
@@ -42,8 +44,8 @@ bootstrap:  ## First-run seed: migrate, universe, backfill, features, train, sco
 	$(VENV_PYTHON_SRC) -m quantpulse.cli train
 	$(VENV_PYTHON_SRC) -m quantpulse.cli score --replay
 
-install:  ## Install the package + dev tools into the shared venv
-	uv pip install -e ".[dev]" --python $(VENV_PYTHON)
+install:  ## Build or sync .venv to uv.lock exactly (removes anything the lock does not list)
+	UV_PROJECT_ENVIRONMENT=$(VENV_DIR) uv sync --frozen --extra dev
 
 lock:  ## Re-resolve and pin all dependencies
 	uv lock
