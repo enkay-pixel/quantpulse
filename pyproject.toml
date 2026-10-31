@@ -56,9 +56,9 @@ dev = [
     # 2026-10-31 `make install` resolved from this file into the monorepo's shared venv, where
     # a floor let the local tool drift below the locked one. Bump these via the Dependabot PR,
     # not by hand.
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.17.1",
+    "ruff==0.17.3",
     "mypy==1.19.1",
     "pre-commit>=4.6.1",
     "pandas-stubs>=2.2,<3",
