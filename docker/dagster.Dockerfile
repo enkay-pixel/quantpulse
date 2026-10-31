@@ -2,7 +2,7 @@
 # loaded in-process from the installed package — no separate gRPC server needed).
 # Tag and digest: the digest is what builds, so a rebuild of the same tag upstream cannot change
 # the image underneath; the tag is for reading. Dependabot proposes both together.
-FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
 
 # libgomp1: LightGBM runtime; curl: container healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl \
