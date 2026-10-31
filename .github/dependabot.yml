@@ -113,3 +113,9 @@ updates:
       # supports 3.14, then drop this rule.
       - dependency-name: "python"
         update-types: ["version-update:semver-major"]
+      # The MLflow server image follows the Python client in uv.lock, never the other way: a
+      # registry client talking to a server from another release is the drift
+      # scripts/check_tool_pins.py exists to stop. A bump of its own here would leave the two
+      # mismatched (#60 was closed for exactly that). The client's bump in the python-deps PR
+      # moves the image with it, through the Dependabot follow-up workflow.
+      - dependency-name: "mlflow/mlflow"

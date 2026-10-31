@@ -1,0 +1,162 @@
+name: Dependabot follow-up
+
+# Dependabot moves the side of a pair it knows about and leaves the rest, so two repairs used to
+# follow its Python PRs by hand, each after a red CI run:
+#
+# - the tool pins (scripts/check_tool_pins.py): a ruff bump in pyproject leaves the pre-commit
+#   hook's rev behind, and an mlflow bump in the lock leaves the server image behind;
+# - the indirect dependencies (scripts/refresh_indirect_deps.py): Dependabot moves only what
+#   pyproject names, so the packages underneath lag until a direct bump drags one forward
+#   mid-round. Only the weekly python-deps PR gets this; a single-package security bump stays
+#   that one package.
+#
+# Two jobs, because the first runs the resolver over the PR's lock, and resolving can build a
+# package fetched from PyPI. That job gets a read-only token and no stored credentials, and hands
+# over a patch. The second holds the write token: it checks the patch touches only the files these
+# repairs may change, commits it to the PR branch, and dispatches CI on the new commit. A push
+# made with the workflow token starts no workflow of its own, so without the dispatch the PR would
+# wait for required checks that never run.
+#
+# Its commit is not Dependabot's, so Dependabot stops rebasing the PR after it. The PR merges as
+# soon as CI is green, so that rarely matters; a PR that conflicts is merged with main by hand.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # By hand, on any branch except main: gh workflow run dependabot-follow-up.yml --ref <branch>
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Also refresh the indirect dependencies
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # Named, not defaulted: only an explicit `bash` gets pipefail, and the steps below pipe
+    # each script through tee.
+    shell: bash
+
+env:
+  BRANCH: ${{ github.head_ref || github.ref_name }}
+  # The commit the repair is computed on. The push is a fast-forward from it, so if the branch
+  # moved in between the push is refused, and the push that moved it runs this again.
+  BASE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  prepare:
+    # Dependabot's own pushes only: someone pushing to its branch by hand is making their own
+    # changes, and can dispatch this if they want it.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref_name != 'main') ||
+      (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' &&
+       github.event.pull_request.user.login == 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      REFRESH: >-
+        ${{ (github.event_name == 'workflow_dispatch' && inputs.refresh) ||
+            startsWith(github.head_ref, 'dependabot/uv/python-deps-') }}
+    outputs:
+      changed: ${{ steps.patch.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASE_SHA }}
+          persist-credentials: false
+
+      - name: Repair the tool pins
+        run: python3 scripts/check_tool_pins.py --fix | tee -a "$RUNNER_TEMP/summary.txt"
+
+      - name: Install uv
+        if: env.REFRESH == 'true'
+        uses: astral-sh/setup-uv@v7
+        with:
+          # CI's, so the lock is written in the format CI's `uv sync --frozen` and the uv-lock
+          # hook expect. check_tool_pins.py holds the two together.
+          version: "0.11.29"
+
+      - name: Refresh the indirect dependencies
+        if: env.REFRESH == 'true'
+        # uv takes the Python from .python-version.
+        run: python3 scripts/refresh_indirect_deps.py | tee -a "$RUNNER_TEMP/summary.txt"
+
+      - name: Write the patch
+        id: patch
+        run: |
+          git diff --binary > "$RUNNER_TEMP/follow-up.patch"
+          if [ -s "$RUNNER_TEMP/follow-up.patch" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing to repair."
+          fi
+
+      - name: Hand the patch over
+        if: steps.patch.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: follow-up
+          path: |
+            ${{ runner.temp }}/follow-up.patch
+            ${{ runner.temp }}/summary.txt
+          retention-days: 3
+
+  push:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the repair to the PR branch
+      actions: write # dispatch CI on it
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASE_SHA }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: follow-up
+          path: ${{ runner.temp }}/follow-up
+
+      - name: Check the patch touches only what the repairs may change
+        # Workflow files are left off on purpose: the workflow token cannot push them. A pin
+        # mirrored in CI's own file (its Python) fails here, and is fixed by hand.
+        run: |
+          if [ "$BRANCH" = main ]; then
+            echo "::error::refusing to push to main"
+            exit 1
+          fi
+          allowed='^(uv\.lock|\.pre-commit-config\.yaml|\.python-version|docker/mlflow\.Dockerfile)$'
+          files=$(git apply --numstat "$RUNNER_TEMP/follow-up/follow-up.patch" | cut -f3)
+          echo "$files"
+          if grep -Ev "$allowed" <<< "$files"; then
+            echo "::error::the patch changes a file outside the allowlist"
+            exit 1
+          fi
+
+      - name: Commit and push
+        run: |
+          git apply --index "$RUNNER_TEMP/follow-up/follow-up.patch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          {
+            echo "Follow up Dependabot's update"
+            echo
+            echo "From .github/workflows/dependabot-follow-up.yml:"
+            grep -v '^checked .* tool pins: all agree$' "$RUNNER_TEMP/follow-up/summary.txt" || true
+          } > "$RUNNER_TEMP/message"
+          git commit -q -F "$RUNNER_TEMP/message"
+          git push origin "HEAD:refs/heads/$BRANCH"
+
+      - name: Run CI on the new commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "$BRANCH"
