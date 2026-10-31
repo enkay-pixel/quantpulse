@@ -1,9 +1,10 @@
 # M13 — The first wave of more markets: Frankfurt, Paris, Zurich, Amsterdam
 
 **Status: APPROVED 2026-10-22; phases 0–5 done by 2026-10-28 (Europe backfilled, the three live
-markets proven unchanged, Zurich's first champion promoted, Frankfurt, Paris and Amsterdam
-without a model, and each market's margin and ceiling measured). The 2026-10-31 retrain judges the
-first challengers.** It follows the checklist London produced
+markets proven unchanged, Zurich's first champion promoted, and each market's margin and ceiling
+measured). The [first seven-market retrain](#the-first-seven-market-retrain-2026-10-31), on
+2026-10-31, promoted Frankfurt's first champion; Paris and Amsterdam are still without a model.**
+It follows the checklist London produced
 ([ADR 0005 amendment](../adr/0005-exchange-as-a-first-class-dimension.md), from the
 [M12 pilot](m12-london-pilot.md)) and, unlike London,
 starts with the laptop's headroom, because four markets at once is where the current design
@@ -163,7 +164,8 @@ XAMS = Exchange(code="XAMS", timezone="Europe/Amsterdam", close_hour=18,
 The 0.027 placeholder was the widest margin measured on any market, so that a challenger could not
 be promoted on a too-small margin before its own was measured. 0.02 was the ceiling both non-US
 markets needed. Phase 5 replaced both: margins 0.006 XETR, 0.017 XPAR, 0.023 XSWX and 0.031 XAMS,
-and the default ceiling, 0.2, for all four.
+and the default ceiling, 0.2, for all four. Frankfurt's became 0.009 when it was re-measured on its
+first champion on 2026-10-31.
 
 Ingest runs at 20:30 local time: 21:30 SAST from 2026-10-25, when Europe's clocks change, and
 20:30 SAST in summer. That is before New York closes, so all seven markets are in each night's
@@ -327,12 +329,46 @@ processing.
      bound. Its first model scored below zero, so no decision would have been different.
    - **The runbook carries the European ingest times** ([runbook](../runbook.md)), and the headroom
      with seven markets is above: research 76.5% and processing 70.4% of the 2 GiB cap.
-   - **The values take effect when the pipeline image is rebuilt,** which has to happen before the
-     2026-10-31 retrain at 15:00 SAST.
+   - **The values took effect when the pipeline image was rebuilt,** deployed at 21:58 SAST the
+     same evening (#196), three days before the 2026-10-31 retrain.
    - **The shadow run is unaffected.** Its verdict reads only XNYS and XJSE, whose settings did not
      change.
 
    Evidence: `~/quantpulse-experiments/m13-europe/phase5/`.
+
+## The first seven-market retrain (2026-10-31)
+
+The weekly retrain at 15:00 SAST was the first with all seven markets and the first to judge
+Europe's challengers on the measured margins. It took **2.7 minutes** (1.4 with three markets on
+2026-10-24) and its heaviest step reading was 1,185 MiB, **57.8%** of the 2 GiB cap.
+
+| market | candidate | holdout IC | needed | decision |
+|---|---|---|---|---|
+| XETR | v2 | 0.0331 | momentum 0.0018 + 0.006 | **promoted**: Frankfurt's first champion (Sharpe 0.96, worst fall −2.6%) |
+| XSWX | v2 | 0.0135 | champion v1's 0.0238 + 0.023 | rejected |
+| XAMS | v2 | 0.0021 | momentum 0.0471 + 0.031 | rejected |
+| XPAR | v2 | −0.0335 | IC ≥ 0 | rejected |
+| XLON | v6 | 0.0576 | champion v1's 0.0703 + 0.027 | rejected |
+| XJSE | v18 | 0.0093 | momentum 0.0277 + 0.026 | rejected |
+| XNYS | v19 | 0.0010 | momentum 0.0044 + 0.009 | rejected |
+
+- **The measured margin did not decide Frankfurt.** v2 would also have cleared the 0.027
+  placeholder (0.0288 needed). Its specification is the one the tuner chose in phase 5: the same
+  warm-up draw, returned again.
+- **The retrain does not replay a first champion's history,** so Frankfurt had no predictions. It
+  was replayed that evening as in phase 4, in a throwaway container: 89,420 predictions from
+  2018-04-03 to 2026-10-30, and three books through 2026-10-29. The other six markets' prices,
+  features, predictions and books through 2026-10-30 were fingerprinted before and after and are
+  **identical**; dbt passed 145 of 145; the dashboard shows champion v2, no live record yet, and
+  the replay labelled in-sample (+89.9% over 2,180 days, Sharpe 1.04). ADR 0005's step 3 now says
+  the replay applies to a first champion from the weekly retrain too.
+- **Frankfurt's margin, re-measured on v2: 0.009,** up from 0.006
+  ([promotion-margin.md](../findings/promotion-margin.md#frankfurt-on-its-first-champion-2026-10-31)).
+  v2 reproduces its recorded IC exactly; the same parameters re-rolled wider on a holdout three
+  sessions later; and v2's own 0.0331 is above all sixteen reseeded fits. The new value takes
+  effect with the next pipeline image, before the 2026-11-07 retrain.
+
+Evidence: `~/quantpulse-experiments/m13-europe/xetr-v2/`.
 
 ## Risks
 
@@ -342,7 +378,7 @@ processing.
 | Seven markets outgrow the cap anyway | Phase 0's measurement decides before anything is backfilled; raising the cap is the fallback |
 | A listing quoted in another currency | `quantpulse backfill` refuses it before storing a bar |
 | A spin-off or merger Yahoo does not credit | Found in the [Kronos replication](../findings/kronos-fresh-stocks.md#what-the-data-held-found-while-checking-it): Holcim −48% on 2025-06-16 (Amrize), Sulzer −35% in 2021 (medmix), Stellantis +95% in 2021 (the merger). The unit repair catches only ×100 glitches. Phase 3 lists every one-day move beyond −25% or +35% and checks each against the company's filings before features are computed. The same scan of the live markets (2026-10-23) found dividends the larger risk: the JSE and London credit them at a hundredth. One name in each of the four markets credits in full, but run the [dividend check](../findings/uncredited-corporate-actions.md#proposed-checks-where-bars-arrive) on every name before the backfill |
-| The weekly retrain no longer fits the laptop's Saturday window | Saturday's three-market duration is read first; seven markets roughly double it |
+| The weekly retrain no longer fits the laptop's Saturday window | Saturday's three-market duration is read first; seven markets roughly double it. Measured 2026-10-31: 2.7 minutes, against 1.4 |
 | A post-midnight drift retrain blocks a session's retry | Found 2026-10-24 ([finding](../findings/partial-cross-sections.md#why-nothing-fixes-it-afterwards)): the catch-up counts a session as used by any training run created that local day, and Europe's clocks pass midnight before the 01:05 SAST drift retrain, as London's does. Fixed 2026-10-24: a run has used a session only if the session's bars were stored before it |
 | Placeholder margins promote a lucky challenger | The placeholder is the widest measured margin, and phase 5 measures each before the first challenger. Measured 2026-10-28: Amsterdam's, 0.031, is wider, but its first model scored below zero, so nothing was promoted on it |
 | English Wikipedia is a weak attention signal for a mid cap | The ownership-free markets already rely on it; it is a feature, not a gate |

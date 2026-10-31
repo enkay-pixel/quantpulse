@@ -50,7 +50,7 @@ research re-measured on the first nights with seven markets (2026-10-27/28).
 | 01:00 Tue–Sat | processing | about 6.5 min with seven markets (3–4 with three) | recovered by the catch-up sensor |
 | 07:00 daily | backup | about a minute | skipped for that day |
 | 13:00 Mon–Fri | research: short interest, attention, ownership filings, fundamentals | about 3 min with seven markets (under a minute with three) | caught up by the next run, which fetches whatever it has not stored |
-| 15:00 Saturday | retrain | 1.4 min with three markets (2026-10-24) | re-run on return, unless killed mid-run |
+| 15:00 Saturday | retrain | 2.7 min with seven markets (2026-10-31; 1.4 with three) | re-run on return, unless killed mid-run |
 
 The launchd checks in [Host agents](#host-agents-launchd) are reports: a skipped one loses
 nothing but that report. Scheduled jobs whose time passes while the Mac is **asleep** run on

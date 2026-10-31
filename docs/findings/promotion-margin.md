@@ -4,7 +4,7 @@
 much a score moves by chance. Re-measured while adding London, that chance movement had grown
 since the margins were set, to three times the JSE's margin, so the margins were raised to match.
 No past decision changes. The four European markets were measured the same way on 2026-10-28, and
-their margins run from 0.006 to 0.031.
+Frankfurt's again on its first champion on 2026-10-31; their margins run from 0.009 to 0.031.
 
 ## What the margin is
 
@@ -88,10 +88,10 @@ That was decided before running, as was taking the value whatever it came out as
   then measured, so that no challenger could be promoted on too small a one. Amsterdam shows that
   was not a bound. It did no harm: Amsterdam's first model scored below zero, which no margin
   decides.
-- **Frankfurt's is the narrowest measured on any market.** Its first model, judged on 2026-10-28,
+- **Frankfurt's was the narrowest measured on any market.** Its first model, judged on 2026-10-28,
   scored IC 0.0223 against momentum's −0.0017. That clears 0.006 and missed the placeholder by
-  0.003. It is not re-judged: the 2026-10-31 retrain fits a new candidate against the measured
-  margin.
+  0.003. It was not re-judged: the 2026-10-31 retrain fitted a new candidate, promoted it, and the
+  margin was re-measured on it (below).
 - **Paris's specification never ranks the market.** All 16 seeds score below zero (−0.043 to
   −0.013), so the gate's floor of IC ≥ 0 stops its candidates before the margin is reached.
 - **Amsterdam's tuned learning rate is London v1's,** 0.06408 in both. With the same seed and the
@@ -101,6 +101,34 @@ That was decided before running, as was taking the value whatever it came out as
 
 Scripts and logs: `~/quantpulse-experiments/m13-europe/phase5/`.
 
+### Frankfurt, on its first champion (2026-10-31)
+
+The 2026-10-31 retrain promoted XETR v2, so its margin was re-measured on v2's specification, as
+the caveat below required, with the bars stored when that retrain started (13:00 UTC). The rule
+was written down first: v2 refitted at seed 42 must reproduce its recorded holdout IC to four
+decimals, and the margin is 2 sd of seeds 0–15, rounded, whatever it comes out as.
+
+v2's parameters turned out to be **exactly the specification measured on 2026-10-28**: the tuner
+returned the same point, one of its fixed warm-up draws ([tuning-budget.md](tuning-budget.md)).
+Only the panel and the holdout moved, by three or four sessions.
+
+| holdout | specification | holdout IC, mean of 16 | sd | **2 sd** |
+|---|---|---|---|---|
+| 2025-06-20 to 2026-09-28 | tuned (2026-10-28) | 0.0249 | 0.0028 | 0.006 |
+| 2025-06-25 to 2026-10-01 | champion v2 (the same parameters) | 0.0204 | 0.0047 | **0.009** |
+
+- **v2 reproduces** (0.03306 at seed 42, its recorded value), so the study measures what was
+  promoted. **The margin is now 0.009.**
+- **The same specification re-rolled wider three sessions later.** A sixteen-seed sd carries about
+  ±18% sampling error on its own, so part of the change is the estimate and part is the window;
+  they were not separated. A margin measured once is rougher than its three decimals suggest.
+- **v2's 0.0331 is above all sixteen reseeded fits** (0.014 to 0.031). The specification's
+  typical holdout IC is 0.020, so the score that promoted it is the top of its own spread. It
+  still clears momentum (0.0018) plus 0.009 at the mean, and nothing is re-judged: the gate
+  re-scores the champion model itself against each challenger.
+
+Scripts and logs: `~/quantpulse-experiments/m13-europe/xetr-v2/`.
+
 ## What changed
 
 | market | before | now |
@@ -108,7 +136,7 @@ Scripts and logs: `~/quantpulse-experiments/m13-europe/phase5/`.
 | XNYS | 0.006 | **0.009** |
 | XJSE | 0.008 | **0.026** |
 | XLON | — | **0.027** |
-| XETR | 0.027, placeholder | **0.006** |
+| XETR | 0.027, placeholder; 0.006 on 2026-10-28 | **0.009** (2026-10-31, on champion v2) |
 | XPAR | 0.027, placeholder | **0.017** |
 | XSWX | 0.027, placeholder | **0.023** |
 | XAMS | 0.027, placeholder | **0.031** |
@@ -136,9 +164,7 @@ rather than reading the registry, so this change cannot move what either conclud
 - **The spread belongs to the champion's specification.** A challenger with different parameters,
   say a higher learning rate that keeps more rounds, may re-roll narrower or wider. Each
   champion change is a reason to re-measure.
-- **Three of Europe's margins rest on a specification no market has adopted.** Frankfurt's, Paris's
-  and Amsterdam's were measured on what the tuner chose on one panel, and the 2026-10-31 retrain
-  tunes on a newer one and may choose differently. Frankfurt's 0.006 came from a specification that
-  re-rolls unusually narrowly, and one tuned on another panel can be several times noisier:
-  Amsterdam's spread is more than five times Frankfurt's. Each is re-measured on its market's
-  first champion.
+- **Two of Europe's margins rest on a specification no market has adopted.** Paris's and
+  Amsterdam's were measured on what the tuner chose on one panel, and a later retrain tunes on a
+  newer one and may choose differently; Amsterdam's spread is more than three times Frankfurt's.
+  Each is re-measured on its market's first champion, as Frankfurt's was on 2026-10-31.
