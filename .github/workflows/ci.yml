@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The Dependabot follow-up commits to a PR branch with the workflow token, and a push made
+  # with that token starts no workflow, so it dispatches this run on the new commit instead.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

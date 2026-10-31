@@ -838,6 +838,14 @@ synced from the lock, and warnings-as-errors was narrowed to this project's own 
 ([incident 38](#incident-log-root-causes-worth-remembering)). Until then every upstream
 deprecation stopped a dependency round until someone wrote an ignore for it.
 
+The same day, Dependabot's two recurring follow-ups were automated in
+`.github/workflows/dependabot-follow-up.yml`: the tool-pin repair on every Dependabot PR, and on
+the weekly python-deps PR a refresh of every indirect dependency, which Dependabot moves only
+for a security advisory. A dry run on main's lock before #202 merged found 92 of them behind,
+anyio among them (the one #202 then had to move by hand) and starlette at 1.3.1 against 1.10.0.
+The MLflow image's own Dependabot updates are ignored, since the image follows the client's bump
+through the same repair.
+
 ## Testing architecture
 
 559 checks total: 429 pytest (269 unit on synthetic data; 141 integration against a
