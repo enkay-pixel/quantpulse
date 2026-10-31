@@ -493,9 +493,11 @@ a security advisory, or when a 3.x-only feature is actually wanted.*
     with the three live markets proven unchanged. On 2026-10-28 Zurich's first model was promoted,
     while Frankfurt's, Paris's and Amsterdam's did not clear the gate. The same day each market's
     margin and learning-rate ceiling were measured: none needs a ceiling, and the margins are 0.006
-    Frankfurt, 0.017 Paris, 0.023 Zurich and 0.031 Amsterdam, against the 0.027 placeholder. The
-    2026-10-31 retrain judges the first challengers on them. With seven markets the heaviest run,
-    the research job, holds 76.5% of the cap.
+    Frankfurt, 0.017 Paris, 0.023 Zurich and 0.031 Amsterdam, against the 0.027 placeholder. With
+    seven markets the heaviest run, the research job, holds 76.5% of the cap. The first
+    seven-market retrain, on 2026-10-31, took 2.7 minutes and promoted Frankfurt's first champion,
+    v2, which was replayed by hand that evening; re-measured on it, Frankfurt's margin is 0.009.
+    Paris and Amsterdam are still without a model.
 
 ## Resolved: the gate no longer trusts stored incumbent metrics (incident 24)
 

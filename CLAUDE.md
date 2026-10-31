@@ -53,8 +53,9 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   walk-forward CV, Optuna(15). Promotion gate compares **IC**, not Sharpe: holdout IC ≥
   champion + a per-market margin (`Exchange.ic_promotion_margin`, 2 sd of a measured seed
   re-roll: 0.009 XNYS, 0.026 XJSE, 0.027 XLON — re-measured 2026-10-18 after the August values
-  turned out to be a third of the JSE's noise — and 0.006 XETR, 0.017 XPAR, 0.023 XSWX, 0.031 XAMS,
-  measured 2026-10-28; [findings/promotion-margin.md](docs/findings/promotion-margin.md)),
+  turned out to be a third of the JSE's noise — and 0.017 XPAR, 0.023 XSWX, 0.031 XAMS, measured
+  2026-10-28, and 0.009 XETR, re-measured on its first champion 2026-10-31;
+  [findings/promotion-margin.md](docs/findings/promotion-margin.md)),
   IC ≥ 0, DD > −35%, Sharpe kept only as a wide veto (`max_sharpe_regression`
   0.50) applied **after** IC decides. A **first** champion must clear `min_first_sharpe`
   (0.0) — without it a model that lost money out-of-sample becomes the dashboard's
@@ -73,11 +74,15 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   Champions: **XNYS v10** (promoted 2026-08-29, IC 0.064), XJSE v3 (IC 0.063 / Sharpe 1.51),
   **XLON v1** (first champion 2026-10-18, IC 0.066 / Sharpe 2.33 on a holdout where momentum
   scored −0.010; it keeps one or two boosting rounds, so its forecasts take ~9 distinct values),
-  **XSWX v1** (first champion 2026-10-28, IC 0.024 / Sharpe 1.34, momentum −0.025).
+  **XSWX v1** (first champion 2026-10-28, IC 0.024 / Sharpe 1.34, momentum −0.025),
+  **XETR v2** (first champion at the 2026-10-31 retrain, IC 0.033 / Sharpe 0.96, momentum 0.002).
   London joined as the third market on 2026-10-18 ([plan](docs/plans/m12-london-pilot.md)), and
   Frankfurt, Paris, Zurich and Amsterdam as markets four to seven on 2026-10-27
-  ([plan](docs/plans/m13-europe-wave.md)). Frankfurt, Paris and Amsterdam have no champion yet;
-  their first challengers are judged at the 2026-10-31 retrain.
+  ([plan](docs/plans/m13-europe-wave.md)). Paris and Amsterdam have no champion yet: no candidate
+  of theirs has cleared the gate. A first champion promoted by the weekly retrain still needs its
+  history replay-scored by hand (`quantpulse score --replay --exchange X`, ADR 0005's step 3):
+  nightly scoring reaches back only 30 days for a market never scored before, so without the
+  replay its books start a month ago. Frankfurt's was replayed on 2026-10-31.
   XNYS v1 was **demoted 2026-08-23**: it was fitted two days before a backfill
   tripled the panel, so it specialised on the evaluation window, re-scored at IC 0.1777 and
   blocked five retrains while the live book lost money

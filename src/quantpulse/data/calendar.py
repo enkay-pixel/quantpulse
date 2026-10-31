@@ -116,8 +116,9 @@ XLON = Exchange(
 
 # The first wave of more markets (docs/plans/m13-europe-wave.md). Each European session ends at
 # 17:30 local time, so the first whole hour after it is 18. Their margins and ceilings were
-# measured on 2026-10-28, before the first challenger (the plan's phase 5). None of the four
-# needed a ceiling, so all keep the default 0.2; see both findings for the readings.
+# measured on 2026-10-28, before the first challenger (the plan's phase 5), and Frankfurt's again on
+# its first champion on 2026-10-31. None of the four needed a ceiling, so all keep the default 0.2;
+# see both findings for the readings.
 XETR = Exchange(
     code="XETR",
     display_name="Frankfurt",
@@ -126,7 +127,7 @@ XETR = Exchange(
     currency="EUR",
     benchmark="EXS1.DE",  # iShares Core DAX
     has_options=False,  # no free Eurex chain data
-    ic_promotion_margin=0.006,  # no champion yet: measured on what its tuner chose
+    ic_promotion_margin=0.009,  # measured on its champion v2's specification
     display_symbol="€",
     quantile_width=0.25,  # 40 names -> 10 per side
 )
