@@ -13,7 +13,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Serve stage: static files behind nginx.
-FROM nginx:1.31.6-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
+FROM nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
 # The image's start-up step that adds an IPv6 listener only edits the stock default.conf, which is
 # replaced below. To decide that, it asks apk for nginx's manifest, and this image's apk can fetch
 # a package index over the network to answer, with no timeout: a stalled download left nginx
