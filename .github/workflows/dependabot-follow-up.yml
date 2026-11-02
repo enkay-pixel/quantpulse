@@ -13,9 +13,10 @@ name: Dependabot follow-up
 # Two jobs, because the first runs the resolver over the PR's lock, and resolving can build a
 # package fetched from PyPI. That job gets a read-only token and no stored credentials, and hands
 # over a patch. The second holds the write token: it checks the patch touches only the files these
-# repairs may change, commits it to the PR branch, and dispatches CI on the new commit. A push
-# made with the workflow token starts no workflow of its own, so without the dispatch the PR would
-# wait for required checks that never run.
+# repairs may change, commits it to the PR branch, and releases CI on the new commit. GitHub creates
+# CI's run for a push made with the workflow token but holds it for approval, since on this public
+# repo the bot counts as a first-time contributor. A run dispatched instead passes without counting:
+# its checks do not attach to the PR, which is how #209 sat blocked for two days.
 #
 # Its commit is not Dependabot's, so Dependabot stops rebasing the PR after it. The PR merges as
 # soon as CI is green, so that rarely matters; a PR that conflicts is merged with main by hand.
@@ -23,7 +24,7 @@ name: Dependabot follow-up
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  # By hand, on any branch except main: gh workflow run dependabot-follow-up.yml --ref <branch>
+  # By hand, on a PR's branch: gh workflow run dependabot-follow-up.yml --ref <branch>
   workflow_dispatch:
     inputs:
       refresh:
@@ -115,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # push the repair to the PR branch
-      actions: write # dispatch CI on it
+      actions: write # release the CI run its push creates
     steps:
       - uses: actions/checkout@v7
         with:
@@ -156,7 +157,21 @@ jobs:
           git commit -q -F "$RUNNER_TEMP/message"
           git push origin "HEAD:refs/heads/$BRANCH"
 
-      - name: Run CI on the new commit
+      - name: Release CI on the new commit
+        # CI's run only, and only this commit's: everything else stays as GitHub left it.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ci.yml --ref "$BRANCH"
+        run: |
+          runs="repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$(git rev-parse HEAD)&event=pull_request"
+          ci='.workflow_runs[] | select(.path == ".github/workflows/ci.yml" and .conclusion == "action_required") | .id'
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            held=$(gh api "$runs" --jq "$ci")
+            if [ -n "$held" ]; then
+              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$held/approve"
+              echo "released CI run $held on attempt $attempt"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::no held CI run for this commit after 2 minutes, so the PR will wait on its required checks"
+          exit 1

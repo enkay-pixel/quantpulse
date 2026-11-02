@@ -846,6 +846,16 @@ anyio among them (the one #202 then had to move by hand) and starlette at 1.3.1 
 The MLflow image's own Dependabot updates are ignored, since the image follows the client's bump
 through the same repair.
 
+Its first real runs came the same evening, because merging a `dependabot.yml` change re-triggers
+Dependabot, and they showed half the design was wrong. The permissions and the push worked: 95
+indirect changes landed on #209. But the CI it dispatched passed all five checks and #209 stayed
+blocked, because a dispatched run's checks do not attach to the PR. GitHub had also created the PR's
+own CI run for that commit and was holding it for approval, since on a public repo the bot counts
+as a first-time contributor. Approving that run by hand on 2026-11-02 attached the checks and #209
+merged, so the workflow now approves the held run itself. Relaxing the repo's approval policy would
+also have worked, but that policy is what stands in front of strangers' fork PRs. The same runs
+opened a PR for Python 3.15: the docker rule ignored only majors, and 3.12 to 3.15 is a minor.
+
 Also on 2026-10-31 the two ignores kept since 07-23 for releases that would not resolve were
 re-checked, and both now resolve. **dbt-core 1.12 was taken** (1.12.6, with dagster-dbt
 unchanged at 0.29.27): dbt builds only the `analytics` marts, and no model trains on them.

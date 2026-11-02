@@ -203,8 +203,9 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
 - **Dependabot's PRs get a follow-up commit** from `dependabot-follow-up.yml` (since
   2026-10-31): `check_tool_pins.py --fix` on every one, and on the weekly python-deps PR
   `scripts/refresh_indirect_deps.py`, which moves every locked package pyproject does not name
-  and fails if that would move one it does. It then dispatches CI, since its own push starts
-  none. A red python-deps PR now has two commits to suspect: revert the follow-up's on the
+  and fails if that would move one it does. It then approves the CI run its push created, which
+  GitHub holds for approval; a dispatched run would pass without counting towards the PR. A red
+  python-deps PR now has two commits to suspect: revert the follow-up's on the
   branch to see which one broke it. It cannot push workflow files, so a Python image bump
   still needs `check_tool_pins.py --fix` by hand.
 
