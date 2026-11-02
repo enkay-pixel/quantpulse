@@ -88,9 +88,16 @@ updates:
       # at `dbt parse` with mashumaro UnserializableField on dbt-common's dataclass
       # schema — 3.14's deferred annotations (PEP 649) break its field introspection.
       # The API image builds fine; the dagster one cannot. Revisit when dbt-common
-      # supports 3.14, then drop this rule.
+      # supports 3.14, and not before the shadow run's verdict either way: a new interpreter
+      # brings new numeric wheels, and until then every refit must reproduce.
+      #
+      # MINOR as well as major: 3.12 -> 3.15 moves the minor component, so a major-only rule
+      # never matched it, and a PR for 3.15 opened on 2026-10-31. New digests of 3.12 still
+      # come through.
       - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
       # The MLflow server image follows the Python client in uv.lock, never the other way: a
       # registry client talking to a server from another release is the drift
       # scripts/check_tool_pins.py exists to stop. A bump of its own here would leave the two

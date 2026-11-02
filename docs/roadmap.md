@@ -357,11 +357,13 @@ but unresolved: +1.70% and Sharpe 2.68 at 20 sessions, and +1.38%, Sharpe 0.82, 
 56 (2026-10-12). Since then [v3 has been scored forward against
 momentum](findings/champion-vs-momentum.md): its own forward IC is about zero, and −0.125 on the
 sessions it served. **Reviewed at 60 live sessions (2026-10-20) and kept:** Sharpe +0.55 and
-alpha t +0.05, so neither trigger fired and the live record still cannot tell it from luck. *Reopen
-at the shadow run's verdict (about 2026-12-29), which decides tuned versus fixed models for the JSE
-and is the natural moment to change its champion, or sooner if live Sharpe turns negative or alpha
-resolves either way.* Withdrawing it is one command (`quantpulse demote`) whenever that call is
-made.
+alpha t +0.05, so neither trigger fired and the live record still cannot tell it from luck.
+**Reviewed again on 2026-11-02 and kept**, after one −0.64% day took live Sharpe through zero: −0.23
+at 69 sessions, −0.55% in total, alpha t −0.39. A Sharpe over 69 sessions has an error of about 1.9,
+so crossing zero says nothing, and that trigger is gone. *Reopen at the shadow run's verdict (about
+2026-12-29), which decides tuned versus fixed models for the JSE and is the natural moment to change
+its champion, or sooner if alpha resolves either way.* Withdrawing it is one command (`quantpulse
+demote`) whenever that call is made.
 
 **Do not prune the NYSE feature set**, though pruning to `vol_21` resolves at t +3.00 across
 sixteen tuned seeds. `vol_21` was selected on this panel, so the result supports "pruning

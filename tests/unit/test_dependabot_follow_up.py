@@ -43,6 +43,8 @@ def _commands(script: str) -> set[str]:
                 target = False
             elif token == "$":
                 continue
+            elif token == "for":  # its words up to the next `;` are values, not a command
+                expecting = False
             elif token in REDIRECTIONS:
                 target = True
             elif token in STARTS_A_COMMAND:
@@ -65,14 +67,18 @@ def test_the_job_that_pushes_runs_no_code_from_the_pr() -> None:
     assert set(push["permissions"]) == {"contents", "actions"}
     commands = set().union(*(_commands(script) for script in _runs(push)))
     # Shell builtins and the tools that move the patch; anything else could be the PR's code.
-    unexpected = commands - {"git", "gh", "echo", "exit", "grep", "cut", "[", "true"}
+    unexpected = commands - {"git", "gh", "echo", "exit", "grep", "cut", "[", "true", "sleep"}
     assert not unexpected, f"the push job must run only git and gh over the patch: {unexpected}"
     allowlist = next(s for s in _runs(push) if "allowed=" in s)
     assert ".github" not in allowlist, "the workflow token cannot push workflow files"
 
 
-def test_ci_can_be_dispatched_onto_the_follow_up_commit() -> None:
-    """The follow-up's own push starts no workflow, so without this the PR waits on CI forever."""
-    ci = yaml.safe_load((WORKFLOWS / "ci.yml").read_text())
-    # PyYAML reads the bare key `on` as the boolean True.
-    assert "workflow_dispatch" in ci[True]
+def test_the_follow_up_releases_the_ci_run_its_push_created() -> None:
+    """A held run waits forever, and a dispatched one passes without counting towards the PR."""
+    scripts = _runs(_jobs()["push"])
+    assert not any("gh workflow run" in script for script in scripts), (
+        "dispatched checks don't attach"
+    )
+    release = next(script for script in scripts if "/approve" in script)
+    assert "head_sha=$(git rev-parse HEAD)" in release, "approve this commit's run, no other"
+    assert 'select(.path == ".github/workflows/ci.yml"' in release, "approve CI's run, nothing else"
