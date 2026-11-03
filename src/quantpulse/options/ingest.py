@@ -30,7 +30,9 @@ class OffHoursSnapshotError(RuntimeError):
 
     Raised rather than returning 0, because a silent no-op is indistinguishable from
     "the feed had nothing today" — the Dagster asset would materialize green and the
-    evening's real snapshot would never be chased.
+    evening's real snapshot would never be chased. The `option_chains` asset does catch it, so
+    that dbt still runs, but only after recording the alert this exists to raise; the repair
+    sensor chases a thin day from the table, whatever colour the asset is.
     """
 
 

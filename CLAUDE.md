@@ -252,7 +252,10 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   with junk. It raises `OffHoursSnapshotError`; `--force` is for off-hours testing against
   a throwaway date only. The gate used to live only in the repair sensor, which left the
   CLI and manual Dagster materializes free to corrupt a day. Don't push it back up into
-  the callers: a rule each scheduling path must remember is one a new path won't.
+  the callers: a rule each scheduling path must remember is one a new path won't. The
+  `option_chains` asset catches the refusal, records an alert and finishes, because dbt depends on
+  it and a late run would otherwise skip the marts
+  ([incident 39](docs/development-history.md#incident-log-root-causes-worth-remembering)).
 - An outage longer than the scoring floor widens the window back to the last scored date
   (`scoring_window_start`), so a trip doesn't leave permanent holes. Safe only because
   `fct_portfolio_daily` marks a day scored by a champion promoted **after** it as

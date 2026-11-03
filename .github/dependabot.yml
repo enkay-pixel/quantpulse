@@ -21,6 +21,12 @@ updates:
       # below 1.12). It resolved by 2026-10-31 and was taken then, so the rule went.
       - dependency-name: "pandas"
         update-types: ["version-update:semver-major"]
+      # pyarrow 26 does not resolve: mlflow caps it (`pyarrow<26` at 3.17.2), so the weekly job
+      # ended red on dependency_file_not_resolvable from 2026-11-02, though the rest of the group
+      # still opened its PR. Clears when mlflow widens its range, and nothing re-checks that:
+      # `uv lock --upgrade-package pyarrow==<latest>` does. Minor and patch updates still come.
+      - dependency-name: "pyarrow"
+        update-types: ["version-update:semver-major"]
       # mypy is ignored ENTIRELY, not by update-type, and the earlier attempt to ignore only
       # its major was wrong. The major ignore did suppress 2.3.0 — and Dependabot simply fell
       # back to the highest allowed 1.x (1.20.0), which fails the same way:

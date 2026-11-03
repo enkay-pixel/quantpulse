@@ -518,6 +518,17 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     Lesson: a local run is evidence about CI only when it runs on what CI runs, and a rule meant
     to catch this project's deprecated calls has to be scoped to this project's code, or every
     upstream release becomes this project's failure.
+39. **A closed capture window also skipped the marts (2026-11-03)**: macOS 27.2 rebooted the laptop
+    at 23:09 SAST on 11-02, nine minutes after the US close, and Docker Desktop waits for login, so
+    the stack came back at 08:45. The chains for 11-02 are gone, the fifth permanent hole. The late
+    processing run scored what it had, then `option_chains` refused off-hours, which was right, and
+    failed, which was not: dbt depends on that asset, so `transform_dbt_assets` was skipped and the
+    marts stayed at 10-29 for a snapshot no retry could take. The run retry then failed the same way,
+    and the 02:00 dbt build meant to be dbt 1.12's first in production never happened; it ran by hand
+    at 09:09. `option_chains` now catches the refusal, records the same alert and finishes, while an
+    empty universe still fails the run. The late ticks also ran processing before NYSE's catch-up
+    ingest, so NYSE's Monday waited for the next night's scoring. The 10-08 hole fell on the evening
+    macOS 27.0.1 installed, so automatic macOS installs are the common cause to remove.
 
 ## Fault injection: exercising a path that had never run (2026-08-13)
 

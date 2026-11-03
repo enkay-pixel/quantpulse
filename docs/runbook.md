@@ -64,6 +64,15 @@ captures it whenever the stack is up between the NYSE close and 06:00 SAST (see
 for an evening, have it on for about an hour before 06:00 — long enough for the sensor's
 30-minute tick and the capture itself — and nothing is lost.
 
+A macOS update is the quiet way to lose it. Installing one reboots to the login screen, and Docker
+Desktop waits for login, so the stack stays down until someone logs in. Two of the five holes fell
+on a night macOS updated (2026-10-08 and 2026-11-02). Install updates by hand during the day, with
+System Settings → General → Software Update → Automatic Updates → "Install macOS updates" off.
+
+A processing run that starts after the window still does the rest of its work: `option_chains`
+records an alert saying no chains were captured, and dbt builds the marts without them
+([incident 39](development-history.md#incident-log-root-causes-worth-remembering)).
+
 ### When US daylight saving changes
 
 The New York-timed jobs move an hour later in SAST from the first Sunday of November, when US
