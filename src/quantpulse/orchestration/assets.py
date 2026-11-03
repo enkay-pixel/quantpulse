@@ -441,20 +441,26 @@ def drift_report() -> dg.MaterializeResult:
 
 
 @dg.asset(deps=[raw_prices], group_name="options", kinds={"python", "postgres"})
-def option_chains() -> dg.MaterializeResult:
+def option_chains(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
     """Snapshot live option chains + Greeks. No free history exists, so each run
     grows our own options dataset going forward.
 
     Only markets with `has_options` are snapshotted: no free JSE chain data exists from
     any vendor we can use, so this stays a US-only layer by necessity.
+
+    Outside the post-close window the capture refuses, and this records the alert a failed run
+    would have and finishes. dbt depends on this asset, so failing would also skip the marts,
+    for a snapshot no retry can take (incident 39). Anything else the capture raises still
+    fails the run.
     """
     from sqlalchemy import func, select
 
     from quantpulse.data.calendar import market_today
     from quantpulse.data.universe import options_tickers
     from quantpulse.db import HeldOptionQuote
+    from quantpulse.monitoring.alerts import record_failure
     from quantpulse.options.book import held_contracts
-    from quantpulse.options.ingest import snapshot_option_chains
+    from quantpulse.options.ingest import OffHoursSnapshotError, snapshot_option_chains
 
     with get_session() as session:
         tickers = options_tickers(session)
@@ -462,7 +468,12 @@ def option_chains() -> dg.MaterializeResult:
         held = held_contracts(session)
     if not tickers:
         return dg.MaterializeResult(metadata={"quotes": 0, "note": "no options-bearing market"})
-    rows = snapshot_option_chains(get_session, tickers, held=held)  # commits per ticker
+    try:
+        rows = snapshot_option_chains(get_session, tickers, held=held)  # commits per ticker
+    except OffHoursSnapshotError as exc:
+        record_failure("option_chains", context.run.run_id, f"No chains captured: {exc}")
+        context.log.warning("No chains captured: %s", exc)
+        return dg.MaterializeResult(metadata={"quotes": 0, "skipped": str(exc)})
     with get_session() as session:
         kept = session.scalar(
             select(func.count())

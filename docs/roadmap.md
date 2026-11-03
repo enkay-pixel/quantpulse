@@ -114,9 +114,10 @@ measured skill, and the collapse entering the trailing holdout is already loweri
 | Price bars (from 2018) | 110,333 | 61,550 |
 | Options | 1,794,218 quotes, 57 snapshot days | none (no free JSE chain data) |
 
-Four option snapshot days are permanent holes, because chains are live-only: 2026-08-11 to
-08-13 (a connectivity outage) and 2026-10-08 (the stack was down that evening). Every price
-gap has been recovered.
+Five option snapshot days are permanent holes, because chains are live-only: 2026-08-11 to
+08-13 (a connectivity outage), 2026-10-08 (the stack was down that evening, the evening macOS 27.0.1
+installed) and 2026-11-02 (macOS 27.2 rebooted the laptop nine minutes after the close, and the stack
+stayed down until login the next morning). Every price gap has been recovered.
 
 yfinance is now the only price source, and price data follows
 [ADR 0006](adr/0006-price-data-is-filled-not-rewritten.md): a partial session is filled, never
