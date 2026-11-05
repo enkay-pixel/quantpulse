@@ -15,6 +15,7 @@ from quantpulse.orchestration import catchup, definitions
 
 TODAY = dt.date(2026, 7, 24)
 MISSED = dt.date(2026, 7, 20)
+REAL_TRADING_DAYS = calendar.trading_days  # the fixture below replaces it
 
 
 @pytest.fixture
@@ -166,3 +167,30 @@ def test_a_session_missing_both_coverage_and_tickers_is_requested_once(
     keys = [r.partition_key for r in result.run_requests or []]
     assert keys.count(f"{MISSED}|XNYS") == 1
     assert len(keys) == len(set(keys)), "no session may be requested twice in one tick"
+
+
+def test_a_day_the_market_was_closed_is_not_a_missed_session(
+    patched: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Incident 40: the JSE's election day read as a session with no bars, so this sensor would have
+    asked for it three times a day for thirty days. Everything is reported missing here, so the
+    calendar alone has to keep the closed day out."""
+
+    def only_the_jse(start: dt.date, end: dt.date, exchange: str | None = None) -> list[dt.date]:
+        return REAL_TRADING_DAYS(start, end, exchange) if exchange == "XJSE" else []
+
+    monkeypatch.setattr(definitions, "market_today", lambda exchange=None: dt.date(2026, 11, 6))
+    monkeypatch.setattr(calendar, "trading_days", only_the_jse)
+    monkeypatch.setattr(catchup, "ingest_overdue", lambda now=None, exchange=None: False)
+    monkeypatch.setattr(
+        catchup,
+        "missing_trading_days",
+        lambda expected, exchange=None: [d for d in expected if d >= dt.date(2026, 11, 3)],
+    )
+
+    result = _evaluate()
+    assert isinstance(result, dg.SensorResult)
+    assert {r.partition_key for r in result.run_requests or []} == {
+        "2026-11-03|XJSE",
+        "2026-11-05|XJSE",
+    }

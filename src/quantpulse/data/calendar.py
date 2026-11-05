@@ -67,6 +67,13 @@ class Exchange:
     # overshoot and costs a little where it rarely does. The evidence behind each value is in
     # docs/findings/learning-rate-ceiling.md; re-measure there before changing one.
     learning_rate_ceiling: float = 0.2
+    # Days this market did not trade that exchange_calendars still counts as sessions. It knows
+    # the holidays a rule can compute and the one-offs someone has added, and South Africa declares
+    # its one-offs by proclamation: the library's list stops at the 2019 election. Left out, a
+    # closed day reads as a missed session, which catch-up retries for thirty days (incident 40).
+    # Each entry is a day the vendor has no bar for in any of the market's tickers, with bars on
+    # both sides of it.
+    closures: tuple[dt.date, ...] = ()
 
     @property
     def tz(self) -> ZoneInfo:
@@ -97,6 +104,13 @@ XJSE = Exchange(
     quantile_width=0.35,  # 29 names -> ~10 per side, matching XNYS
     ic_promotion_margin=0.026,  # stops after few rounds, so the round count re-rolls with the seed
     learning_rate_ceiling=0.02,  # the tuner overshoots on this market; see the finding
+    closures=(
+        dt.date(2021, 11, 1),  # local elections
+        dt.date(2022, 12, 27),  # declared: Christmas fell on a Sunday
+        dt.date(2023, 12, 15),  # declared after the Rugby World Cup win
+        dt.date(2024, 5, 29),  # general election
+        dt.date(2026, 11, 4),  # local elections, declared 2026-09-15
+    ),
 )
 
 XLON = Exchange(
@@ -187,7 +201,19 @@ def get_exchange(code: str | None = None) -> Exchange:
 
 @lru_cache
 def _calendar(code: str) -> xcals.ExchangeCalendar:
-    return xcals.get_calendar(code)
+    calendar = xcals.get_calendar(code)
+    closures = EXCHANGES[code].closures
+    if not closures:
+        return calendar
+
+    # A subclass rather than a filter on the answers, so that everything the library works out from
+    # its sessions (the previous one, a day's open and close) sees the same closed day.
+    class WithClosures(type(calendar)):  # type: ignore[misc]
+        @property
+        def adhoc_holidays(self) -> list[pd.Timestamp]:
+            return [*super().adhoc_holidays, *map(pd.Timestamp, closures)]
+
+    return WithClosures()
 
 
 def market_today(exchange: str | None = None) -> dt.date:

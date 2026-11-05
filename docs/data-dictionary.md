@@ -175,6 +175,12 @@ trades a window ending yesterday is exposed too. Since 2026-10-27 `quantpulse ba
 to this for each market: without `--end` it stops at the newest session it can fetch safely,
 and it refuses an `--end` whose request would reach a session that has not closed.
 
+**A day the market was closed can be answered with the session before it.** On 2026-11-04, when
+the JSE did not trade, one-day requests returned rows that landed on 11-03, and the same request a
+day later returned nothing ([incident 40](development-history.md#incident-log-root-causes-worth-remembering)).
+Since 2026-11-05 `fetch_daily_bars` drops any row stamped outside its request and names the tickers
+in the log. If nothing is left it raises `NoBarsReturned`, as it does for any day with no bars.
+
 Whatever the cause, the gap is left as a gap. Carrying the previous close forward or
 interpolating would fabricate the observation the CAPM decomposition divides by, and a
 made-up denominator quietly undermines the one number that exists to be an honest read. One

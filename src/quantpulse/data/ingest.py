@@ -149,6 +149,20 @@ def fetch_daily_bars(tickers: list[str], start: dt.date, end: dt.date) -> pd.Dat
             f"yfinance batch failed after retries for {len(tickers)} tickers {start}..{end}"
         ) from exc
 
+    # A row stamped outside the request is not that request's bar. On a day the market was closed
+    # the vendor answered a one-day fetch with the session before, and the scheduled ingest wrote
+    # it over the stored bar while reporting rows for a day that has none (incident 40).
+    outside = ~bars["date"].between(start, end)
+    if outside.any():
+        logger.warning(
+            "yfinance returned %d bars dated outside %s..%s: %s",
+            int(outside.sum()),
+            start,
+            end,
+            ", ".join(sorted(set(bars.loc[outside, "ticker"]))),
+        )
+        bars = bars[~outside]
+
     missing = sorted(set(tickers) - set(bars["ticker"].unique()))
     if missing:
         logger.warning(
