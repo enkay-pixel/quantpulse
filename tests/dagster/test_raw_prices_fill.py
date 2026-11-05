@@ -18,6 +18,7 @@ import pytest
 
 import dagster as dg
 from quantpulse.data import ingest
+from quantpulse.data.calendar import is_trading_day
 from quantpulse.data.ingest import BAR_COLUMNS, NoBarsReturned
 from quantpulse.orchestration import assets, catchup
 
@@ -113,3 +114,16 @@ def test_an_untagged_run_is_the_scheduled_ingest_unchanged(
     assert _materialize().success
     assert calls["fetched"] == ["A", "B", "C"]
     assert calls["overwrite"] is True
+
+
+def test_a_day_the_market_was_closed_asks_the_vendor_nothing(
+    calls: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Incident 40: six ingests of a day the JSE was closed reported rows for it and rewrote the
+    session before. The real calendar has to stop that before any fetch."""
+    monkeypatch.setattr(assets, "is_trading_day", is_trading_day)
+    closed = dg.MultiPartitionKey({"date": "2026-11-04", "exchange": "XJSE"})
+    result = dg.materialize([RAW_PRICES], partition_key=str(closed), raise_on_error=False)
+    assert result.success
+    assert "fetched" not in calls, "a closed day reached the vendor"
+    assert "overwrite" not in calls, "a closed day wrote bars"

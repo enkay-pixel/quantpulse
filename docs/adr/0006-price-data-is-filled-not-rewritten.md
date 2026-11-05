@@ -42,6 +42,9 @@ vendor had the absent NYSE bars by the next afternoon.
    Since 2026-10-27 `quantpulse backfill` holds to the same rule for its whole window: its default
    end stops short of an open session, and an `--end` that would reach one is refused
    (`ingest.fetch_reaches_open_session`).
+5. **A fetch keeps only the dates it asked for.** Since 2026-11-05 `fetch_daily_bars` drops any row
+   stamped outside its request, after a day the JSE was closed wrote over the session before it
+   ([incident 40](../development-history.md#incident-log-root-causes-worth-remembering)).
 
 Whole missing days are the exception to 3: the catch-up sensor still re-ingests a session below
 the coverage floor whenever it can, because a missing day costs more than a lost refit.

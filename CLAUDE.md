@@ -428,6 +428,13 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   that `ingest.fetch_reaches_open_session()` flags. A script calling `fetch_daily_bars`
   directly has no such guard. Until 2026-10-27 the default was `last_trading_day()`, which
   is today's session from midnight, open or not.
+- **exchange_calendars does not know every closure.** South Africa declares its one-offs by
+  proclamation and the library's list stops at the 2019 election, so `Exchange.closures` holds the
+  rest: five JSE days as of 2026-11-05. A session no ticker has a bar for, with bars on both sides,
+  is the sign. Until the day is listed, catch-up retries it for thirty days. On one such day the
+  vendor's rows landed on the session before and overwrote it, which is why `fetch_daily_bars` now
+  drops anything stamped outside its request
+  ([incident 40](docs/development-history.md#incident-log-root-causes-worth-remembering)).
 - **Widening the fetch window does not recover a missing bar** — it only invents one. Measured
   on STX40.JO 2026-08-14: narrow one-day windows and a wide window return *identical* closes
   for every genuinely published date (08-11 10857, 08-12 10770). The only row the wide window

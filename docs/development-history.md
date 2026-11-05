@@ -529,6 +529,24 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     empty universe still fails the run. The late ticks also ran processing before NYSE's catch-up
     ingest, so NYSE's Monday waited for the next night's scoring. The 10-08 hole fell on the evening
     macOS 27.0.1 installed, so automatic macOS installs are the common cause to remove.
+40. **A closed day wrote over the session before it (2026-11-04)**: the JSE did not trade on 11-04,
+    the local elections, which South Africa declared a public holiday on 09-15, and
+    exchange_calendars, whose one-off closures stop at the 2019 election, still called it a session.
+    Six ingests of 11-04, the 19:30 run and then catch-up's, reported 28 or 29 rows and stored none
+    under that date. They wrote over the 11-03 bars instead. The vendor's answer could not be replayed,
+    because the same request a day later returned nothing, but the rows show it: 28 of the 29 stored
+    11-03 bars were last written by a later transaction than STX40.JO's, which fits the first three
+    runs writing 29 rows and the last three 28. Nothing changed: the backups either side hold identical
+    values, and no retrain had used 11-03. A full ingest overwrites, though, so a different answer
+    would have gone in unseen, under a run that read as a success. Left alone, catch-up would have
+    retried the day three times a day for thirty days. `Exchange.closures` now holds the days the
+    library is missing, five for the JSE, found by listing every session in our history with no bar
+    in any ticker (2021-11-01, 2022-12-27, 2023-12-15, 2024-05-29, 2026-11-04). And `fetch_daily_bars`
+    drops any row stamped outside its request and names it in the log, so a closed day the list does
+    not know yet fails loudly instead of writing its neighbour. Separately, the network was slow from
+    14:00 to about 00:40 on 11-04 (SEC, Wikipedia and Yahoo alike, cause unknown): research failed
+    twice and recovered the next day, and the option capture took 78 minutes and still reached 50
+    of 50.
 
 ## Fault injection: exercising a path that had never run (2026-08-13)
 

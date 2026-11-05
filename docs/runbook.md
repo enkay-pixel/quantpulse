@@ -196,6 +196,15 @@ Two sensors keep the pipeline honest without any paid service:
 
 Check both from the Dagster UI (Automation → Sensors) or `GET /alerts`.
 
+**A market closed on a day the calendar does not know.** exchange_calendars knows the holidays a
+rule can compute and the one-offs someone has added, and South Africa declares its one-offs by
+proclamation. If no ticker in a market has a bar for a session, the vendor still has nothing on a
+later day, and the next session arrives as usual, check whether a holiday was declared. If one was,
+add the date to that market's `closures` in `data/calendar.py` and redeploy `dagster-daemon`,
+`dagster-webserver` and `api`. Until then catch-up retries it three times a day for thirty days, and
+each attempt fails and raises an alert. Five JSE days are listed as of 2026-11-05
+([incident 40](development-history.md#incident-log-root-causes-worth-remembering)).
+
 Note: yfinance returns a *partial* bar for the current session during market hours, so an
 intraday ingest stores a mid-session price. The scheduled post-close run upserts the true
 close over it — self-healing, no action needed.

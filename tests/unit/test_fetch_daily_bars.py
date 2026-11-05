@@ -18,7 +18,7 @@ import pandas as pd
 import pytest
 
 from quantpulse.data import ingest
-from quantpulse.data.ingest import BAR_COLUMNS, IngestionError, fetch_daily_bars
+from quantpulse.data.ingest import BAR_COLUMNS, IngestionError, NoBarsReturned, fetch_daily_bars
 
 START, END = dt.date(2026, 1, 2), dt.date(2026, 1, 9)
 DAYS = [d.date() for d in pd.bdate_range(START, END)]
@@ -97,3 +97,39 @@ def test_the_result_is_cleaned(monkeypatch: pytest.MonkeyPatch) -> None:
 
     bars = fetch_daily_bars(["AAA"], START, END)
     assert (bars["close"] > 0).all()
+
+
+def _stub_dated(monkeypatch: pytest.MonkeyPatch, rows: list[tuple[str, dt.date]]) -> None:
+    frame = pd.DataFrame(
+        [[t, d, 100.0, 101.0, 99.0, 100.5, 1000, "yfinance"] for t, d in rows],
+        columns=BAR_COLUMNS,
+    )
+    monkeypatch.setattr(ingest, "_download_yfinance", lambda tickers, start, end: None)
+    monkeypatch.setattr(ingest, "normalize_yfinance", lambda raw, tickers: frame)
+
+
+def test_a_day_answered_only_with_the_session_before_has_no_bars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Incident 40: asked for a day the JSE was closed, the vendor served the session before, and
+    the ingest wrote those rows over the stored bars while reporting rows for the closed day."""
+    closed, before = dt.date(2026, 11, 4), dt.date(2026, 11, 3)
+    _stub_dated(monkeypatch, [("AAA", before), ("BBB", before)])
+
+    with pytest.raises(NoBarsReturned):
+        fetch_daily_bars(["AAA", "BBB"], closed, closed)
+
+
+def test_bars_outside_the_window_are_dropped_and_named_and_the_rest_kept(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    day, before = dt.date(2026, 11, 5), dt.date(2026, 11, 3)
+    _stub_dated(monkeypatch, [("AAA", day), ("BBB", before)])
+
+    with caplog.at_level(logging.WARNING, logger="quantpulse.data.ingest"):
+        bars = fetch_daily_bars(["AAA", "BBB"], day, day)
+
+    assert list(bars["ticker"]) == ["AAA"]
+    assert list(bars["date"]) == [day]
+    assert "1 bars dated outside" in caplog.text
+    assert "1 of 2 tickers" in caplog.text and "BBB" in caplog.text

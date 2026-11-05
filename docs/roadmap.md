@@ -311,6 +311,9 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
   concluding anything. And do not backfill a window whose end falls on a session still
   trading — for a ticker with a genuine hole, the in-progress bar can slide into the empty
   slot under the wrong date (see data-dictionary.md).
+- A day no ticker has a bar for may be a closure the calendar does not know: South Africa declares
+  one-offs by proclamation, and exchange_calendars' list stops at the 2019 election. Five JSE days
+  are in `Exchange.closures` as of 2026-11-05 (see the runbook, "Failure alerts & missed-day catch-up").
 - Dates are exchange dates, never the container's UTC date: use `calendar.market_today()`.
 - **Base images**: node 26 is in; python stays on 3.12 (3.14 breaks dbt-common's
   dataclass introspection under PEP 649 — verified by building, recorded in
