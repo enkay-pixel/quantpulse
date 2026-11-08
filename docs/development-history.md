@@ -547,6 +547,28 @@ Yahoo's option feed is only trustworthy where contracts actually trade, and it f
     14:00 to about 00:40 on 11-04 (SEC, Wikipedia and Yahoo alike, cause unknown): research failed
     twice and recovered the next day, and the option capture took 78 minutes and still reached 50
     of 50.
+41. **One market's paper books outgrew a statement and stopped every market's (2026-11-07)**:
+    `rebuild_portfolio()` wrote a market's whole snapshot history in one insert, ten bind parameters
+    a row, and Postgres refuses a statement with more than 65,535. Frankfurt's three books held
+    6,552 rows on 11-04 (65,520 parameters) and needed 6,555 on 11-07. `portfolio_equity` looped over
+    the markets with nothing between them, and XETR sorts first, so the 02:00 processing run and its
+    retry wrote no market's books, and dbt, which depends on the step, skipped every mart: the books
+    stayed at 11-04 (the JSE at 11-03), `fct_portfolio_daily` at 11-04 and `fct_option_summary` at
+    11-05. The rule was already written down ("bulk upserts go through `chunked`"); this write
+    predated it or missed it. A morning health check flagged the lag at 08:00 and a diagnosis it
+    appended to the same log found the cause, but `make status` showed the job healthy for two days:
+    it read only the lines stamped with a log's last minute, and the diagnosis, appended at 08:04,
+    pushed the 08:00 problem out.
+    Fixed on 11-08: the write goes through `chunked`; each market is rebuilt in its own session and
+    a failure is an alert naming the market while the others are written and the step finishes (it
+    fails only when no market was rebuilt); and `make status` takes a job's latest run as the last
+    group of lines stamped within 20 minutes of each other (`scripts/latest-run.awk`). Checking the
+    class rather than the instance found two more. Three other bulk inserts were unbatched (insider
+    trades, short interest, watchlist names), all small, now batched. And the batch size itself was
+    wrong: 4,000 rows of the 19-column option tables is 76,000 parameters, and SPY's chain had
+    reached 3,021 rows a day, 12% short of the 3,450 that would have stopped the nightly capture.
+    `UPSERT_CHUNK_ROWS` is now 2,000, safe to 32 columns, and `tests/unit/test_bulk_writes.py`
+    holds every bulk insert to `chunked` and the batch size to the widest table.
 
 ## Fault injection: exercising a path that had never run (2026-08-13)
 

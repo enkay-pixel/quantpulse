@@ -400,18 +400,41 @@ def _unscored_dates(exchange: str, latest_feature: dt.date, lookback: int) -> li
 
 
 @dg.asset(deps=[predictions], group_name="serving", kinds={"python", "postgres"})
-def portfolio_equity() -> dg.MaterializeResult:
-    """Simulated paper books rebuilt from the prediction trail, per market."""
-    from quantpulse.ml.portfolio import rebuild_portfolio
+def portfolio_equity(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
+    """Simulated paper books rebuilt from the prediction trail, per market.
 
-    per_exchange = {}
+    Each market is rebuilt in its own session. A market that fails keeps its previous books, is
+    recorded as an alert and named in the metadata, and the rest are still written. The step then
+    finishes, because dbt depends on it and a failed step would skip the marts for every market.
+    It fails only when no market's books were rebuilt. Until 2026-11-08 one market's failure
+    stopped every market's books and the marts with them (incident 41).
+    """
+    from quantpulse.ml.portfolio import rebuild_portfolio
+    from quantpulse.monitoring.alerts import record_failure
+
+    per_exchange: dict[str, int] = {}
+    failed: dict[str, str] = {}
     for exchange in sorted(EXCHANGES):
-        with get_session() as session:
-            per_exchange[exchange] = rebuild_portfolio(get_engine(), session, exchange=exchange)
+        try:
+            with get_session() as session:
+                per_exchange[exchange] = rebuild_portfolio(get_engine(), session, exchange=exchange)
+        except Exception as exc:  # one market's books must not stop the others'
+            failed[exchange] = f"{type(exc).__name__}: {exc}"
+            context.log.error("%s paper books not rebuilt: %s", exchange, failed[exchange])
+    if failed:
+        summary = "; ".join(f"{ex}: {err}" for ex, err in failed.items())
+        if not per_exchange:
+            raise RuntimeError(f"No market's paper books were rebuilt. {summary}")
+        record_failure(
+            "portfolio_equity",
+            context.run.run_id,
+            f"Paper books not rebuilt for {', '.join(failed)}; the other markets were. {summary}",
+        )
     return dg.MaterializeResult(
         metadata={
             "snapshots": sum(per_exchange.values()),
             **{f"snapshots_{k}": v for k, v in per_exchange.items()},
+            "failed_markets": ", ".join(failed) or "none",
         }
     )
 

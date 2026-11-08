@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from quantpulse.data.calendar import DEFAULT_EXCHANGE, get_exchange
 from quantpulse.db import PortfolioSnapshot
 from quantpulse.ml.metrics import TRADING_DAYS_PER_YEAR
+from quantpulse.utils import chunked
 
 logger = logging.getLogger(__name__)
 
@@ -240,27 +241,31 @@ def rebuild_portfolio(
         logger.info("No realizable portfolio days yet (predictions too recent)")
         return 0
 
-    stmt = pg_insert(PortfolioSnapshot).values(snapshots)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=[
-            PortfolioSnapshot.date,
-            PortfolioSnapshot.exchange,
-            PortfolioSnapshot.variant,
-        ],
-        set_={
-            col: getattr(stmt.excluded, col)
-            for col in (
-                "equity",
-                "daily_return",
-                "gross_exposure",
-                "net_exposure",
-                "turnover",
-                "positions",
-                "model_version",
-            )
-        },
-    )
-    session.execute(stmt)
+    # In batches: the whole history in one statement passed Postgres's 65,535 bind parameters once
+    # Frankfurt's three books reached 6,555 rows, and every market's book stopped (incident 41).
+    # One session, so a market's rebuild still commits whole or not at all.
+    for chunk in chunked(snapshots):
+        stmt = pg_insert(PortfolioSnapshot).values(list(chunk))
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[
+                PortfolioSnapshot.date,
+                PortfolioSnapshot.exchange,
+                PortfolioSnapshot.variant,
+            ],
+            set_={
+                col: getattr(stmt.excluded, col)
+                for col in (
+                    "equity",
+                    "daily_return",
+                    "gross_exposure",
+                    "net_exposure",
+                    "turnover",
+                    "positions",
+                    "model_version",
+                )
+            },
+        )
+        session.execute(stmt)
     logger.info("Rebuilt %d portfolio snapshots across %d books", len(snapshots), len(books))
     return len(snapshots)
 

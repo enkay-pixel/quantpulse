@@ -108,19 +108,18 @@ def sync_watchlist(session: Session, names: list[WatchName]) -> dict[str, Any]:
             f"already in the model's universe, so not a watchlist name: {overlap}. "
             "Remove them from configs/watchlist.yaml."
         )
-    if names:
-        stmt = pg_insert(WatchlistName).values(
-            [
-                {
-                    "ticker": n.ticker,
-                    "exchange": n.exchange,
-                    "asset_type": n.asset_type,
-                    "why": n.why,
-                    "wikipedia": n.wikipedia,
-                }
-                for n in names
-            ]
-        )
+    rows = [
+        {
+            "ticker": n.ticker,
+            "exchange": n.exchange,
+            "asset_type": n.asset_type,
+            "why": n.why,
+            "wikipedia": n.wikipedia,
+        }
+        for n in names
+    ]
+    for chunk in chunked(rows):
+        stmt = pg_insert(WatchlistName).values(list(chunk))
         session.execute(
             stmt.on_conflict_do_update(
                 index_elements=[WatchlistName.ticker],
