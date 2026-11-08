@@ -2,6 +2,7 @@
 comparing it to the baseline a measurement rather than a coincidence."""
 
 from dataclasses import fields
+from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
@@ -151,3 +152,66 @@ def test_gross_exposure_is_dollar_neutral() -> None:
     book = pd.DataFrame(build_book(preds, prices, DAILY_BOOK))
     assert book["gross_exposure"].to_numpy() == pytest.approx(1.0)
     assert book["net_exposure"].to_numpy() == pytest.approx(0.0, abs=1e-12)
+
+
+class _RecordingSession:
+    """Stands in for a session: keeps each statement, touches no database."""
+
+    def __init__(self) -> None:
+        self.statements: list[object] = []
+
+    def execute(self, stmt: object) -> None:
+        self.statements.append(stmt)
+
+
+def test_a_history_past_postgres_parameter_limit_is_written_in_several_statements(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Postgres refuses a statement with more than 65,535 bind parameters. The rebuild wrote a
+    market's whole history in one, and on 2026-11-07 Frankfurt's three books reached 6,555 rows
+    at 10 parameters each: every market's books stopped (incident 41)."""
+    import datetime as dt
+
+    from sqlalchemy.dialects import postgresql
+
+    from quantpulse.ml import portfolio
+    from quantpulse.utils import POSTGRES_MAX_BIND_PARAMS
+
+    per_book = 2_400  # three books: 7,200 rows, 72,000 parameters in one statement
+    start = dt.date(2018, 1, 1)
+
+    def fake_book(
+        _preds: object, _prices: object, cfg: BookConfig, exchange: str
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "date": start + dt.timedelta(days=i),
+                "exchange": exchange,
+                "variant": cfg.variant,
+                "equity": 1.0,
+                "daily_return": 0.0,
+                "gross_exposure": 1.0,
+                "net_exposure": 0.0,
+                "turnover": 0.0,
+                "positions": {"T0": 0.1},
+                "model_version": "1",
+            }
+            for i in range(per_book)
+        ]
+
+    frame = pd.DataFrame({"ticker": ["T0"]})
+    monkeypatch.setattr(portfolio, "_load_frames", lambda _engine, _ex: (frame, frame))
+    monkeypatch.setattr(portfolio, "build_book", fake_book)
+    session = _RecordingSession()
+
+    written = portfolio.rebuild_portfolio(MagicMock(), session, exchange="XETR")  # type: ignore[arg-type]
+
+    books = len(books_for("XETR"))
+    assert written == books * per_book
+    params = [
+        len(stmt.compile(dialect=postgresql.dialect()).params)  # type: ignore[attr-defined]
+        for stmt in session.statements
+    ]
+    assert sum(params) == written * 10, "every row is written, once"
+    assert len(params) > 1, "a history this long needs more than one statement"
+    assert max(params) <= POSTGRES_MAX_BIND_PARAMS
