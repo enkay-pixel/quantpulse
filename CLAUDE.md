@@ -281,6 +281,11 @@ buy/sell/allocation advice; keep the "not investment advice" framing intact.
   `market` DB on localhost and passing. If a sensor gains a new DB-backed call, stub it in
   the suite's fixture. This is why "passes locally, fails in CI" happened on 2026-08-13, and
   there the local pass was the wrong answer, not CI.
+- **Integration tests start with no marts.** `db_engine` truncates the raw tables and drops
+  the `analytics` schema, so a test that needs marts builds them in its own fixture, and a
+  module-scoped build comes after that module's `db_engine` tests. A staging view left by an
+  earlier `dbt build` reads the next test's raw rows live, so leftovers fail only in some
+  run orders (2026-11-08).
 - **A noise floor belongs to the procedure that measured it, and does not transfer.**
   `Exchange.ic_promotion_margin` is 2 sd of a seed re-roll on *tuned* models. Reused to judge
   an ablation — which refits at default parameters, where early stopping picks a different
