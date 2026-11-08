@@ -954,6 +954,16 @@ the failure, then break the code to prove it. The same shape appeared hours earl
 incident 30, where the natural instant-comparison assertion passed with and without the
 timezone fix.
 
+**A full suite can pass by the luck of its order (2026-11-08).** `db_engine` truncated the raw
+tables per test but left dbt's `analytics` schema, so after `test_evidence_api`'s full
+`dbt build` its views stayed, reading whatever the next test seeded. The options summary test
+seeds quotes and asserts no expiries "because no marts were built", and
+`stg_option_quotes` handed it back its own two. The full suite and CI passed only because
+`test_evidence_api_empty`, next alphabetically, drops the schema. A `-k` selection that took
+`test_portfolio_risk_series` (it matches "portfolio") but skipped that file failed every
+time. `db_engine` now drops the schema too, so every test that takes it starts with no marts.
+Removing that drop makes the pair fail again.
+
 ## Owner preferences (established in-session)
 
 Portfolio value matters (clean history, badges, README-first); honesty over flash —

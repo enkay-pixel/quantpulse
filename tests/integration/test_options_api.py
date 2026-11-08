@@ -78,7 +78,7 @@ def test_summary_reports_spot_and_expiries(client: TestClient) -> None:
     body = client.get("/options/aapl/summary").json()
     assert body["ticker"] == "AAPL"
     assert body["underlying_close"] == pytest.approx(SPOT)
-    assert body["expiries"] == []  # analytics marts not built in this fixture
+    assert body["expiries"] == []  # db_engine drops the analytics schema; nothing builds it here
     assert body["snapshot_date"] is None  # degrades without the dbt mart
 
 
