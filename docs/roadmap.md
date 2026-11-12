@@ -315,6 +315,10 @@ lost money out-of-sample) purely because "beat the incumbent" cannot gate a firs
   one-offs by proclamation, and exchange_calendars' list stops at the 2019 election. Five JSE days
   are in `Exchange.closures` as of 2026-11-05 (see the runbook, "Failure alerts & missed-day catch-up").
 - Dates are exchange dates, never the container's UTC date: use `calendar.market_today()`.
+- A write that rebuilds a whole history grows every day, so it must be batched before it is big:
+  the paper book's passed Postgres's 65,535-parameter limit on 2026-11-07 and stopped every market's
+  books and the marts for a day. Every bulk insert is now held to `chunked` by a test, and one
+  market's books can no longer stop another's ([incident 41](development-history.md#incident-log-root-causes-worth-remembering)).
 - **Base images**: node 26 is in; python stays on 3.12 (3.14 breaks dbt-common's
   dataclass introspection under PEP 649 — verified by building, recorded in
   `dependabot.yml`); the MLflow image and uv are pinned to their client/lockfile versions

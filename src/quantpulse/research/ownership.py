@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from quantpulse.config import get_settings
 from quantpulse.db import EdgarFiling, HolderFiling, InsiderTransaction
+from quantpulse.utils import chunked
 
 logger = logging.getLogger(__name__)
 
@@ -409,8 +410,8 @@ def _insert_trades(
     ]
     if not rows:
         return 0
-    stmt = pg_insert(InsiderTransaction).values(rows).on_conflict_do_nothing()
-    session.execute(stmt)
+    for chunk in chunked(rows):
+        session.execute(pg_insert(InsiderTransaction).values(list(chunk)).on_conflict_do_nothing())
     return len(rows)
 
 

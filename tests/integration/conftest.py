@@ -86,6 +86,13 @@ def db_engine(test_db_url: str) -> Iterator[Engine]:
                 "RESTART IDENTITY CASCADE"
             )
         )
+        # ...and without dbt's output. A module that runs `dbt build` leaves the analytics
+        # schema behind, and its staging views read the raw tables live: a later test that
+        # seeded option quotes and asserted "no marts" found its own expiries through
+        # stg_option_quotes, but only when run after test_evidence_api without the schema
+        # drop in test_evidence_api_empty between them. A test that needs marts builds
+        # them itself, after this.
+        conn.execute(text("DROP SCHEMA IF EXISTS analytics CASCADE"))
     yield engine
     # `dispose()` closes only connections that are back in the pool. One still checked out is
     # dropped instead, and when the garbage collector reaches it later it is still open — which
