@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from quantpulse.db import ShortInterest
+from quantpulse.utils import chunked
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +103,15 @@ def fetch_short_interest(
 
 def insert_short_interest(session: Session, rows: list[dict[str, Any]]) -> int:
     """Insert rows not already stored; returns how many were new. Never rewrites a stored row."""
-    if not rows:
-        return 0
-    stmt = insert(ShortInterest).values(rows)
-    fresh = session.execute(
-        stmt.on_conflict_do_nothing(
-            index_elements=[ShortInterest.ticker, ShortInterest.settlement_date]
-        ).returning(ShortInterest.ticker)
-    )
-    return len(fresh.all())
+    new = 0
+    for chunk in chunked(rows):
+        fresh = session.execute(
+            insert(ShortInterest)
+            .values(list(chunk))
+            .on_conflict_do_nothing(
+                index_elements=[ShortInterest.ticker, ShortInterest.settlement_date]
+            )
+            .returning(ShortInterest.ticker)
+        )
+        new += len(fresh.all())
+    return new

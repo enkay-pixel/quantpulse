@@ -316,8 +316,10 @@ the job has nothing left to do and can be unloaded.
 reports a problem, open PRs and alerts, and then `quantpulse status` — each market's freshness,
 its last five sessions with any missing tickers and whether anything will fill them, the champion
 and its streak, the shadow run's progress, the standing decisions, and the dates ahead. Read-only,
-a few seconds. The `decisions` job runs the same evaluation every weekday morning; revisiting a
-decision means updating its entry in `configs/decisions.yaml` as well as the roadmap.
+a few seconds. A job's latest run is the last group of log lines stamped within 20 minutes of each
+other (`scripts/latest-run.awk`), so a diagnosis a job appends minutes later stays in the same run
+as the problem it explains. The `decisions` job runs the same evaluation every weekday morning;
+revisiting a decision means updating its entry in `configs/decisions.yaml` as well as the roadmap.
 
 The checks notify but never act: bringing the stack up automatically would override a
 deliberate `make down` before travel. Disable any of them with
@@ -411,6 +413,13 @@ Two books run over the same predictions and differ only in how often they rebala
 (`daily` vs `horizon`, every 21 trading days). The comparison shows annualized return,
 Sharpe, drawdown, mean turnover and the annualized cost drag for each. Rebuilt whenever
 `portfolio_equity` materializes; the dashboard continues to show the `daily` book.
+
+Each market's books are rebuilt on their own. If one fails, `GET /alerts` names the market, its
+books keep their last rows, and the other markets and the marts still update; the step fails only
+when no market's books were rebuilt. After fixing the cause, rebuild them by materializing
+`portfolio_equity` and the marts, or wait for the next processing run: the rebuild is from
+scratch, so nothing is lost but the wait. The options book reads the `horizon` book, so its
+cohorts wait with it ([incident 41](development-history.md#incident-log-root-causes-worth-remembering)).
 
 If you add a book, change **only** `rebalance_days` in
 `quantpulse.ml.portfolio.BOOKS` — a unit test fails if any other field diverges,

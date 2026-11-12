@@ -19,18 +19,18 @@ running=$(docker ps --filter "name=quantpulse-" --format '{{.Names}}' 2>/dev/nul
 printf 'stack: %s/6 containers up\n' "$running"
 
 # A job is flagged when its latest run says so in its own words. The jobs report by exception,
-# so the words they use for a problem are the ones to look for — but only in the latest run: every
-# line from the first one stamped with that run's minute. Reading the log's tail instead flags a
-# problem an earlier run reported and a later one cleared.
+# so the words they use for a problem are the ones to look for — but only in the latest run, which
+# scripts/latest-run.awk finds by the gaps between timestamps. Reading the log's tail instead flags
+# a problem an earlier run reported and a later one cleared; reading only the last minute missed
+# one a run reported before appending its diagnosis (incident 41).
 PROBLEM_WORDS='PROBLEM|ATTENTION|STALL|NOT READY|could not|unreachable|FAILED|EXPIRED|REJECTED|is down|not running'
 flagged=0
 for log in "$LOGS"/quantpulse-*.log; do
     [ -f "$log" ] || continue
     job="$(basename "$log" .log)"
     job="${job#quantpulse-}"
-    minute=$(grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}' "$log" | tail -1)
-    [ -n "$minute" ] || continue
-    run=$(awk -v t="$minute" 'index($0, t) == 1 { found = 1 } found' "$log")
+    run=$(awk -f "$REPO/scripts/latest-run.awk" "$log")
+    [ -n "$run" ] || continue
     # A "PROBLEMS (n):" header says how many, the line under it says what — show that one.
     hit=$(printf '%s\n' "$run" | grep -E -A1 "$PROBLEM_WORDS" | grep -vE 'PROBLEMS \([0-9]+\):$' |
         grep -vE '^--$' | head -1)
